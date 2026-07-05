@@ -1,0 +1,48 @@
+generator client {
+  provider = "prisma-client"
+  output   = "../src/generated/prisma"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+enum Role {
+  ADMIN
+  SOCIO
+  EMPLEADO
+}
+
+model User {
+  id            String  @id @default(cuid())
+  name          String?
+  email         String  @unique
+  password      String
+  role          Role    @default(EMPLEADO)
+  createdShifts Shift[]
+}
+
+model Shift {
+  id            String    @id @default(cuid())
+  date          DateTime  @db.Date
+  turno         String
+  createdById   String
+  createdBy     User      @relation(fields: [createdById], references: [id])
+  efectivo      Decimal   @db.Decimal(10, 2)
+  caixa         Decimal   @db.Decimal(10, 2)
+  santander     Decimal   @db.Decimal(10, 2)
+  efectivoGasto Decimal   @db.Decimal(10, 2)
+  fondoInicial  Decimal   @db.Decimal(10, 2)
+  fondoFinal    Decimal   @db.Decimal(10, 2)
+  expenses      Expense[]
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+}
+
+model Expense {
+  id        String  @id @default(cuid())
+  shiftId   String
+  shift     Shift   @relation(fields: [shiftId], references: [id])
+  proveedor String
+  importe   Decimal @db.Decimal(10, 2)
+}

@@ -1,0 +1,37 @@
+# mise.toml
+# Entorno de desarrollo para Fans Coffee
+
+[tools]
+node = "22.13.1"
+pnpm = "9.15.9"
+
+[env]
+NODE_ENV = "development"
+
+[tasks.install]
+description = "Instala las dependencias"
+run = "pnpm install"
+
+[tasks.dev]
+description = "Inicia el servidor de desarrollo"
+run = "pnpm dev"
+
+[tasks.build]
+description = "Compila la aplicación"
+run = "pnpm build"
+
+[tasks.start]
+description = "Inicia la aplicación en producción"
+run = "pnpm start"
+
+[tasks.lint]
+description = "Ejecuta ESLint"
+run = "pnpm lint"
+
+[tasks.typecheck]
+description = "Comprueba los tipos de TypeScript"
+run = "tsc --noEmit"
+
+[tasks.clean]
+description = "Elimina artefactos generados"
+run = "rm -rf .next node_modules"
