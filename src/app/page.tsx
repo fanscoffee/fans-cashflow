@@ -5,7 +5,6 @@ import { useForm } from "react-hook-form"
 import { zodResolver } from "@hookform/resolvers/zod"
 import { z } from "zod"
 import { signIn } from "next-auth/react"
-import { useRouter } from "next/navigation"
 
 const loginSchema = z.object({
   email: z.string().email("Email no válido"),
@@ -21,7 +20,6 @@ const ROLE_REDIRECT: Record<string, string> = {
 }
 
 export default function LoginPage() {
-  const router = useRouter()
   const [error, setError] = useState<string | null>(null)
   const [loading, setLoading] = useState(false)
 
@@ -58,7 +56,7 @@ export default function LoginPage() {
         const session = await res.json()
         console.log("[Login] Sesión:", JSON.stringify(session))
         const role = session?.user?.role
-        router.push(ROLE_REDIRECT[role] ?? "/empleado")
+        window.location.href = ROLE_REDIRECT[role] ?? "/empleado"
       }
     } catch (e) {
       console.error("[Login] Excepción:", e)
