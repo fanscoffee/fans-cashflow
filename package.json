@@ -9,6 +9,12 @@
     "lint": "eslint",
     "postinstall": "prisma generate"
   },
+  "pnpm": {
+    "onlyBuiltDependencies": [
+      "@prisma/engines",
+      "prisma"
+    ]
+  },
   "dependencies": {
     "@auth/core": "^0.41.2",
     "@auth/prisma-adapter": "^2.11.2",
