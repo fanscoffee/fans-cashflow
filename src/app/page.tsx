@@ -38,24 +38,31 @@ export default function LoginPage() {
     setLoading(true)
 
     try {
+      console.log("[Login] Intentando autenticar...")
       const result = await signIn("credentials", {
         email: data.email,
         password: data.password,
         redirect: false,
       })
 
+      console.log("[Login] Resultado:", JSON.stringify(result))
+
       if (result?.error) {
-        setError("Email o contraseña incorrectos")
+        setError(`Error: ${result.error}`)
         return
       }
 
-      const res = await fetch("/api/auth/session")
-      const session = await res.json()
-      const role = session?.user?.role
-
-      router.push(ROLE_REDIRECT[role] ?? "/empleado")
-    } catch {
-      setError("Error al iniciar sesión")
+      if (result?.ok) {
+        console.log("[Login] Autenticación exitosa, obteniendo sesión...")
+        const res = await fetch("/api/auth/session")
+        const session = await res.json()
+        console.log("[Login] Sesión:", JSON.stringify(session))
+        const role = session?.user?.role
+        router.push(ROLE_REDIRECT[role] ?? "/empleado")
+      }
+    } catch (e) {
+      console.error("[Login] Excepción:", e)
+      setError(`Error al iniciar sesión: ${e instanceof Error ? e.message : "desconocido"}`)
     } finally {
       setLoading(false)
     }
