@@ -18,12 +18,22 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
           password: string
         }
 
+        console.log("[Auth] Intento de login:", email)
+
         const user = await prisma.user.findUnique({ where: { email } })
-        if (!user) return null
+        if (!user) {
+          console.log("[Auth] Usuario no encontrado:", email)
+          return null
+        }
 
+        console.log("[Auth] Usuario encontrado, verificando contraseña...")
         const isValid = await bcrypt.compare(password, user.password)
-        if (!isValid) return null
+        if (!isValid) {
+          console.log("[Auth] Contraseña incorrecta para:", email)
+          return null
+        }
 
+        console.log("[Auth] Login exitoso:", email, "rol:", user.role)
         return {
           id: user.id,
           email: user.email,
@@ -50,7 +60,7 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
     },
   },
   pages: {
-    signIn: "/login",
+    signIn: "/",
   },
   session: {
     strategy: "jwt",
