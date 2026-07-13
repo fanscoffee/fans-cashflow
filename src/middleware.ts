@@ -11,18 +11,21 @@ export async function middleware(req: NextRequest) {
   const { pathname } = req.nextUrl
   const token = await getToken({ req, secret: process.env.NEXTAUTH_SECRET })
 
-  const isAuthPage = pathname === "/login"
+  const isLoginPage = pathname === "/" || pathname === "/login"
   const isDashboardPage = pathname.startsWith("/admin") || pathname.startsWith("/socio") || pathname.startsWith("/empleado")
 
-  if (token && isAuthPage) {
+  // Logged in user visiting login/root → redirect to their dashboard
+  if (token && isLoginPage) {
     const role = token.role as string
     return NextResponse.redirect(new URL(ROLE_REDIRECT[role] ?? "/empleado", req.url))
   }
 
+  // Not logged in visiting dashboard → redirect to login (root)
   if (!token && isDashboardPage) {
-    return NextResponse.redirect(new URL("/login", req.url))
+    return NextResponse.redirect(new URL("/", req.url))
   }
 
+  // Logged in user on dashboard → role check
   if (token && isDashboardPage) {
     const role = token.role as string
 
@@ -39,5 +42,5 @@ export async function middleware(req: NextRequest) {
 }
 
 export const config = {
-  matcher: ["/login", "/admin/:path*", "/socio/:path*", "/empleado/:path*"],
+  matcher: ["/", "/login", "/admin/:path*", "/socio/:path*", "/empleado/:path*"],
 }
