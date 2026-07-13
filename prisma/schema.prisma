@@ -14,18 +14,20 @@ enum Role {
 }
 
 model User {
-  id            String  @id @default(cuid())
-  name          String?
-  email         String  @unique
-  password      String
-  role          Role    @default(EMPLEADO)
-  createdShifts Shift[]
+  id              String           @id @default(cuid())
+  name            String?
+  email           String           @unique
+  password        String
+  role            Role             @default(EMPLEADO)
+  createdShifts   Shift[]
+  fundAdditions   FundAddition[]
 }
 
 model Shift {
   id            String    @id @default(cuid())
   date          DateTime  @db.Date
   turno         String
+  status        String    @default("ABIERTO")
   createdById   String
   createdBy     User      @relation(fields: [createdById], references: [id])
   efectivo      Decimal   @db.Decimal(10, 2)
@@ -45,4 +47,13 @@ model Expense {
   shift     Shift   @relation(fields: [shiftId], references: [id])
   proveedor String
   importe   Decimal @db.Decimal(10, 2)
+}
+
+model FundAddition {
+  id          String   @id @default(cuid())
+  amount      Decimal  @db.Decimal(10, 2)
+  description String?
+  createdById String
+  createdBy   User     @relation(fields: [createdById], references: [id])
+  createdAt   DateTime @default(now())
 }
