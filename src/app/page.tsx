@@ -36,31 +36,31 @@ export default function LoginPage() {
     setLoading(true)
 
     try {
-      console.log("[Login] Intentando autenticar...")
       const result = await signIn("credentials", {
         email: data.email,
         password: data.password,
         redirect: false,
       })
 
-      console.log("[Login] Resultado:", JSON.stringify(result))
-
       if (result?.error) {
-        setError(`Error: ${result.error}`)
+        setError("Email o contraseña incorrectos")
         return
       }
 
-      if (result?.ok) {
-        console.log("[Login] Autenticación exitosa, obteniendo sesión...")
+      // Poll until the session cookie is available
+      for (let i = 0; i < 10; i++) {
         const res = await fetch("/api/auth/session")
         const session = await res.json()
-        console.log("[Login] Sesión:", JSON.stringify(session))
-        const role = session?.user?.role
-        window.location.href = ROLE_REDIRECT[role] ?? "/empleado"
+        if (session?.user?.role) {
+          window.location.href = ROLE_REDIRECT[session.user.role] ?? "/empleado"
+          return
+        }
+        await new Promise((r) => setTimeout(r, 200))
       }
-    } catch (e) {
-      console.error("[Login] Excepción:", e)
-      setError(`Error al iniciar sesión: ${e instanceof Error ? e.message : "desconocido"}`)
+
+      setError("Error al cargar la sesión")
+    } catch {
+      setError("Error al iniciar sesión")
     } finally {
       setLoading(false)
     }
