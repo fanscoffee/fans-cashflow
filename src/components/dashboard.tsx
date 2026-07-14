@@ -1,6 +1,7 @@
 "use client"
 
-import { useState, useEffect } from "react"
+import { useState, useEffect, useCallback } from "react"
+import { useSession } from "next-auth/react"
 import {
   BarChart,
   Bar,
@@ -31,29 +32,100 @@ interface DashboardData {
   }[]
   turnoData: { name: string; value: number }[]
   expenseData: { proveedor: string; total: number }[]
+  exportData: {
+    fecha: string
+    turno: string
+    estado: string
+    creadoPor: string
+    fondoInicial: number
+    efectivo: number
+    caixa: number
+    santander: number
+    efectivoGasto: number
+    fondoFinal: number
+    totalGastos: number
+    gastos: string
+  }[]
+  exportExpenses: {
+    fecha: string
+    turno: string
+    proveedor: string
+    importe: number
+    creadoPor: string
+  }[]
 }
 
 const COLORS = ["#3b82f6", "#f59e0b", "#10b981", "#ef4444", "#8b5cf6"]
 
+const MONTH_NAMES = [
+  "Enero", "Febrero", "Marzo", "Abril", "Mayo", "Junio",
+  "Julio", "Agosto", "Septiembre", "Octubre", "Noviembre", "Diciembre",
+]
+
+function downloadCSV(data: Record<string, unknown>[], filename: string) {
+  if (data.length === 0) return
+  const headers = Object.keys(data[0])
+  const csvRows = [
+    headers.join(","),
+    ...data.map((row) =>
+      headers
+        .map((h) => {
+          const val = row[h as keyof typeof row]
+          const str = String(val ?? "")
+          return str.includes(",") || str.includes('"') || str.includes("\n")
+            ? `"${str.replace(/"/g, '""')}"`
+            : str
+        })
+        .join(",")
+    ),
+  ]
+  const blob = new Blob([csvRows.join("\n")], { type: "text/csv;charset=utf-8;" })
+  const url = URL.createObjectURL(blob)
+  const a = document.createElement("a")
+  a.href = url
+  a.download = filename
+  a.click()
+  URL.revokeObjectURL(url)
+}
+
 export default function Dashboard() {
+  const { data: session } = useSession()
   const [data, setData] = useState<DashboardData | null>(null)
   const [loading, setLoading] = useState(true)
 
-  useEffect(() => {
-    let cancelled = false
-    async function load() {
-      try {
-        const res = await fetch("/api/dashboard")
-        if (res.ok && !cancelled) setData(await res.json())
-      } catch {
-        // ignore
-      } finally {
-        if (!cancelled) setLoading(false)
-      }
+  const now = new Date()
+  const [selectedMonth, setSelectedMonth] = useState(now.getMonth() + 1)
+  const [selectedYear, setSelectedYear] = useState(now.getFullYear())
+
+  const canExport = session?.user?.role === "ADMIN" || session?.user?.role === "SOCIO"
+
+  const fetchData = useCallback(async () => {
+    setLoading(true)
+    try {
+      const res = await fetch(`/api/dashboard?month=${selectedMonth}&year=${selectedYear}`)
+      if (res.ok) setData(await res.json())
+    } catch {
+      // ignore
+    } finally {
+      setLoading(false)
     }
-    load()
-    return () => { cancelled = true }
-  }, [])
+  }, [selectedMonth, selectedYear])
+
+  useEffect(() => {
+    fetchData()
+  }, [fetchData])
+
+  function handleExport() {
+    if (!data?.exportData) return
+    const filename = `fans-cashflow-${selectedYear}-${String(selectedMonth).padStart(2, "0")}.csv`
+    downloadCSV(data.exportData, filename)
+  }
+
+  function handleExportExpenses() {
+    if (!data?.exportExpenses) return
+    const filename = `fans-cashflow-gastos-${selectedYear}-${String(selectedMonth).padStart(2, "0")}.csv`
+    downloadCSV(data.exportExpenses, filename)
+  }
 
   if (loading) {
     return <p className="text-gray-500">Cargando dashboard...</p>
@@ -67,6 +139,47 @@ export default function Dashboard() {
 
   return (
     <div className="space-y-6">
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+        <div className="flex items-center gap-2">
+          <select
+            value={selectedMonth}
+            onChange={(e) => setSelectedMonth(parseInt(e.target.value))}
+            className="rounded-md border border-gray-300 px-3 py-1.5 text-sm text-gray-900 focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
+          >
+            {MONTH_NAMES.map((name, i) => (
+              <option key={i + 1} value={i + 1}>{name}</option>
+            ))}
+          </select>
+          <select
+            value={selectedYear}
+            onChange={(e) => setSelectedYear(parseInt(e.target.value))}
+            className="rounded-md border border-gray-300 px-3 py-1.5 text-sm text-gray-900 focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
+          >
+            {[now.getFullYear(), now.getFullYear() - 1, now.getFullYear() - 2].map((y) => (
+              <option key={y} value={y}>{y}</option>
+            ))}
+          </select>
+        </div>
+        {canExport && (
+          <div className="flex gap-2">
+            <button
+              onClick={handleExport}
+              disabled={!data.exportData || data.exportData.length === 0}
+              className="rounded-md bg-green-600 px-4 py-1.5 text-sm font-medium text-white hover:bg-green-700 disabled:opacity-50"
+            >
+              Exportar Turnos
+            </button>
+            <button
+              onClick={handleExportExpenses}
+              disabled={!data.exportExpenses || data.exportExpenses.length === 0}
+              className="rounded-md bg-green-700 px-4 py-1.5 text-sm font-medium text-white hover:bg-green-800 disabled:opacity-50"
+            >
+              Exportar Gastos
+            </button>
+          </div>
+        )}
+      </div>
+
       <div className="grid grid-cols-2 gap-4 md:grid-cols-4">
         <Card label="Turnos" value={resumen.totalTurnos.toString()} />
         <Card label="Ingresos" value={`${resumen.totalIngresos.toFixed(2)} €`} color="text-green-600" />
