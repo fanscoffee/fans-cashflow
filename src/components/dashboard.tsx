@@ -46,6 +46,13 @@ interface DashboardData {
     totalGastos: number
     gastos: string
   }[]
+  exportExpenses: {
+    fecha: string
+    turno: string
+    proveedor: string
+    importe: number
+    creadoPor: string
+  }[]
 }
 
 const COLORS = ["#3b82f6", "#f59e0b", "#10b981", "#ef4444", "#8b5cf6"]
@@ -55,7 +62,7 @@ const MONTH_NAMES = [
   "Julio", "Agosto", "Septiembre", "Octubre", "Noviembre", "Diciembre",
 ]
 
-function downloadCSV(data: DashboardData["exportData"], filename: string) {
+function downloadCSV(data: Record<string, unknown>[], filename: string) {
   if (data.length === 0) return
   const headers = Object.keys(data[0])
   const csvRows = [
@@ -114,6 +121,12 @@ export default function Dashboard() {
     downloadCSV(data.exportData, filename)
   }
 
+  function handleExportExpenses() {
+    if (!data?.exportExpenses) return
+    const filename = `fans-cashflow-gastos-${selectedYear}-${String(selectedMonth).padStart(2, "0")}.csv`
+    downloadCSV(data.exportExpenses, filename)
+  }
+
   if (loading) {
     return <p className="text-gray-500">Cargando dashboard...</p>
   }
@@ -148,13 +161,22 @@ export default function Dashboard() {
           </select>
         </div>
         {canExport && (
-          <button
-            onClick={handleExport}
-            disabled={!data.exportData || data.exportData.length === 0}
-            className="rounded-md bg-green-600 px-4 py-1.5 text-sm font-medium text-white hover:bg-green-700 disabled:opacity-50"
-          >
-            Exportar CSV
-          </button>
+          <div className="flex gap-2">
+            <button
+              onClick={handleExport}
+              disabled={!data.exportData || data.exportData.length === 0}
+              className="rounded-md bg-green-600 px-4 py-1.5 text-sm font-medium text-white hover:bg-green-700 disabled:opacity-50"
+            >
+              Exportar Turnos
+            </button>
+            <button
+              onClick={handleExportExpenses}
+              disabled={!data.exportExpenses || data.exportExpenses.length === 0}
+              className="rounded-md bg-green-700 px-4 py-1.5 text-sm font-medium text-white hover:bg-green-800 disabled:opacity-50"
+            >
+              Exportar Gastos
+            </button>
+          </div>
         )}
       </div>
 

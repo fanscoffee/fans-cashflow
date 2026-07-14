@@ -102,6 +102,16 @@ export async function GET(req: NextRequest) {
     gastos: s.expenses.map((e) => `${e.proveedor}: ${Number(e.importe).toFixed(2)}`).join("; "),
   }))
 
+  const exportExpenses = shifts.flatMap((s) =>
+    s.expenses.map((e) => ({
+      fecha: new Date(s.date).toLocaleDateString("es-ES"),
+      turno: s.turno,
+      proveedor: e.proveedor,
+      importe: Number(e.importe),
+      creadoPor: s.createdBy?.name || "",
+    }))
+  )
+
   return NextResponse.json({
     resumen: {
       totalTurnos: shifts.length,
@@ -113,5 +123,6 @@ export async function GET(req: NextRequest) {
     turnoData,
     expenseData,
     exportData,
+    exportExpenses,
   })
 }
