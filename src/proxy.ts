@@ -1,5 +1,5 @@
-import { NextRequest, NextResponse } from "next/server"
-import { getToken } from "next-auth/jwt"
+import { NextResponse } from "next/server"
+import { auth } from "@/lib/auth"
 
 const ROLE_REDIRECT: Record<string, string> = {
   ADMIN: "/admin",
@@ -7,27 +7,27 @@ const ROLE_REDIRECT: Record<string, string> = {
   EMPLEADO: "/empleado",
 }
 
-export default async function proxy(req: NextRequest) {
+export default auth((req) => {
   const { pathname } = req.nextUrl
-  const token = await getToken({ req, secret: process.env.NEXTAUTH_SECRET })
+  const session = req.auth
 
   const isLoginPage = pathname === "/" || pathname === "/login"
   const isDashboardPage = pathname.startsWith("/admin") || pathname.startsWith("/socio") || pathname.startsWith("/empleado")
 
   // Logged in user visiting login/root → redirect to their dashboard
-  if (token && isLoginPage) {
-    const role = token.role as string
+  if (session && isLoginPage) {
+    const role = session.user?.role as string
     return NextResponse.redirect(new URL(ROLE_REDIRECT[role] ?? "/empleado", req.url))
   }
 
   // Not logged in visiting dashboard → redirect to login (root)
-  if (!token && isDashboardPage) {
+  if (!session && isDashboardPage) {
     return NextResponse.redirect(new URL("/", req.url))
   }
 
   // Logged in user on dashboard → role check
-  if (token && isDashboardPage) {
-    const role = token.role as string
+  if (session && isDashboardPage) {
+    const role = session.user?.role as string
 
     if (role === "ADMIN" || role === "SOCIO") return NextResponse.next()
 
@@ -39,7 +39,7 @@ export default async function proxy(req: NextRequest) {
   }
 
   return NextResponse.next()
-}
+})
 
 export const config = {
   matcher: ["/", "/login", "/admin/:path*", "/socio/:path*", "/empleado/:path*"],
