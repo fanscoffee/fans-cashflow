@@ -6,6 +6,7 @@ import { zodResolver } from "@hookform/resolvers/zod"
 import { z } from "zod"
 import { useSession } from "next-auth/react"
 import AppHeader from "@/components/app-header"
+import PasskeyManager from "@/components/passkey-manager"
 
 const userSchema = z.object({
   name: z.string().min(2, "El nombre debe tener al menos 2 caracteres"),
@@ -153,6 +154,8 @@ export default function AdminPage() {
         {success && (
           <div className="rounded-md bg-green-50 p-3 text-sm text-green-600">{success}</div>
         )}
+
+        <PasskeyManager />
 
         <section className="rounded-lg border bg-white p-6 shadow-sm">
           <div className="mb-4 flex items-center justify-between">

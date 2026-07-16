@@ -22,6 +22,18 @@ model User {
   createdShifts   Shift[]
   fundAdditions   FundAddition[]
   cashTrackings   CashTracking[]
+  passkeys        Passkey[]
+}
+
+model Passkey {
+  id                String   @id @default(cuid())
+  credentialId      String   @unique
+  userId            String
+  user              User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  publicKey         Bytes
+  counter           BigInt   @default(0)
+  transports        String?
+  createdAt         DateTime @default(now())
 }
 
 model Shift {
