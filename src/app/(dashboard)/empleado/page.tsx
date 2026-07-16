@@ -6,6 +6,7 @@ import { zodResolver } from "@hookform/resolvers/zod"
 import { z } from "zod"
 import { signOut, useSession } from "next-auth/react"
 import AppHeader from "@/components/app-header"
+import PasskeyManager from "@/components/passkey-manager"
 
 const shiftSchema = z.object({
   turno: z.enum(["mañana", "tarde"], { message: "Selecciona un turno" }),
@@ -301,6 +302,8 @@ export default function EmpleadoPage() {
         {success && (
           <div className="rounded-md bg-green-50 p-3 text-sm text-green-600">{success}</div>
         )}
+
+        {!isReadOnly && <PasskeyManager />}
 
         {isReadOnly && hasOpenShift && (
           <div className="rounded-md border border-amber-200 bg-amber-50 p-3 text-sm text-amber-700">

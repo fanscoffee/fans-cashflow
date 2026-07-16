@@ -3,6 +3,7 @@
 import { useSession } from "next-auth/react"
 import AppHeader from "@/components/app-header"
 import Dashboard from "@/components/dashboard"
+import PasskeyManager from "@/components/passkey-manager"
 
 export default function SocioPage() {
   const { data: session, status } = useSession()
@@ -22,8 +23,9 @@ export default function SocioPage() {
         subtitle={`Socio — ${session?.user?.name || session?.user?.email}`}
       />
 
-      <main className="mx-auto max-w-5xl px-4 py-6">
+      <main className="mx-auto max-w-5xl px-4 py-6 space-y-6">
         <Dashboard />
+        <PasskeyManager />
       </main>
     </div>
   )

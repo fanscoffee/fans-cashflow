@@ -42,6 +42,30 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
         }
       },
     }),
+    Credentials({
+      id: "passkey-credentials",
+      name: "Passkey",
+      credentials: {
+        userId: { label: "User ID", type: "text" },
+      },
+      async authorize(credentials) {
+        const { userId } = credentials as { userId: string }
+
+        const user = await prisma.user.findUnique({ where: { id: userId } })
+        if (!user) {
+          console.log("[Auth] Passkey: Usuario no encontrado:", userId)
+          return null
+        }
+
+        console.log("[Auth] Passkey login exitoso:", user.email, "rol:", user.role)
+        return {
+          id: user.id,
+          email: user.email,
+          name: user.name,
+          role: user.role,
+        }
+      },
+    }),
   ],
   callbacks: {
     async jwt({ token, user }) {
