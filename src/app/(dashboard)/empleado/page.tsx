@@ -55,15 +55,18 @@ export default function EmpleadoPage() {
   const [editingShift, setEditingShift] = useState<string | null>(null)
   const [editValues, setEditValues] = useState<{ efectivo: string; caixa: string; santander: string }>({ efectivo: "0", caixa: "0", santander: "0" })
   const [fundAdditions, setFundAdditions] = useState<{ id: string; amount: number; description: string | null; createdAt: string }[]>([])
+  const [fondoInicialServer, setFondoInicialServer] = useState<number | null>(null)
   const timeoutRef = useRef<NodeJS.Timeout | null>(null)
 
-  const fondoInicial = (() => {
+  const fondoInicialLocal = (() => {
     const lastShift = shifts[0]
     const lastShiftDate = lastShift ? new Date(lastShift.createdAt) : new Date(0)
     const additionsSince = fundAdditions.filter((a) => new Date(a.createdAt) > lastShiftDate)
     const totalAdditions = additionsSince.reduce((sum, a) => sum + Number(a.amount), 0)
     return (lastShift ? Number(lastShift.fondoFinal) : 0) + totalAdditions
   })()
+
+  const fondoInicial = fondoInicialServer ?? fondoInicialLocal
 
   const resetTimer = useCallback(() => {
     if (timeoutRef.current) clearTimeout(timeoutRef.current)
@@ -85,9 +88,10 @@ export default function EmpleadoPage() {
   }, [resetTimer, session?.user?.role])
 
   const refreshData = useCallback(async () => {
-    const [shiftsRes, additionsRes] = await Promise.all([
+    const [shiftsRes, additionsRes, fundRes] = await Promise.all([
       fetch("/api/shifts"),
       fetch("/api/fund-additions"),
+      fetch("/api/fund"),
     ])
     if (shiftsRes.ok) {
       const data = await shiftsRes.json()
@@ -97,15 +101,20 @@ export default function EmpleadoPage() {
       const additions = await additionsRes.json()
       setFundAdditions(additions)
     }
+    if (fundRes.ok) {
+      const fundData = await fundRes.json()
+      setFondoInicialServer(fundData.fondo)
+    }
   }, [])
 
   useEffect(() => {
     let cancelled = false
     async function load() {
       try {
-        const [shiftsRes, additionsRes] = await Promise.all([
+        const [shiftsRes, additionsRes, fundRes] = await Promise.all([
           fetch("/api/shifts"),
           fetch("/api/fund-additions"),
+          fetch("/api/fund"),
         ])
         if (shiftsRes.ok && !cancelled) {
           const data = await shiftsRes.json()
@@ -114,6 +123,10 @@ export default function EmpleadoPage() {
         if (additionsRes.ok && !cancelled) {
           const additions = await additionsRes.json()
           setFundAdditions(additions)
+        }
+        if (fundRes.ok && !cancelled) {
+          const fundData = await fundRes.json()
+          setFondoInicialServer(fundData.fondo)
         }
       } catch {
         if (!cancelled) setError("Error al cargar los datos")
