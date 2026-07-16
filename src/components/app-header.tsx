@@ -16,6 +16,7 @@ function getNavLinks(role?: string): HeaderLink[] {
       { href: "/socio", label: "Dashboard" },
       { href: "/socio/fondo", label: "Fondo" },
       { href: "/socio/turnos", label: "Turnos" },
+      { href: "/socio/efectivo", label: "Efectivo" },
       { href: "/empleado", label: "Empleado" },
       { href: "/admin", label: "Admin" },
     ]
@@ -25,6 +26,7 @@ function getNavLinks(role?: string): HeaderLink[] {
       { href: "/socio", label: "Dashboard" },
       { href: "/socio/fondo", label: "Fondo" },
       { href: "/socio/turnos", label: "Turnos" },
+      { href: "/socio/efectivo", label: "Efectivo" },
       { href: "/empleado", label: "Empleado" },
     ]
   }

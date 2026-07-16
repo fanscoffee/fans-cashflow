@@ -21,6 +21,7 @@ model User {
   role            Role             @default(EMPLEADO)
   createdShifts   Shift[]
   fundAdditions   FundAddition[]
+  cashTrackings   CashTracking[]
 }
 
 model Shift {
@@ -37,6 +38,7 @@ model Shift {
   fondoInicial  Decimal   @db.Decimal(10, 2)
   fondoFinal    Decimal   @db.Decimal(10, 2)
   expenses      Expense[]
+  cashTracking  CashTracking?
   createdAt     DateTime  @default(now())
   updatedAt     DateTime  @updatedAt
 }
@@ -56,4 +58,21 @@ model FundAddition {
   createdById String
   createdBy   User     @relation(fields: [createdById], references: [id])
   createdAt   DateTime @default(now())
+}
+
+enum CashDestination {
+  DEPOSITO
+  INGRESO_EN_FONDO
+  GUARDADO
+}
+
+model CashTracking {
+  id          String           @id @default(cuid())
+  shiftId     String           @unique
+  shift       Shift            @relation(fields: [shiftId], references: [id])
+  destination CashDestination
+  createdById String
+  createdBy   User             @relation(fields: [createdById], references: [id])
+  createdAt   DateTime         @default(now())
+  updatedAt   DateTime         @updatedAt
 }
