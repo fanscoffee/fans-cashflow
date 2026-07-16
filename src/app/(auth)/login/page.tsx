@@ -6,6 +6,10 @@ import { zodResolver } from "@hookform/resolvers/zod"
 import { z } from "zod"
 import { signIn } from "next-auth/react"
 import { useRouter } from "next/navigation"
+import {
+  startAuthentication,
+  browserSupportsWebAuthn,
+} from "@simplewebauthn/browser"
 
 const loginSchema = z.object({
   email: z.string().email("Email no válido"),
@@ -24,6 +28,12 @@ export default function LoginPage() {
   const router = useRouter()
   const [error, setError] = useState<string | null>(null)
   const [loading, setLoading] = useState(false)
+  const [passkeyLoading, setPasskeyLoading] = useState(false)
+  const [supportsPasskeys] = useState(() => {
+    if (typeof window === "undefined") return false
+    return browserSupportsWebAuthn()
+  })
+  const [passkeyError, setPasskeyError] = useState<string | null>(null)
 
   const {
     register,
@@ -58,6 +68,62 @@ export default function LoginPage() {
       setError("Error al iniciar sesión")
     } finally {
       setLoading(false)
+    }
+  }
+
+  async function handlePasskeyLogin() {
+    setPasskeyLoading(true)
+    setPasskeyError(null)
+
+    try {
+      const emailInput = document.getElementById("email") as HTMLInputElement
+      const email = emailInput?.value
+
+      const optionsRes = await fetch("/api/passkeys/authenticate", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ email: email || undefined }),
+      })
+
+      if (!optionsRes.ok) {
+        const err = await optionsRes.json()
+        setPasskeyError(err.error || "No hay passkeys disponibles")
+        return
+      }
+
+      const options = await optionsRes.json()
+
+      const credential = await startAuthentication(options)
+
+      const verifyRes = await fetch("/api/passkeys/verify", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ credential, challenge: options.challenge }),
+      })
+
+      if (!verifyRes.ok) {
+        setPasskeyError("Autenticación fallida")
+        return
+      }
+
+      const { user } = await verifyRes.json()
+
+      const signinRes = await fetch("/api/auth/passkey-signin", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ userId: user.id }),
+      })
+
+      if (!signinRes.ok) {
+        setPasskeyError("Error al iniciar sesión")
+        return
+      }
+
+      router.push(ROLE_REDIRECT[user.role] ?? "/empleado")
+    } catch {
+      setPasskeyError("Error con Face ID / biometría")
+    } finally {
+      setPasskeyLoading(false)
     }
   }
 
@@ -115,6 +181,40 @@ export default function LoginPage() {
           {loading ? "Entrando..." : "Iniciar sesión"}
         </button>
       </form>
+
+      {supportsPasskeys && (
+        <>
+          <div className="my-4 flex items-center gap-3">
+            <div className="h-px flex-1 bg-gray-200" />
+            <span className="text-xs text-gray-400">o</span>
+            <div className="h-px flex-1 bg-gray-200" />
+          </div>
+
+          {passkeyError && (
+            <div className="mb-3 rounded-md bg-red-50 p-3 text-sm text-red-600">
+              {passkeyError}
+            </div>
+          )}
+
+          <button
+            onClick={handlePasskeyLogin}
+            disabled={passkeyLoading}
+            className="w-full rounded-md border border-gray-300 bg-white px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 disabled:opacity-50"
+          >
+            {passkeyLoading ? (
+              "Verificando..."
+            ) : (
+              <span className="flex items-center justify-center gap-2">
+                <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
+                </svg>
+                Usar Face ID / Biometría
+              </span>
+            )}
+          </button>
+        </>
+      )}
     </div>
   )
 }
