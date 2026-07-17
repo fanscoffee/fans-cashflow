@@ -6,6 +6,7 @@ import { zodResolver } from "@hookform/resolvers/zod"
 import { z } from "zod"
 import { signIn } from "next-auth/react"
 import { useRouter } from "next/navigation"
+import Image from "next/image"
 import {
   startAuthentication,
   browserSupportsWebAuthn,
@@ -129,7 +130,8 @@ export default function LoginPage() {
 
   return (
     <div className="rounded-lg border bg-white p-8 shadow-sm">
-      <div className="mb-6 text-center">
+      <div className="mb-6 flex flex-col items-center">
+        <Image src="/fans-logo-oscuro.png" alt="Fans" width={96} height={96} className="mb-3 rounded-lg" />
         <h1 className="text-2xl font-bold text-gray-900">Fans Cashflow</h1>
         <p className="mt-1 text-sm text-gray-500">Inicia sesión en tu cuenta</p>
       </div>

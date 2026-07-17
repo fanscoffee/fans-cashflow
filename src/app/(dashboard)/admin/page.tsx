@@ -6,7 +6,6 @@ import { zodResolver } from "@hookform/resolvers/zod"
 import { z } from "zod"
 import { useSession } from "next-auth/react"
 import AppHeader from "@/components/app-header"
-import PasskeyManager from "@/components/passkey-manager"
 
 const userSchema = z.object({
   name: z.string().min(2, "El nombre debe tener al menos 2 caracteres"),
@@ -155,8 +154,6 @@ export default function AdminPage() {
           <div className="rounded-md bg-green-50 p-3 text-sm text-green-600">{success}</div>
         )}
 
-        <PasskeyManager />
-
         <section className="rounded-lg border bg-white p-6 shadow-sm">
           <div className="mb-4 flex items-center justify-between">
             <h2 className="text-lg font-semibold text-gray-900">Empleados</h2>
@@ -239,64 +236,119 @@ export default function AdminPage() {
           {users.length === 0 ? (
             <p className="text-sm text-gray-500">No hay usuarios registrados.</p>
           ) : (
-            <div className="overflow-x-auto">
-              <table className="w-full text-left text-sm">
-                <thead>
-                  <tr className="border-b text-xs font-medium text-gray-500">
-                    <th className="pb-2">Nombre</th>
-                    <th className="pb-2">Email</th>
-                    <th className="pb-2">Rol</th>
-                    <th className="pb-2 text-right">Contraseña</th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y">
-                  {users.map((user) => (
-                    <tr key={user.id}>
-                      <td className="py-2 text-gray-900">{user.name || "—"}</td>
-                      <td className="py-2 text-gray-600">{user.email}</td>
-                      <td className="py-2">
-                        <span className={`inline-block rounded-full px-2 py-0.5 text-xs font-medium ${ROLE_COLORS[user.role] || ""}`}>
-                          {ROLE_LABELS[user.role] || user.role}
-                        </span>
-                      </td>
-                      <td className="py-2 text-right">
-                        {editingPasswordFor === user.id ? (
-                          <div className="flex items-center justify-end gap-2">
-                            <input
-                              type="password"
-                              value={newPassword}
-                              onChange={(e) => setNewPassword(e.target.value)}
-                              placeholder="Nueva contraseña"
-                              className="w-40 rounded-md border border-gray-300 px-2 py-1 text-xs text-gray-900 shadow-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
-                            />
+            <>
+              {/* Mobile: cards */}
+              <div className="space-y-3 sm:hidden">
+                {users.map((user) => (
+                  <div key={user.id} className="rounded-md border border-gray-200 bg-gray-50 p-4">
+                    <div className="flex items-start justify-between">
+                      <div>
+                        <p className="font-medium text-gray-900">{user.name || "—"}</p>
+                        <p className="text-sm text-gray-600">{user.email}</p>
+                      </div>
+                      <span className={`inline-block rounded-full px-2 py-0.5 text-xs font-medium ${ROLE_COLORS[user.role] || ""}`}>
+                        {ROLE_LABELS[user.role] || user.role}
+                      </span>
+                    </div>
+                    <div className="mt-3">
+                      {editingPasswordFor === user.id ? (
+                        <div className="flex flex-col gap-2">
+                          <input
+                            type="password"
+                            value={newPassword}
+                            onChange={(e) => setNewPassword(e.target.value)}
+                            placeholder="Nueva contraseña"
+                            className="w-full rounded-md border border-gray-300 px-2 py-1.5 text-sm text-gray-900 shadow-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
+                          />
+                          <div className="flex gap-2">
                             <button
                               onClick={() => handleChangePassword(user.id)}
                               disabled={savingPassword}
-                              className="rounded-md bg-green-600 px-2 py-1 text-xs font-medium text-white hover:bg-green-700 disabled:opacity-50"
+                              className="rounded-md bg-green-600 px-3 py-1.5 text-xs font-medium text-white hover:bg-green-700 disabled:opacity-50"
                             >
                               {savingPassword ? "..." : "Guardar"}
                             </button>
                             <button
                               onClick={() => { setEditingPasswordFor(null); setNewPassword("") }}
-                              className="rounded-md bg-gray-100 px-2 py-1 text-xs font-medium text-gray-700 hover:bg-gray-200"
+                              className="rounded-md bg-gray-100 px-3 py-1.5 text-xs font-medium text-gray-700 hover:bg-gray-200"
                             >
                               Cancelar
                             </button>
                           </div>
-                        ) : (
-                          <button
-                            onClick={() => { setEditingPasswordFor(user.id); setNewPassword("") }}
-                            className="rounded-md bg-gray-100 px-3 py-1 text-xs font-medium text-gray-700 hover:bg-gray-200"
-                          >
-                            Cambiar contraseña
-                          </button>
-                        )}
-                      </td>
+                        </div>
+                      ) : (
+                        <button
+                          onClick={() => { setEditingPasswordFor(user.id); setNewPassword("") }}
+                          className="rounded-md bg-gray-100 px-3 py-1.5 text-xs font-medium text-gray-700 hover:bg-gray-200"
+                        >
+                          Cambiar contraseña
+                        </button>
+                      )}
+                    </div>
+                  </div>
+                ))}
+              </div>
+
+              {/* Desktop: table */}
+              <div className="hidden overflow-x-auto sm:block">
+                <table className="w-full text-left text-sm">
+                  <thead>
+                    <tr className="border-b text-xs font-medium text-gray-500">
+                      <th className="pb-2">Nombre</th>
+                      <th className="pb-2">Email</th>
+                      <th className="pb-2">Rol</th>
+                      <th className="pb-2 text-right">Contraseña</th>
                     </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
+                  </thead>
+                  <tbody className="divide-y">
+                    {users.map((user) => (
+                      <tr key={user.id}>
+                        <td className="py-2 text-gray-900">{user.name || "—"}</td>
+                        <td className="py-2 text-gray-600">{user.email}</td>
+                        <td className="py-2">
+                          <span className={`inline-block rounded-full px-2 py-0.5 text-xs font-medium ${ROLE_COLORS[user.role] || ""}`}>
+                            {ROLE_LABELS[user.role] || user.role}
+                          </span>
+                        </td>
+                        <td className="py-2 text-right">
+                          {editingPasswordFor === user.id ? (
+                            <div className="flex items-center justify-end gap-2">
+                              <input
+                                type="password"
+                                value={newPassword}
+                                onChange={(e) => setNewPassword(e.target.value)}
+                                placeholder="Nueva contraseña"
+                                className="w-40 rounded-md border border-gray-300 px-2 py-1 text-xs text-gray-900 shadow-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
+                              />
+                              <button
+                                onClick={() => handleChangePassword(user.id)}
+                                disabled={savingPassword}
+                                className="rounded-md bg-green-600 px-2 py-1 text-xs font-medium text-white hover:bg-green-700 disabled:opacity-50"
+                              >
+                                {savingPassword ? "..." : "Guardar"}
+                              </button>
+                              <button
+                                onClick={() => { setEditingPasswordFor(null); setNewPassword("") }}
+                                className="rounded-md bg-gray-100 px-2 py-1 text-xs font-medium text-gray-700 hover:bg-gray-200"
+                              >
+                                Cancelar
+                              </button>
+                            </div>
+                          ) : (
+                            <button
+                              onClick={() => { setEditingPasswordFor(user.id); setNewPassword("") }}
+                              className="rounded-md bg-gray-100 px-3 py-1 text-xs font-medium text-gray-700 hover:bg-gray-200"
+                            >
+                              Cambiar contraseña
+                            </button>
+                          )}
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            </>
           )}
         </section>
       </main>

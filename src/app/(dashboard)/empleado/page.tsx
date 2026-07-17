@@ -308,8 +308,6 @@ export default function EmpleadoPage() {
           <div className="rounded-md bg-green-50 p-3 text-sm text-green-600">{success}</div>
         )}
 
-        {!isReadOnly && <PasskeyManager />}
-
         {isReadOnly && hasOpenShift && (
           <div className="rounded-md border border-amber-200 bg-amber-50 p-3 text-sm text-amber-700">
             Hay un turno abierto.
@@ -398,6 +396,8 @@ export default function EmpleadoPage() {
             </div>
           )}
         </section>
+
+        {!isReadOnly && <PasskeyManager />}
       </main>
     </div>
   )

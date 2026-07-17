@@ -241,7 +241,7 @@ export default function OrdersPage() {
         <section className="rounded-lg border bg-white p-6 shadow-sm">
           <div className="mb-4 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
             <h2 className="text-lg font-semibold text-gray-900">Encargos</h2>
-            <div className="flex items-center gap-2">
+            <div className="flex flex-wrap items-center gap-2">
               {showFilters && (
                 <>
                   <select
@@ -355,61 +355,98 @@ export default function OrdersPage() {
           {orders.length === 0 ? (
             <p className="text-sm text-gray-500">No hay encargos para este período.</p>
           ) : (
-            <div className="overflow-x-auto">
-              <table className="w-full text-left text-sm">
-                <thead>
-                  <tr className="border-b text-xs font-medium text-gray-500">
-                    <th className="pb-2">Creado</th>
-                    <th className="pb-2">Entrega</th>
-                    <th className="pb-2">Cliente</th>
-                    <th className="pb-2">Teléfono</th>
-                    <th className="pb-2">Comentario</th>
-                    <th className="pb-2">Creado por</th>
-                    <th className="pb-2 text-right">Acciones</th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y">
-                  {orders.map((order) => {
-                    const delivery = new Date(order.deliveryDate)
-                    const created = new Date(order.createdAt)
-                    return (
-                      <tr key={order.id} className="hover:bg-gray-50">
-                        <td className="py-3 text-gray-900">
-                          {created.toLocaleDateString("es-ES")}
-                        </td>
-                        <td className="py-3 text-gray-900">
-                          {delivery.toLocaleDateString("es-ES")} {delivery.toLocaleTimeString("es-ES", { hour: "2-digit", minute: "2-digit" })}
-                        </td>
-                        <td className="py-3 font-medium text-gray-900">{order.clientName}</td>
-                        <td className="py-3 text-gray-900">{order.clientPhone}</td>
-                        <td className="py-3 text-gray-600 max-w-[200px] truncate">{order.comment || "—"}</td>
-                        <td className="py-3 text-gray-600">{order.createdBy?.name || order.createdBy?.email || "—"}</td>
-                        <td className="py-3 text-right">
-                          <div className="flex justify-end gap-2">
+            <>
+              {/* Mobile: cards */}
+              <div className="space-y-3 sm:hidden">
+                {orders.map((order) => {
+                  const delivery = new Date(order.deliveryDate)
+                  const created = new Date(order.createdAt)
+                  return (
+                    <div key={order.id} className="rounded-md border border-gray-200 bg-gray-50 p-4">
+                      <div className="flex items-start justify-between">
+                        <div>
+                          <p className="font-medium text-gray-900">{order.clientName}</p>
+                          <p className="text-sm text-gray-700">{order.clientPhone}</p>
+                        </div>
+                        {(canEdit || canDelete) && (
+                          <div className="flex gap-2">
                             {canEdit && (
-                              <button
-                                onClick={() => startEditing(order)}
-                                className="rounded bg-gray-100 px-2 py-1 text-xs font-medium text-gray-700 hover:bg-gray-200"
-                              >
-                                Editar
-                              </button>
+                              <button onClick={() => startEditing(order)} className="rounded bg-gray-200 px-2 py-1 text-xs font-medium text-gray-800">Editar</button>
                             )}
                             {canDelete && (
-                              <button
-                                onClick={() => handleDelete(order.id)}
-                                className="rounded bg-red-100 px-2 py-1 text-xs font-medium text-red-600 hover:bg-red-200"
-                              >
-                                Eliminar
-                              </button>
+                              <button onClick={() => handleDelete(order.id)} className="rounded bg-red-100 px-2 py-1 text-xs font-medium text-red-700">Eliminar</button>
                             )}
                           </div>
-                        </td>
-                      </tr>
-                    )
-                  })}
-                </tbody>
-              </table>
-            </div>
+                        )}
+                      </div>
+                      <div className="mt-2 grid grid-cols-2 gap-1 text-sm text-gray-800">
+                        <div><span className="text-gray-700">Entrega:</span> {delivery.toLocaleDateString("es-ES")} {delivery.toLocaleTimeString("es-ES", { hour: "2-digit", minute: "2-digit" })}</div>
+                        <div><span className="text-gray-700">Creado:</span> {created.toLocaleDateString("es-ES")}</div>
+                        {order.comment && <div className="col-span-2"><span className="text-gray-700">Comentario:</span> {order.comment}</div>}
+                        {order.createdBy && <div className="col-span-2 text-xs text-gray-600">Por: {order.createdBy.name || order.createdBy.email}</div>}
+                      </div>
+                    </div>
+                  )
+                })}
+              </div>
+
+              {/* Desktop: table */}
+              <div className="hidden overflow-x-auto sm:block">
+                <table className="w-full text-left text-sm">
+                  <thead>
+                    <tr className="border-b text-xs font-medium text-gray-500">
+                      <th className="pb-2">Creado</th>
+                      <th className="pb-2">Entrega</th>
+                      <th className="pb-2">Cliente</th>
+                      <th className="pb-2">Teléfono</th>
+                      <th className="pb-2">Comentario</th>
+                      <th className="pb-2">Creado por</th>
+                      <th className="pb-2 text-right">Acciones</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y">
+                    {orders.map((order) => {
+                      const delivery = new Date(order.deliveryDate)
+                      const created = new Date(order.createdAt)
+                      return (
+                        <tr key={order.id} className="hover:bg-gray-50">
+                          <td className="py-3 text-gray-900">
+                            {created.toLocaleDateString("es-ES")}
+                          </td>
+                          <td className="py-3 text-gray-900">
+                            {delivery.toLocaleDateString("es-ES")} {delivery.toLocaleTimeString("es-ES", { hour: "2-digit", minute: "2-digit" })}
+                          </td>
+                          <td className="py-3 font-medium text-gray-900">{order.clientName}</td>
+                          <td className="py-3 text-gray-900">{order.clientPhone}</td>
+                          <td className="py-3 text-gray-600 max-w-[200px] truncate">{order.comment || "—"}</td>
+                          <td className="py-3 text-gray-600">{order.createdBy?.name || order.createdBy?.email || "—"}</td>
+                          <td className="py-3 text-right">
+                            <div className="flex justify-end gap-2">
+                              {canEdit && (
+                                <button
+                                  onClick={() => startEditing(order)}
+                                  className="rounded bg-gray-100 px-2 py-1 text-xs font-medium text-gray-700 hover:bg-gray-200"
+                                >
+                                  Editar
+                                </button>
+                              )}
+                              {canDelete && (
+                                <button
+                                  onClick={() => handleDelete(order.id)}
+                                  className="rounded bg-red-100 px-2 py-1 text-xs font-medium text-red-600 hover:bg-red-200"
+                                >
+                                  Eliminar
+                                </button>
+                              )}
+                            </div>
+                          </td>
+                        </tr>
+                      )
+                    })}
+                  </tbody>
+                </table>
+              </div>
+            </>
           )}
         </section>
       </main>
