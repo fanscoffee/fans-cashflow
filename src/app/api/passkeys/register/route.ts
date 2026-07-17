@@ -1,8 +1,9 @@
 import { NextResponse } from "next/server"
 import { verifyRegistrationResponse } from "@simplewebauthn/server"
+import { isoBase64URL } from "@simplewebauthn/server/helpers"
 import { prisma } from "@/lib/prisma"
 import { auth } from "@/lib/auth"
-import { RP_ID, ORIGINS, transportsToJSON } from "@/lib/webauthn"
+import { RP_ID, ORIGINS } from "@/lib/webauthn"
 
 export async function POST(request: Request) {
   const session = await auth()
@@ -31,15 +32,15 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: "Verificación fallida" }, { status: 400 })
     }
 
-    const { credential: registeredCredential } = verification.registrationInfo
+    const regInfo = verification.registrationInfo
 
     await prisma.passkey.create({
       data: {
-        credentialId: registeredCredential.id,
+        credentialId: isoBase64URL.fromBuffer(regInfo.credentialID),
         userId: session.user.id,
-        publicKey: registeredCredential.publicKey,
-        counter: BigInt(registeredCredential.counter),
-        transports: transportsToJSON(registeredCredential.transports),
+        publicKey: new Uint8Array(regInfo.credentialPublicKey),
+        counter: BigInt(regInfo.counter),
+        transports: null,
       },
     })
 

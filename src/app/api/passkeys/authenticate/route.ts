@@ -1,14 +1,17 @@
 import { NextResponse } from "next/server"
 import { generateAuthenticationOptions } from "@simplewebauthn/server"
+import { isoBase64URL } from "@simplewebauthn/server/helpers"
 import { prisma } from "@/lib/prisma"
 import { RP_ID } from "@/lib/webauthn"
+
+type PasskeyRow = { id: string; credentialId: string; transports: string | null }
 
 export async function POST(request: Request) {
   try {
     const body = await request.json()
     const { email } = body
 
-    let passkeys = []
+    let passkeys: PasskeyRow[] = []
 
     if (email) {
       const user = await prisma.user.findUnique({
@@ -33,7 +36,8 @@ export async function POST(request: Request) {
     const options = await generateAuthenticationOptions({
       rpID: RP_ID,
       allowCredentials: passkeys.map((pk) => ({
-        id: pk.credentialId,
+        id: isoBase64URL.toBuffer(pk.credentialId),
+        type: "public-key" as const,
         transports: pk.transports ? JSON.parse(pk.transports) : undefined,
       })),
       userVerification: "preferred",
