@@ -25,16 +25,10 @@ export async function GET(request: Request) {
 
   const where: Record<string, unknown> = {}
 
-  if (isAdminOrSocio) {
-    if (month && year) {
-      const startDate = new Date(Number(year), Number(month) - 1, 1)
-      const endDate = new Date(Number(year), Number(month), 1)
-      where.deliveryDate = { gte: startDate, lt: endDate }
-    }
-  } else {
-    where.deliveryDate = {
-      gte: new Date(new Date().setHours(0, 0, 0, 0)),
-    }
+  if (isAdminOrSocio && month && year) {
+    const startDate = new Date(Number(year), Number(month) - 1, 1)
+    const endDate = new Date(Number(year), Number(month), 1)
+    where.deliveryDate = { gte: startDate, lt: endDate }
   }
 
   const orders = await prisma.order.findMany({

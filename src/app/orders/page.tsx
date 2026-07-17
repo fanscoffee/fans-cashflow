@@ -88,8 +88,7 @@ export default function OrdersPage() {
     setInitialized(true)
   }, [])
 
-  const canCreate = session?.user?.role === "ADMIN" || session?.user?.role === "SOCIO"
-  const canDelete = canCreate
+  const canDelete = session?.user?.role === "ADMIN" || session?.user?.role === "SOCIO"
 
   useEffect(() => {
     if (status === "authenticated" && initialized) fetchOrders()
@@ -280,14 +279,12 @@ export default function OrdersPage() {
                   </button>
                 </>
               )}
-              {canCreate && (
-                <button
-                  onClick={() => { resetForm(); setShowForm(!showForm) }}
-                  className="rounded-md bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-700"
-                >
-                  {showForm ? "Cancelar" : "+ Nuevo"}
-                </button>
-              )}
+              <button
+                onClick={() => { resetForm(); setShowForm(!showForm) }}
+                className="rounded-md bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-700"
+              >
+                {showForm ? "Cancelar" : "+ Nuevo"}
+              </button>
             </div>
           </div>
 
