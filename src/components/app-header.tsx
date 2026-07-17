@@ -39,6 +39,11 @@ function getNavLinks(role?: string): HeaderLink[] {
       { href: "/orders", label: "Encargos" },
     ]
   }
+  if (role === "OBRADOR") {
+    return [
+      { href: "/orders", label: "Encargos" },
+    ]
+  }
   return []
 }
 

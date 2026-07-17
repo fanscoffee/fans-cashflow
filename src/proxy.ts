@@ -5,6 +5,7 @@ const ROLE_REDIRECT: Record<string, string> = {
   ADMIN: "/admin",
   SOCIO: "/socio",
   EMPLEADO: "/empleado",
+  OBRADOR: "/orders",
 }
 
 export default auth((req) => {
@@ -31,6 +32,10 @@ export default auth((req) => {
     const role = session.user?.role as string
 
     if (role === "ADMIN" || role === "SOCIO") return NextResponse.next()
+
+    if (role === "OBRADOR") {
+      return NextResponse.redirect(new URL("/orders", req.url))
+    }
 
     const allowedPrefix = `/${role.toLowerCase()}`
 
