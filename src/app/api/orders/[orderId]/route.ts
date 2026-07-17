@@ -12,14 +12,14 @@ const updateOrderSchema = z.object({
 
 export async function PATCH(
   request: Request,
-  { params }: { params: { orderId: string } }
+  { params }: { params: Promise<{ orderId: string }> }
 ) {
   const session = await auth()
   if (!session?.user?.id) {
     return NextResponse.json({ error: "No autorizado" }, { status: 401 })
   }
 
-  const { orderId } = params
+  const { orderId } = await params
 
   try {
     const body = await request.json()
@@ -58,7 +58,7 @@ export async function PATCH(
 
 export async function DELETE(
   request: Request,
-  { params }: { params: { orderId: string } }
+  { params }: { params: Promise<{ orderId: string }> }
 ) {
   const session = await auth()
   if (!session?.user?.id) {
@@ -70,7 +70,7 @@ export async function DELETE(
     return NextResponse.json({ error: "No autorizado" }, { status: 403 })
   }
 
-  const { orderId } = params
+  const { orderId } = await params
 
   const existing = await prisma.order.findUnique({ where: { id: orderId } })
   if (!existing) {

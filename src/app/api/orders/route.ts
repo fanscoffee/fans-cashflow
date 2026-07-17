@@ -10,22 +10,32 @@ const orderSchema = z.object({
   comment: z.string().optional(),
 })
 
-export async function GET() {
+export async function GET(request: Request) {
   const session = await auth()
   if (!session?.user?.id) {
     return NextResponse.json({ error: "No autorizado" }, { status: 401 })
   }
 
+  const { searchParams } = new URL(request.url)
+  const month = searchParams.get("month")
+  const year = searchParams.get("year")
+
   const role = session.user.role
   const isAdminOrSocio = role === "ADMIN" || role === "SOCIO"
 
-  const where = isAdminOrSocio
-    ? {}
-    : {
-        deliveryDate: {
-          gte: new Date(new Date().setHours(0, 0, 0, 0)),
-        },
-      }
+  const where: Record<string, unknown> = {}
+
+  if (isAdminOrSocio) {
+    if (month && year) {
+      const startDate = new Date(Number(year), Number(month) - 1, 1)
+      const endDate = new Date(Number(year), Number(month), 1)
+      where.deliveryDate = { gte: startDate, lt: endDate }
+    }
+  } else {
+    where.deliveryDate = {
+      gte: new Date(new Date().setHours(0, 0, 0, 0)),
+    }
+  }
 
   const orders = await prisma.order.findMany({
     where,

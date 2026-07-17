@@ -1,6 +1,6 @@
 "use client"
 
-import { useState } from "react"
+import { useState, useEffect } from "react"
 import { useForm } from "react-hook-form"
 import { zodResolver } from "@hookform/resolvers/zod"
 import { z } from "zod"
@@ -29,10 +29,10 @@ export default function LoginPage() {
   const [error, setError] = useState<string | null>(null)
   const [loading, setLoading] = useState(false)
   const [passkeyLoading, setPasskeyLoading] = useState(false)
-  const [supportsPasskeys] = useState(() => {
-    if (typeof window === "undefined") return false
-    return browserSupportsWebAuthn()
-  })
+  const [supportsPasskeys, setSupportsPasskeys] = useState(false)
+  useEffect(() => {
+    setSupportsPasskeys(browserSupportsWebAuthn())
+  }, [])
   const [passkeyError, setPasskeyError] = useState<string | null>(null)
 
   const {

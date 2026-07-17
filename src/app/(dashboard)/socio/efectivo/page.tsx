@@ -63,12 +63,19 @@ export default function EfectivoPage() {
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState<string | null>(null)
 
-  const now = new Date()
-  const [selectedMonth, setSelectedMonth] = useState(now.getMonth() + 1)
-  const [selectedYear, setSelectedYear] = useState(now.getFullYear())
+  const [selectedMonth, setSelectedMonth] = useState(0)
+  const [selectedYear, setSelectedYear] = useState(0)
+  const [initialized, setInitialized] = useState(false)
 
   useEffect(() => {
-    if (status !== "authenticated") return
+    const now = new Date()
+    setSelectedMonth(now.getMonth() + 1)
+    setSelectedYear(now.getFullYear())
+    setInitialized(true)
+  }, [])
+
+  useEffect(() => {
+    if (status !== "authenticated" || !initialized) return
     let cancelled = false
     async function load() {
       setLoading(true)
@@ -86,7 +93,7 @@ export default function EfectivoPage() {
     }
     load()
     return () => { cancelled = true }
-  }, [status, selectedMonth, selectedYear])
+  }, [status, selectedMonth, selectedYear, initialized])
 
   async function handleDestinationChange(shiftId: string, destination: string) {
     setSaving(shiftId)
@@ -157,7 +164,7 @@ export default function EfectivoPage() {
                 onChange={(e) => setSelectedYear(parseInt(e.target.value))}
                 className="rounded-md border border-gray-300 px-3 py-1.5 text-sm text-gray-900 focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
               >
-                {[now.getFullYear(), now.getFullYear() - 1, now.getFullYear() - 2].map((y) => (
+                {[selectedYear, selectedYear - 1, selectedYear - 2].map((y) => (
                   <option key={y} value={y}>{y}</option>
                 ))}
               </select>

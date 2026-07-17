@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server"
 import { verifyAuthenticationResponse } from "@simplewebauthn/server"
+import { isoBase64URL } from "@simplewebauthn/server/helpers"
 import { prisma } from "@/lib/prisma"
 import { RP_ID, ORIGINS, transportsFromJSON } from "@/lib/webauthn"
 
@@ -28,9 +29,9 @@ export async function POST(request: Request) {
       expectedChallenge: challenge,
       expectedOrigin,
       expectedRPID: RP_ID,
-      credential: {
-        id: passkey.credentialId,
-        publicKey: passkey.publicKey,
+      authenticator: {
+        credentialID: isoBase64URL.toBuffer(passkey.credentialId),
+        credentialPublicKey: new Uint8Array(passkey.publicKey),
         counter: Number(passkey.counter),
         transports: transportsFromJSON(passkey.transports),
       },
