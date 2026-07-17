@@ -89,6 +89,7 @@ export default function OrdersPage() {
   }, [])
 
   const canDelete = session?.user?.role === "ADMIN" || session?.user?.role === "SOCIO"
+  const canEdit = canDelete
 
   useEffect(() => {
     if (status === "authenticated" && initialized) fetchOrders()
@@ -394,12 +395,14 @@ export default function OrdersPage() {
                         <td className="py-3 text-gray-600">{order.createdBy?.name || order.createdBy?.email || "—"}</td>
                         <td className="py-3 text-right">
                           <div className="flex justify-end gap-2">
-                            <button
-                              onClick={() => startEditing(order)}
-                              className="rounded bg-gray-100 px-2 py-1 text-xs font-medium text-gray-700 hover:bg-gray-200"
-                            >
-                              Editar
-                            </button>
+                            {canEdit && (
+                              <button
+                                onClick={() => startEditing(order)}
+                                className="rounded bg-gray-100 px-2 py-1 text-xs font-medium text-gray-700 hover:bg-gray-200"
+                              >
+                                Editar
+                              </button>
+                            )}
                             {canDelete && (
                               <button
                                 onClick={() => handleDelete(order.id)}
