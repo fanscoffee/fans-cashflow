@@ -58,6 +58,11 @@ export default function EmpleadoPage() {
   const [fundAdditions, setFundAdditions] = useState<{ id: string; amount: number; description: string | null; createdAt: string }[]>([])
   const [fondoInicialServer, setFondoInicialServer] = useState<number | null>(null)
   const timeoutRef = useRef<NodeJS.Timeout | null>(null)
+  const [dateStr, setDateStr] = useState("")
+
+  useEffect(() => {
+    setDateStr(new Date().toISOString().split("T")[0])
+  }, [])
 
   const fondoInicialLocal = (() => {
     const lastShift = shifts[0]
@@ -303,8 +308,6 @@ export default function EmpleadoPage() {
           <div className="rounded-md bg-green-50 p-3 text-sm text-green-600">{success}</div>
         )}
 
-        {!isReadOnly && <PasskeyManager />}
-
         {isReadOnly && hasOpenShift && (
           <div className="rounded-md border border-amber-200 bg-amber-50 p-3 text-sm text-amber-700">
             Hay un turno abierto.
@@ -326,7 +329,7 @@ export default function EmpleadoPage() {
                 <input
                   type="date"
                   readOnly
-                  value={new Date().toISOString().split("T")[0]}
+                  value={dateStr}
                   className="mt-1 block w-full rounded-md border border-gray-200 bg-gray-50 px-3 py-2 text-sm text-gray-500"
                 />
               </div>
@@ -393,6 +396,8 @@ export default function EmpleadoPage() {
             </div>
           )}
         </section>
+
+        {!isReadOnly && <PasskeyManager />}
       </main>
     </div>
   )

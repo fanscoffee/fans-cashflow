@@ -63,12 +63,19 @@ export default function EfectivoPage() {
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState<string | null>(null)
 
-  const now = new Date()
-  const [selectedMonth, setSelectedMonth] = useState(now.getMonth() + 1)
-  const [selectedYear, setSelectedYear] = useState(now.getFullYear())
+  const [selectedMonth, setSelectedMonth] = useState(0)
+  const [selectedYear, setSelectedYear] = useState(0)
+  const [initialized, setInitialized] = useState(false)
 
   useEffect(() => {
-    if (status !== "authenticated") return
+    const now = new Date()
+    setSelectedMonth(now.getMonth() + 1)
+    setSelectedYear(now.getFullYear())
+    setInitialized(true)
+  }, [])
+
+  useEffect(() => {
+    if (status !== "authenticated" || !initialized) return
     let cancelled = false
     async function load() {
       setLoading(true)
@@ -86,7 +93,7 @@ export default function EfectivoPage() {
     }
     load()
     return () => { cancelled = true }
-  }, [status, selectedMonth, selectedYear])
+  }, [status, selectedMonth, selectedYear, initialized])
 
   async function handleDestinationChange(shiftId: string, destination: string) {
     setSaving(shiftId)
@@ -142,7 +149,7 @@ export default function EfectivoPage() {
         <section className="rounded-lg border bg-white p-6 shadow-sm">
           <div className="mb-4 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
             <h2 className="text-lg font-semibold text-gray-900">Efectivo por Turno</h2>
-            <div className="flex items-center gap-2">
+            <div className="flex flex-wrap items-center gap-2">
               <select
                 value={selectedMonth}
                 onChange={(e) => setSelectedMonth(parseInt(e.target.value))}
@@ -157,7 +164,7 @@ export default function EfectivoPage() {
                 onChange={(e) => setSelectedYear(parseInt(e.target.value))}
                 className="rounded-md border border-gray-300 px-3 py-1.5 text-sm text-gray-900 focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
               >
-                {[now.getFullYear(), now.getFullYear() - 1, now.getFullYear() - 2].map((y) => (
+                {[selectedYear, selectedYear - 1, selectedYear - 2].map((y) => (
                   <option key={y} value={y}>{y}</option>
                 ))}
               </select>
@@ -174,45 +181,78 @@ export default function EfectivoPage() {
           {shifts.length === 0 ? (
             <p className="text-sm text-gray-500">No hay turnos para este período.</p>
           ) : (
-            <div className="overflow-x-auto">
-              <table className="w-full text-left text-sm">
-                <thead>
-                  <tr className="border-b text-xs font-medium text-gray-500">
-                    <th className="pb-2">Fecha</th>
-                    <th className="pb-2">Turno</th>
-                    <th className="pb-2 text-right">Efectivo</th>
-                    <th className="pb-2 text-center">Depósito</th>
-                    <th className="pb-2 text-center">Ingreso en fondo</th>
-                    <th className="pb-2 text-center">Guardado</th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y">
-                  {shifts.map((shift) => (
-                    <tr key={shift.id} className="hover:bg-gray-50">
-                      <td className="py-3 text-gray-900">
-                        {new Date(shift.date).toLocaleDateString("es-ES")}
-                      </td>
-                      <td className="py-3 text-gray-900">{shift.turno}</td>
-                      <td className="py-3 text-right font-medium text-gray-900">
-                        {Number(shift.efectivo).toFixed(2)} €
-                      </td>
+            <>
+              {/* Mobile: cards */}
+              <div className="space-y-3 sm:hidden">
+                {shifts.map((shift) => (
+                  <div key={shift.id} className="rounded-md border border-gray-200 bg-gray-50 p-4">
+                    <div className="flex items-start justify-between">
+                      <div>
+                        <p className="text-sm text-gray-900">{new Date(shift.date).toLocaleDateString("es-ES")}</p>
+                        <p className="text-sm font-medium text-gray-900">{shift.turno}</p>
+                      </div>
+                      <p className="text-sm font-medium text-gray-900">{Number(shift.efectivo).toFixed(2)} €</p>
+                    </div>
+                    <div className="mt-3 flex items-center gap-4">
                       {(["DEPOSITO", "INGRESO_EN_FONDO", "GUARDADO"] as const).map((dest) => (
-                        <td key={dest} className="py-3 text-center">
+                        <div key={dest} className="flex items-center gap-1.5 text-sm text-gray-700">
                           <input
                             type="radio"
-                            name={`dest-${shift.id}`}
+                            name={`mob-dest-${shift.id}`}
                             checked={shift.cashTracking?.destination === dest}
                             disabled={saving === shift.id}
                             onChange={() => handleDestinationChange(shift.id, dest)}
                             className="h-4 w-4 border-gray-300 text-blue-600 focus:ring-blue-500"
                           />
-                        </td>
+                          <span>{DESTINATION_LABELS[dest]}</span>
+                        </div>
                       ))}
+                    </div>
+                  </div>
+                ))}
+              </div>
+
+              {/* Desktop: table */}
+              <div className="hidden overflow-x-auto sm:block">
+                <table className="w-full text-left text-sm">
+                  <thead>
+                    <tr className="border-b text-xs font-medium text-gray-500">
+                      <th className="pb-2">Fecha</th>
+                      <th className="pb-2">Turno</th>
+                      <th className="pb-2 text-right">Efectivo</th>
+                      <th className="pb-2 text-center">Depósito</th>
+                      <th className="pb-2 text-center">Ingreso en fondo</th>
+                      <th className="pb-2 text-center">Guardado</th>
                     </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
+                  </thead>
+                  <tbody className="divide-y">
+                    {shifts.map((shift) => (
+                      <tr key={shift.id} className="hover:bg-gray-50">
+                        <td className="py-3 text-gray-900">
+                          {new Date(shift.date).toLocaleDateString("es-ES")}
+                        </td>
+                        <td className="py-3 text-gray-900">{shift.turno}</td>
+                        <td className="py-3 text-right font-medium text-gray-900">
+                          {Number(shift.efectivo).toFixed(2)} €
+                        </td>
+                        {(["DEPOSITO", "INGRESO_EN_FONDO", "GUARDADO"] as const).map((dest) => (
+                          <td key={dest} className="py-3 text-center">
+                            <input
+                              type="radio"
+                              name={`desk-dest-${shift.id}`}
+                              checked={shift.cashTracking?.destination === dest}
+                              disabled={saving === shift.id}
+                              onChange={() => handleDestinationChange(shift.id, dest)}
+                              className="h-4 w-4 border-gray-300 text-blue-600 focus:ring-blue-500"
+                            />
+                          </td>
+                        ))}
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            </>
           )}
         </section>
       </main>

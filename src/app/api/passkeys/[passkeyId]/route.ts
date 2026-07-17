@@ -4,14 +4,14 @@ import { auth } from "@/lib/auth"
 
 export async function DELETE(
   request: Request,
-  { params }: { params: { passkeyId: string } }
+  { params }: { params: Promise<{ passkeyId: string }> }
 ) {
   const session = await auth()
   if (!session?.user?.id) {
     return NextResponse.json({ error: "No autorizado" }, { status: 401 })
   }
 
-  const { passkeyId } = params
+  const { passkeyId } = await params
 
   const passkey = await prisma.passkey.findUnique({
     where: { id: passkeyId },
