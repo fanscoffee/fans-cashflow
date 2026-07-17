@@ -78,6 +78,7 @@ enum CashDestination {
   DEPOSITO
   INGRESO_EN_FONDO
   GUARDADO
+  FANS
 }
 
 model CashTracking {

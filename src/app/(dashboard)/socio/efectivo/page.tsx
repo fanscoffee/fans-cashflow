@@ -29,6 +29,7 @@ const DESTINATION_LABELS: Record<string, string> = {
   DEPOSITO: "Depósito",
   INGRESO_EN_FONDO: "Ingreso en fondo",
   GUARDADO: "Guardado",
+  FANS: "Fans",
 }
 
 function downloadCSV(data: Record<string, unknown>[], filename: string) {
@@ -196,7 +197,7 @@ export default function EfectivoPage() {
                       <span className="text-sm font-bold text-gray-900">{Number(shift.efectivo).toFixed(2)} €</span>
                     </div>
                     <div className="flex gap-2">
-                      {(["DEPOSITO", "INGRESO_EN_FONDO", "GUARDADO"] as const).map((dest) => (
+                      {(["DEPOSITO", "INGRESO_EN_FONDO", "GUARDADO", "FANS"] as const).map((dest) => (
                         <label key={dest} className={`flex flex-1 cursor-pointer items-center justify-center gap-1 rounded-md border px-2 py-1.5 text-xs font-medium transition-colors ${
                           shift.cashTracking?.destination === dest
                             ? "border-blue-500 bg-blue-50 text-blue-700"
@@ -229,6 +230,7 @@ export default function EfectivoPage() {
                       <th className="pb-2 text-center">Depósito</th>
                       <th className="pb-2 text-center">Ingreso en fondo</th>
                       <th className="pb-2 text-center">Guardado</th>
+                      <th className="pb-2 text-center">Fans</th>
                     </tr>
                   </thead>
                   <tbody className="divide-y">
@@ -241,7 +243,7 @@ export default function EfectivoPage() {
                         <td className="py-3 text-right font-medium text-gray-900">
                           {Number(shift.efectivo).toFixed(2)} €
                         </td>
-                        {(["DEPOSITO", "INGRESO_EN_FONDO", "GUARDADO"] as const).map((dest) => (
+                        {(["DEPOSITO", "INGRESO_EN_FONDO", "GUARDADO", "FANS"] as const).map((dest) => (
                           <td key={dest} className="py-3 text-center">
                             <input
                               type="radio"
