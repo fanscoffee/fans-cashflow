@@ -120,7 +120,7 @@ export default function LoginPage() {
         return
       }
 
-      router.push(ROLE_REDIRECT[user.role] ?? "/empleado")
+      window.location.href = ROLE_REDIRECT[user.role] ?? "/empleado"
     } catch {
       setPasskeyError("Error con Face ID / biometría")
     } finally {
