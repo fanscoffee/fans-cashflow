@@ -101,22 +101,22 @@ export default function TurnosPage() {
           {/* Filters */}
           <div className="mb-4 rounded-md border border-gray-200 bg-gray-50 p-4">
             <div className="grid grid-cols-2 gap-3 sm:flex sm:flex-wrap sm:items-end">
-              <div className="min-w-0 sm:min-w-[140px]">
+              <div className="min-w-0 overflow-hidden sm:min-w-[140px]">
                 <label className="block text-xs font-medium text-gray-600">Desde</label>
                 <input
                   type="date"
                   value={dateFrom}
                   onChange={(e) => { setDateFrom(e.target.value); setPage(1) }}
-                  className="mt-1 block w-full rounded-md border border-gray-300 px-3 py-1.5 text-sm text-gray-900 focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
+                  className="mt-1 block w-full min-w-0 rounded-md border border-gray-300 px-2 py-1.5 text-sm text-gray-900 focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
                 />
               </div>
-              <div className="min-w-0 sm:min-w-[140px]">
+              <div className="min-w-0 overflow-hidden sm:min-w-[140px]">
                 <label className="block text-xs font-medium text-gray-600">Hasta</label>
                 <input
                   type="date"
                   value={dateTo}
                   onChange={(e) => { setDateTo(e.target.value); setPage(1) }}
-                  className="mt-1 block w-full rounded-md border border-gray-300 px-3 py-1.5 text-sm text-gray-900 focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
+                  className="mt-1 block w-full min-w-0 rounded-md border border-gray-300 px-2 py-1.5 text-sm text-gray-900 focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
                 />
               </div>
               <div className="min-w-0 sm:min-w-[100px]">
