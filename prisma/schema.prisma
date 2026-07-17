@@ -11,6 +11,7 @@ enum Role {
   ADMIN
   SOCIO
   EMPLEADO
+  OBRADOR
 }
 
 model User {

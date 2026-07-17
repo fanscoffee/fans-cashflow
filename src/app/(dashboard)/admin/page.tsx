@@ -11,7 +11,7 @@ const userSchema = z.object({
   name: z.string().min(2, "El nombre debe tener al menos 2 caracteres"),
   email: z.string().email("Email no válido"),
   password: z.string().min(6, "La contraseña debe tener al menos 6 caracteres"),
-  role: z.enum(["ADMIN", "SOCIO", "EMPLEADO"]),
+  role: z.enum(["ADMIN", "SOCIO", "EMPLEADO", "OBRADOR"]),
 })
 
 type UserFormData = z.infer<typeof userSchema>
@@ -27,12 +27,14 @@ const ROLE_LABELS: Record<string, string> = {
   ADMIN: "Admin",
   SOCIO: "Socio",
   EMPLEADO: "Empleado",
+  OBRADOR: "Obrador",
 }
 
 const ROLE_COLORS: Record<string, string> = {
   ADMIN: "bg-purple-100 text-purple-800",
   SOCIO: "bg-blue-100 text-blue-800",
   EMPLEADO: "bg-green-100 text-green-800",
+  OBRADOR: "bg-orange-100 text-orange-800",
 }
 
 export default function AdminPage() {
@@ -216,6 +218,7 @@ export default function AdminPage() {
                     <option value="EMPLEADO">Empleado</option>
                     <option value="SOCIO">Socio</option>
                     <option value="ADMIN">Admin</option>
+                    <option value="OBRADOR">Obrador</option>
                   </select>
                   {errors.role && (
                     <p className="mt-1 text-xs text-red-500">{errors.role.message}</p>

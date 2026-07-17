@@ -171,67 +171,95 @@ export default function TurnosPage() {
           ) : (
             <>
               <p className="mb-3 text-xs text-gray-500">Mostrando {visible.length} de {filtered.length} turnos</p>
-              <div className="space-y-3">
-                {visible.map((shift) => {
-                  const totalExpenses = shift.expenses.reduce((sum, e) => sum + Number(e.importe), 0)
-                  return (
-                    <div key={shift.id} className="rounded-md border border-gray-100 p-4">
-                      <div className="flex flex-col gap-1 sm:flex-row sm:items-center sm:justify-between">
-                        <div className="flex flex-wrap items-center gap-2">
-                          <p className="font-medium text-gray-900">
-                            {new Date(shift.date).toLocaleDateString("es-ES")} — {shift.turno}
-                          </p>
-                          <span className={`inline-block rounded-full px-2 py-0.5 text-xs font-medium ${shift.status === "ABIERTO" ? "bg-green-100 text-green-800" : "bg-gray-100 text-gray-600"}`}>
-                            {shift.status === "ABIERTO" ? "Abierto" : "Cerrado"}
+              <div className="space-y-4">
+                {(() => {
+                  const groups: Record<string, Shift[]> = {}
+                  for (const shift of visible) {
+                    const day = shift.date.slice(0, 10)
+                    if (!groups[day]) groups[day] = []
+                    groups[day].push(shift)
+                  }
+                  return Object.entries(groups).map(([day, dayShifts]) => {
+                    const facturacion = dayShifts.reduce(
+                      (sum, s) => sum + Number(s.efectivo) + Number(s.caixa) + Number(s.santander),
+                      0
+                    )
+                    return (
+                      <div key={day} className="rounded-lg border border-gray-200 bg-gray-50 p-4">
+                        <div className="mb-3 flex items-center justify-between border-b border-gray-200 pb-2">
+                          <h3 className="font-semibold text-gray-900">
+                            {new Date(day + "T00:00:00").toLocaleDateString("es-ES", { weekday: "long", day: "numeric", month: "long", year: "numeric" })}
+                          </h3>
+                          <span className="rounded-md bg-blue-50 px-3 py-1 text-sm font-bold text-blue-700">
+                            {facturacion.toFixed(2)} €
                           </span>
-                          {shift.createdBy && (
-                            <span className="text-xs text-gray-500">
-                              — {shift.createdBy.name || shift.createdBy.email}
-                            </span>
-                          )}
                         </div>
-                      </div>
-                      <div className="mt-2 grid grid-cols-2 gap-2 text-sm md:grid-cols-4">
-                        <div>
-                          <span className="text-gray-500">F. Inicial:</span>{" "}
-                          <span className="font-medium text-gray-900">{Number(shift.fondoInicial).toFixed(2)}</span>
-                        </div>
-                        <div>
-                          <span className="text-gray-500">F. Final:</span>{" "}
-                          <span className="font-medium text-gray-900">{Number(shift.fondoFinal).toFixed(2)}</span>
-                        </div>
-                        <div>
-                          <span className="text-gray-500">Efectivo:</span>{" "}
-                          <span className="font-medium text-gray-900">{Number(shift.efectivo).toFixed(2)}</span>
-                        </div>
-                        <div>
-                          <span className="text-gray-500">Caixa:</span>{" "}
-                          <span className="font-medium text-gray-900">{Number(shift.caixa).toFixed(2)}</span>
-                        </div>
-                        <div>
-                          <span className="text-gray-500">Santander:</span>{" "}
-                          <span className="font-medium text-gray-900">{Number(shift.santander).toFixed(2)}</span>
-                        </div>
-                        <div>
-                          <span className="text-gray-500">Gastos:</span>{" "}
-                          <span className="font-medium text-gray-900">{totalExpenses.toFixed(2)}</span>
-                        </div>
-                      </div>
-                      {shift.expenses.length > 0 && (
-                        <div className="mt-2 border-t pt-2">
-                          <div className="space-y-1">
-                            {shift.expenses.map((expense) => (
-                              <div key={expense.id} className="flex justify-between text-xs">
-                                <span className="text-gray-600">{expense.proveedor}</span>
-                                <span className="font-medium text-gray-900">{Number(expense.importe).toFixed(2)}</span>
+                        <div className="space-y-3">
+                          {dayShifts.map((shift) => {
+                            const totalExpenses = shift.expenses.reduce((sum, e) => sum + Number(e.importe), 0)
+                            return (
+                              <div key={shift.id} className="rounded-md border border-gray-100 bg-white p-4">
+                                <div className="flex flex-col gap-1 sm:flex-row sm:items-center sm:justify-between">
+                                  <div className="flex flex-wrap items-center gap-2">
+                                    <span className={`inline-block rounded-full px-2 py-0.5 text-xs font-medium ${shift.turno === "mañana" ? "bg-amber-100 text-amber-700" : "bg-blue-100 text-blue-700"}`}>
+                                      {shift.turno}
+                                    </span>
+                                    <span className={`inline-block rounded-full px-2 py-0.5 text-xs font-medium ${shift.status === "ABIERTO" ? "bg-green-100 text-green-800" : "bg-gray-100 text-gray-600"}`}>
+                                      {shift.status === "ABIERTO" ? "Abierto" : "Cerrado"}
+                                    </span>
+                                    {shift.createdBy && (
+                                      <span className="text-xs text-gray-500">
+                                        — {shift.createdBy.name || shift.createdBy.email}
+                                      </span>
+                                    )}
+                                  </div>
+                                </div>
+                                <div className="mt-2 grid grid-cols-2 gap-2 text-sm md:grid-cols-4">
+                                  <div>
+                                    <span className="text-gray-500">F. Inicial:</span>{" "}
+                                    <span className="font-medium text-gray-900">{Number(shift.fondoInicial).toFixed(2)}</span>
+                                  </div>
+                                  <div>
+                                    <span className="text-gray-500">F. Final:</span>{" "}
+                                    <span className="font-medium text-gray-900">{Number(shift.fondoFinal).toFixed(2)}</span>
+                                  </div>
+                                  <div>
+                                    <span className="text-gray-500">Efectivo:</span>{" "}
+                                    <span className="font-medium text-gray-900">{Number(shift.efectivo).toFixed(2)}</span>
+                                  </div>
+                                  <div>
+                                    <span className="text-gray-500">Caixa:</span>{" "}
+                                    <span className="font-medium text-gray-900">{Number(shift.caixa).toFixed(2)}</span>
+                                  </div>
+                                  <div>
+                                    <span className="text-gray-500">Santander:</span>{" "}
+                                    <span className="font-medium text-gray-900">{Number(shift.santander).toFixed(2)}</span>
+                                  </div>
+                                  <div>
+                                    <span className="text-gray-500">Gastos:</span>{" "}
+                                    <span className="font-medium text-gray-900">{totalExpenses.toFixed(2)}</span>
+                                  </div>
+                                </div>
+                                {shift.expenses.length > 0 && (
+                                  <div className="mt-2 border-t pt-2">
+                                    <div className="space-y-1">
+                                      {shift.expenses.map((expense) => (
+                                        <div key={expense.id} className="flex justify-between text-xs">
+                                          <span className="text-gray-600">{expense.proveedor}</span>
+                                          <span className="font-medium text-gray-900">{Number(expense.importe).toFixed(2)}</span>
+                                        </div>
+                                      ))}
+                                    </div>
+                                  </div>
+                                )}
                               </div>
-                            ))}
-                          </div>
+                            )
+                          })}
                         </div>
-                      )}
-                    </div>
-                  )
-                })}
+                      </div>
+                    )
+                  })
+                })()}
               </div>
               {hasMore && (
                 <button
