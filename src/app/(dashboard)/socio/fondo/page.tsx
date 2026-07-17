@@ -143,42 +143,46 @@ export default function FondoPage() {
           <div className="rounded-md bg-green-50 p-3 text-sm text-green-600">{success}</div>
         )}
 
-        <section className="rounded-lg border bg-white p-6 shadow-sm">
-          <div className="mb-4 flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
-            <h2 className="text-lg font-semibold text-gray-900">Depósito al Fondo</h2>
-            <div className="rounded-md bg-blue-50 px-4 py-2">
-              <span className="text-sm text-gray-600">Fondo actual: </span>
-              <span className="text-lg font-bold text-blue-700">
-                {fondo !== null ? `${fondo.toFixed(2)} €` : "Cargando..."}
+        <section className="rounded-lg border bg-white p-4 shadow-sm sm:p-6">
+          <h2 className="mb-4 text-lg font-semibold text-gray-900">Depósito al Fondo</h2>
+          <form onSubmit={handleSubmit(onSubmitFund)} className="grid grid-cols-2 gap-3 sm:flex sm:items-end sm:gap-4">
+            <div className="flex items-center gap-2 rounded-md bg-blue-50 px-3 py-2 sm:hidden">
+              <span className="text-xs text-gray-600">Fondo:</span>
+              <span className="text-sm font-bold text-blue-700">
+                {fondo !== null ? `${fondo.toFixed(2)} €` : "..."}
               </span>
             </div>
-          </div>
-          <form onSubmit={handleSubmit(onSubmitFund)} className="flex flex-col gap-4 sm:flex-row sm:items-end">
             <div>
-              <label className="block text-sm font-medium text-gray-700">Monto</label>
+              <label className="block text-xs font-medium text-gray-600">Monto</label>
               <input
                 type="number"
                 step="0.01"
                 {...register("amount", { valueAsNumber: true })}
-                className="mt-1 block w-full rounded-md border border-gray-300 px-3 py-2 text-sm text-gray-900 shadow-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
+                className="mt-1 block w-full rounded-md border border-gray-300 px-3 py-1.5 text-sm text-gray-900 shadow-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
               />
               {errors.amount && (
                 <p className="mt-1 text-xs text-red-500">{errors.amount.message}</p>
               )}
             </div>
-            <div className="flex-1">
-              <label className="block text-sm font-medium text-gray-700">Descripción (opcional)</label>
+            <div className="col-span-2 min-w-0 flex-1 sm:col-span-1">
+              <label className="block text-xs font-medium text-gray-600">Descripción</label>
               <input
                 type="text"
                 {...register("description")}
-                placeholder="Ej: Depósito inicial, Ajuste mensual..."
-                className="mt-1 block w-full rounded-md border border-gray-300 px-3 py-2 text-sm text-gray-900 shadow-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
+                placeholder="Opcional..."
+                className="mt-1 block w-full rounded-md border border-gray-300 px-3 py-1.5 text-sm text-gray-900 shadow-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
               />
+            </div>
+            <div className="hidden items-center gap-2 rounded-md bg-blue-50 px-3 py-2 sm:flex">
+              <span className="text-xs text-gray-600">Fondo:</span>
+              <span className="text-sm font-bold text-blue-700">
+                {fondo !== null ? `${fondo.toFixed(2)} €` : "..."}
+              </span>
             </div>
             <button
               type="submit"
               disabled={isSubmitting}
-              className="rounded-md bg-blue-600 px-6 py-2 text-sm font-medium text-white hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 disabled:opacity-50"
+              className="col-span-2 w-full rounded-md bg-blue-600 py-2 text-sm font-medium text-white hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 disabled:opacity-50 sm:col-span-1 sm:w-auto sm:px-6"
             >
               {isSubmitting ? "Guardando..." : "Depositar"}
             </button>
@@ -189,41 +193,43 @@ export default function FondoPage() {
           <h2 className="mb-4 text-lg font-semibold text-gray-900">Historial de Depósitos</h2>
 
           {/* Filters */}
-          <div className="mb-4 flex flex-col gap-3 rounded-md border border-gray-200 bg-gray-50 p-4 sm:flex-row sm:items-end sm:flex-wrap">
-            <div className="flex-1 min-w-[140px]">
-              <label className="block text-xs font-medium text-gray-600">Fecha desde</label>
-              <input
-                type="date"
-                value={dateFrom}
-                onChange={(e) => { setDateFrom(e.target.value); setPage(1) }}
-                className="mt-1 block w-full rounded-md border border-gray-300 px-3 py-1.5 text-sm text-gray-900 focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
-              />
+          <div className="mb-4 rounded-md border border-gray-200 bg-gray-50 p-4">
+            <div className="grid grid-cols-2 gap-3 sm:flex sm:flex-wrap sm:items-end">
+              <div className="min-w-0 sm:min-w-[140px]">
+                <label className="block text-xs font-medium text-gray-600">Desde</label>
+                <input
+                  type="date"
+                  value={dateFrom}
+                  onChange={(e) => { setDateFrom(e.target.value); setPage(1) }}
+                  className="mt-1 block w-full rounded-md border border-gray-300 px-3 py-1.5 text-sm text-gray-900 focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
+                />
+              </div>
+              <div className="min-w-0 sm:min-w-[140px]">
+                <label className="block text-xs font-medium text-gray-600">Hasta</label>
+                <input
+                  type="date"
+                  value={dateTo}
+                  onChange={(e) => { setDateTo(e.target.value); setPage(1) }}
+                  className="mt-1 block w-full rounded-md border border-gray-300 px-3 py-1.5 text-sm text-gray-900 focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
+                />
+              </div>
+              <div className="col-span-2 min-w-0 sm:col-span-1 sm:min-w-[180px]">
+                <label className="block text-xs font-medium text-gray-600">Buscar</label>
+                <input
+                  type="text"
+                  value={searchText}
+                  onChange={(e) => { setSearchText(e.target.value); setPage(1) }}
+                  placeholder="Descripción o persona..."
+                  className="mt-1 block w-full rounded-md border border-gray-300 px-3 py-1.5 text-sm text-gray-900 focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
+                />
+              </div>
+              <button
+                onClick={resetFilters}
+                className="col-span-2 w-full rounded-md border border-gray-300 px-4 py-1.5 text-sm text-gray-600 hover:bg-gray-100 sm:col-span-1 sm:w-auto"
+              >
+                Limpiar
+              </button>
             </div>
-            <div className="flex-1 min-w-[140px]">
-              <label className="block text-xs font-medium text-gray-600">Fecha hasta</label>
-              <input
-                type="date"
-                value={dateTo}
-                onChange={(e) => { setDateTo(e.target.value); setPage(1) }}
-                className="mt-1 block w-full rounded-md border border-gray-300 px-3 py-1.5 text-sm text-gray-900 focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
-              />
-            </div>
-            <div className="flex-1 min-w-[180px]">
-              <label className="block text-xs font-medium text-gray-600">Buscar</label>
-              <input
-                type="text"
-                value={searchText}
-                onChange={(e) => { setSearchText(e.target.value); setPage(1) }}
-                placeholder="Descripción o persona..."
-                className="mt-1 block w-full rounded-md border border-gray-300 px-3 py-1.5 text-sm text-gray-900 focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
-              />
-            </div>
-            <button
-              onClick={resetFilters}
-              className="rounded-md border border-gray-300 px-4 py-1.5 text-sm text-gray-600 hover:bg-gray-100"
-            >
-              Limpiar
-            </button>
           </div>
 
           {loadingData ? (
