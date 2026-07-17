@@ -1,5 +1,5 @@
 export const RP_NAME = "Fans Cashflow"
-export const RP_ID = process.env.VERCEL_URL || process.env.NEXTAUTH_URL?.replace(/^https?:\/\//, "").replace(/:\d+$/, "") || "localhost"
+export const RP_ID = process.env.NEXTAUTH_URL?.replace(/^https?:\/\//, "").replace(/:\d+$/, "") || "localhost"
 
 export const ORIGINS = [
   process.env.NEXTAUTH_URL || "http://localhost:3000",
