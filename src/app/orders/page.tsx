@@ -22,12 +22,6 @@ interface OrderFormData {
   comment: string
 }
 
-const ROLE_REDIRECT: Record<string, string> = {
-  ADMIN: "/admin",
-  SOCIO: "/socio",
-  EMPLEADO: "/empleado",
-}
-
 const MONTH_NAMES = [
   "Enero", "Febrero", "Marzo", "Abril", "Mayo", "Junio",
   "Julio", "Agosto", "Septiembre", "Octubre", "Noviembre", "Diciembre",
@@ -234,9 +228,6 @@ export default function OrdersPage() {
       <AppHeader
         title="Fans Cashflow"
         subtitle="Encargos"
-        links={[
-          { href: ROLE_REDIRECT[session?.user?.role || ""] || "/empleado", label: "Volver" },
-        ]}
       />
 
       <main className="mx-auto max-w-5xl px-4 py-6">
