@@ -183,29 +183,35 @@ export default function EfectivoPage() {
           ) : (
             <>
               {/* Mobile: cards */}
-              <div className="space-y-3 sm:hidden">
+              <div className="space-y-2 sm:hidden">
                 {shifts.map((shift) => (
-                  <div key={shift.id} className="rounded-md border border-gray-200 bg-gray-50 p-4">
-                    <div className="flex items-start justify-between">
-                      <div>
-                        <p className="text-sm text-gray-900">{new Date(shift.date).toLocaleDateString("es-ES")}</p>
-                        <p className="text-sm font-medium text-gray-900">{shift.turno}</p>
+                  <div key={shift.id} className="rounded-md border border-gray-200 bg-gray-50 p-3">
+                    <div className="mb-2 flex items-center justify-between">
+                      <div className="flex items-center gap-2">
+                        <span className="text-xs text-gray-500">{new Date(shift.date).toLocaleDateString("es-ES")}</span>
+                        <span className={`rounded px-1.5 py-0.5 text-xs font-medium ${shift.turno === "mañana" ? "bg-amber-100 text-amber-700" : "bg-blue-100 text-blue-700"}`}>
+                          {shift.turno}
+                        </span>
                       </div>
-                      <p className="text-sm font-medium text-gray-900">{Number(shift.efectivo).toFixed(2)} €</p>
+                      <span className="text-sm font-bold text-gray-900">{Number(shift.efectivo).toFixed(2)} €</span>
                     </div>
-                    <div className="mt-3 flex items-center gap-4">
+                    <div className="flex gap-2">
                       {(["DEPOSITO", "INGRESO_EN_FONDO", "GUARDADO"] as const).map((dest) => (
-                        <div key={dest} className="flex items-center gap-1.5 text-sm text-gray-700">
+                        <label key={dest} className={`flex flex-1 cursor-pointer items-center justify-center gap-1 rounded-md border px-2 py-1.5 text-xs font-medium transition-colors ${
+                          shift.cashTracking?.destination === dest
+                            ? "border-blue-500 bg-blue-50 text-blue-700"
+                            : "border-gray-200 bg-white text-gray-600 hover:bg-gray-50"
+                        } ${saving === shift.id ? "pointer-events-none opacity-50" : ""}`}>
                           <input
                             type="radio"
                             name={`mob-dest-${shift.id}`}
                             checked={shift.cashTracking?.destination === dest}
                             disabled={saving === shift.id}
                             onChange={() => handleDestinationChange(shift.id, dest)}
-                            className="h-4 w-4 border-gray-300 text-blue-600 focus:ring-blue-500"
+                            className="sr-only"
                           />
-                          <span>{DESTINATION_LABELS[dest]}</span>
-                        </div>
+                          {DESTINATION_LABELS[dest]}
+                        </label>
                       ))}
                     </div>
                   </div>

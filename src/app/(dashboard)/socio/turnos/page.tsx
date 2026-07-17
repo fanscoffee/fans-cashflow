@@ -99,65 +99,67 @@ export default function TurnosPage() {
           <h2 className="mb-4 text-lg font-semibold text-gray-900">Historial de Turnos</h2>
 
           {/* Filters */}
-          <div className="mb-4 flex flex-col gap-3 rounded-md border border-gray-200 bg-gray-50 p-4 sm:flex-row sm:items-end sm:flex-wrap">
-            <div className="flex-1 min-w-[140px]">
-              <label className="block text-xs font-medium text-gray-600">Fecha desde</label>
-              <input
-                type="date"
-                value={dateFrom}
-                onChange={(e) => { setDateFrom(e.target.value); setPage(1) }}
-                className="mt-1 block w-full rounded-md border border-gray-300 px-3 py-1.5 text-sm text-gray-900 focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
-              />
-            </div>
-            <div className="flex-1 min-w-[140px]">
-              <label className="block text-xs font-medium text-gray-600">Fecha hasta</label>
-              <input
-                type="date"
-                value={dateTo}
-                onChange={(e) => { setDateTo(e.target.value); setPage(1) }}
-                className="mt-1 block w-full rounded-md border border-gray-300 px-3 py-1.5 text-sm text-gray-900 focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
-              />
-            </div>
-            <div className="flex-1 min-w-[120px]">
-              <label className="block text-xs font-medium text-gray-600">Turno</label>
-              <select
-                value={filterTurno}
-                onChange={(e) => { setFilterTurno(e.target.value); setPage(1) }}
-                className="mt-1 block w-full rounded-md border border-gray-300 px-3 py-1.5 text-sm text-gray-900 focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
+          <div className="mb-4 rounded-md border border-gray-200 bg-gray-50 p-4">
+            <div className="grid grid-cols-2 gap-3 sm:flex sm:flex-wrap sm:items-end">
+              <div className="min-w-0 sm:min-w-[140px]">
+                <label className="block text-xs font-medium text-gray-600">Desde</label>
+                <input
+                  type="date"
+                  value={dateFrom}
+                  onChange={(e) => { setDateFrom(e.target.value); setPage(1) }}
+                  className="mt-1 block w-full rounded-md border border-gray-300 px-3 py-1.5 text-sm text-gray-900 focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
+                />
+              </div>
+              <div className="min-w-0 sm:min-w-[140px]">
+                <label className="block text-xs font-medium text-gray-600">Hasta</label>
+                <input
+                  type="date"
+                  value={dateTo}
+                  onChange={(e) => { setDateTo(e.target.value); setPage(1) }}
+                  className="mt-1 block w-full rounded-md border border-gray-300 px-3 py-1.5 text-sm text-gray-900 focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
+                />
+              </div>
+              <div className="min-w-0 sm:min-w-[100px]">
+                <label className="block text-xs font-medium text-gray-600">Turno</label>
+                <select
+                  value={filterTurno}
+                  onChange={(e) => { setFilterTurno(e.target.value); setPage(1) }}
+                  className="mt-1 block w-full rounded-md border border-gray-300 px-3 py-1.5 text-sm text-gray-900 focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
+                >
+                  <option value="todos">Todos</option>
+                  <option value="mañana">Mañana</option>
+                  <option value="tarde">Tarde</option>
+                </select>
+              </div>
+              <div className="min-w-0 sm:min-w-[100px]">
+                <label className="block text-xs font-medium text-gray-600">Estado</label>
+                <select
+                  value={filterStatus}
+                  onChange={(e) => { setFilterStatus(e.target.value); setPage(1) }}
+                  className="mt-1 block w-full rounded-md border border-gray-300 px-3 py-1.5 text-sm text-gray-900 focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
+                >
+                  <option value="todos">Todos</option>
+                  <option value="ABIERTO">Abierto</option>
+                  <option value="CERRADO">Cerrado</option>
+                </select>
+              </div>
+              <div className="col-span-2 min-w-0 sm:col-span-1 sm:min-w-[180px]">
+                <label className="block text-xs font-medium text-gray-600">Persona</label>
+                <input
+                  type="text"
+                  value={filterPersona}
+                  onChange={(e) => { setFilterPersona(e.target.value); setPage(1) }}
+                  placeholder="Nombre o email..."
+                  className="mt-1 block w-full rounded-md border border-gray-300 px-3 py-1.5 text-sm text-gray-900 focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
+                />
+              </div>
+              <button
+                onClick={resetFilters}
+                className="col-span-2 w-full rounded-md border border-gray-300 px-4 py-1.5 text-sm text-gray-600 hover:bg-gray-100 sm:col-span-1 sm:w-auto"
               >
-                <option value="todos">Todos</option>
-                <option value="mañana">Mañana</option>
-                <option value="tarde">Tarde</option>
-              </select>
+                Limpiar
+              </button>
             </div>
-            <div className="flex-1 min-w-[120px]">
-              <label className="block text-xs font-medium text-gray-600">Estado</label>
-              <select
-                value={filterStatus}
-                onChange={(e) => { setFilterStatus(e.target.value); setPage(1) }}
-                className="mt-1 block w-full rounded-md border border-gray-300 px-3 py-1.5 text-sm text-gray-900 focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
-              >
-                <option value="todos">Todos</option>
-                <option value="ABIERTO">Abierto</option>
-                <option value="CERRADO">Cerrado</option>
-              </select>
-            </div>
-            <div className="flex-1 min-w-[180px]">
-              <label className="block text-xs font-medium text-gray-600">Persona</label>
-              <input
-                type="text"
-                value={filterPersona}
-                onChange={(e) => { setFilterPersona(e.target.value); setPage(1) }}
-                placeholder="Nombre o email..."
-                className="mt-1 block w-full rounded-md border border-gray-300 px-3 py-1.5 text-sm text-gray-900 focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
-              />
-            </div>
-            <button
-              onClick={resetFilters}
-              className="rounded-md border border-gray-300 px-4 py-1.5 text-sm text-gray-600 hover:bg-gray-100"
-            >
-              Limpiar
-            </button>
           </div>
 
           {loading ? (
