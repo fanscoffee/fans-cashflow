@@ -18,22 +18,24 @@ export async function GET() {
 
   let shifts
 
+  const orderBy = [{ date: "desc" as const }, { turno: "asc" as const }]
+
   if (isAdminOrSocio) {
     shifts = await prisma.shift.findMany({
       include: { expenses: true, createdBy: { select: { name: true, email: true } } },
-      orderBy: { createdAt: "desc" },
+      orderBy,
     })
   } else {
     const openShift = await prisma.shift.findFirst({
       where: { createdById: session.user.id, status: "ABIERTO" },
       include: { expenses: true, createdBy: { select: { name: true, email: true } } },
-      orderBy: { createdAt: "desc" },
+      orderBy,
     })
 
     const lastClosed = await prisma.shift.findFirst({
       where: { createdById: session.user.id, status: "CERRADO" },
       include: { expenses: true, createdBy: { select: { name: true, email: true } } },
-      orderBy: { createdAt: "desc" },
+      orderBy,
     })
 
     shifts = [openShift, lastClosed].filter(Boolean)
