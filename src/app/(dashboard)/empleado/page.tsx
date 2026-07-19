@@ -164,7 +164,7 @@ export default function EmpleadoPage() {
       const res = await fetch("/api/shifts", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ ...data, date: new Date().toISOString().split("T")[0] }),
+        body: JSON.stringify({ ...data, date: dateStr }),
       })
 
       if (!res.ok) {
@@ -328,9 +328,14 @@ export default function EmpleadoPage() {
                 <label className="block text-sm font-medium text-gray-700">Fecha</label>
                 <input
                   type="date"
-                  readOnly
+                  readOnly={session?.user?.role === "EMPLEADO"}
                   value={dateStr}
-                  className="mt-1 block w-full rounded-md border border-gray-200 bg-gray-50 px-3 py-2 text-sm text-gray-500"
+                  onChange={(e) => setDateStr(e.target.value)}
+                  className={`mt-1 block w-full rounded-md border px-3 py-2 text-sm shadow-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500 ${
+                    session?.user?.role === "EMPLEADO"
+                      ? "border-gray-200 bg-gray-50 text-gray-500"
+                      : "border-gray-300 text-gray-900"
+                  }`}
                 />
               </div>
 

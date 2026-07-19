@@ -102,7 +102,12 @@ export default function OrdersPage() {
       const res = await fetch(`/api/orders${qs}`)
       if (res.ok) {
         const data = await res.json()
-        setOrders(data)
+        if (session?.user?.role === "EMPLEADO") {
+          const today = new Date().toISOString().slice(0, 10)
+          setOrders(data.filter((o: Order) => o.deliveryDate.slice(0, 10) >= today))
+        } else {
+          setOrders(data)
+        }
       }
     } catch {
       // ignore
