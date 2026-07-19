@@ -5,7 +5,7 @@ import { auth } from "@/lib/auth"
 
 const cashTrackingSchema = z.object({
   shiftId: z.string(),
-  destination: z.enum(["DEPOSITO", "INGRESO_EN_FONDO", "GUARDADO"]),
+  destination: z.enum(["DEPOSITO", "INGRESO_EN_FONDO", "GUARDADO", "FANS"]),
 })
 
 export async function GET(request: Request) {
