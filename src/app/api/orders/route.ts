@@ -19,13 +19,21 @@ export async function GET(request: Request) {
   const { searchParams } = new URL(request.url)
   const month = searchParams.get("month")
   const year = searchParams.get("year")
+  const upcoming = searchParams.get("upcoming") === "true"
 
   const role = session.user.role
   const isAdminOrSocio = role === "ADMIN" || role === "SOCIO"
 
   const where: Record<string, unknown> = {}
 
-  if (isAdminOrSocio && month && year) {
+  if (upcoming) {
+    const today = new Date()
+    today.setHours(0, 0, 0, 0)
+    const tomorrow = new Date(today)
+    tomorrow.setDate(tomorrow.getDate() + 1)
+    tomorrow.setHours(23, 59, 59, 999)
+    where.deliveryDate = { gte: today, lte: tomorrow }
+  } else if (isAdminOrSocio && month && year) {
     const startDate = new Date(Number(year), Number(month) - 1, 1)
     const endDate = new Date(Number(year), Number(month), 1)
     where.deliveryDate = { gte: startDate, lt: endDate }
