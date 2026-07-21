@@ -5,6 +5,7 @@ import { signOut, useSession } from "next-auth/react"
 import Link from "next/link"
 import Image from "next/image"
 import { usePathname } from "next/navigation"
+import NotificationBell from "@/components/notification-bell"
 
 interface HeaderLink {
   href: string
@@ -153,6 +154,8 @@ export default function AppHeader({
           </button>
         </div>
       )}
+
+      <NotificationBell />
     </header>
   )
 }
