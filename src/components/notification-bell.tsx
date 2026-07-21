@@ -1,15 +1,7 @@
 "use client"
 
 import { useState, useEffect, useCallback } from "react"
-
-interface Order {
-  id: string
-  clientName: string
-  clientPhone: string
-  deliveryDate: string
-  comment: string | null
-  createdBy?: { name: string | null; email: string }
-}
+import type { Order } from "@/types/order"
 
 export default function NotificationBell() {
   const [orders, setOrders] = useState<Order[]>([])
