@@ -19,6 +19,11 @@ export async function PATCH(
     return NextResponse.json({ error: "No autorizado" }, { status: 401 })
   }
 
+  const role = session.user.role
+  if (role !== "ADMIN" && role !== "SOCIO") {
+    return NextResponse.json({ error: "No autorizado" }, { status: 403 })
+  }
+
   const { orderId } = await params
 
   try {

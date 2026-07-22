@@ -1,69 +1,48 @@
-# ADR-0001: Encargos — decisiones pendientes de implementación
+# ADR-0001: Encargos — tareas de deepening
 
 ## Estado
 
-Pendiente — registrado para que revisiones futuras no re-sugieran lo ya evaluado.
+Resuelto — todas las tareas implementadas (22 Jul 2026).
 
 ## Contexto
 
-Una revisión de arquitectura del módulo de Encargos (22 Jul 2026) identificó 6 candidatos de deepening. Se implementaron los relacionados con la extracción de componentes y el hook `useOrders`. Los siguientes quedaron pendientes por prioridad o dependencia.
+Revisión de arquitectura del módulo de Encargos (22 Jul 2026). Se identificaron 6 candidatos de deepening. Primero se extrajeron componentes y el hook `useOrders`. Luego se implementaron las 4 tareas pendientes documentadas aquí.
 
-## Decisiones pendientes
+## Decisiones implementadas
 
-### 1. PATCH sin role check server-side (seguridad)
+### 1. PATCH sin role check server-side (seguridad) ✅
 
-**Archivo:** `src/app/api/orders/[orderId]/route.ts:13-57`
+**Archivo:** `src/app/api/orders/[orderId]/route.ts`
 
-El endpoint PATCH no verifica el rol del usuario. Cualquier usuario autenticado (EMPLEADO, OBRADOR) puede editar cualquier encargo vía HTTP directa. La restricción solo existe en la UI. DELETE sí tiene role check (líneas 68-71).
-
-**Acción necesaria:** Añadir el mismo role check que DELETE al handler PATCH. Considerar un adapter de autorización compartido para eliminar la duplicación entre PATCH y DELETE.
-
-**Prioridad:** Alta — brecha de seguridad activa.
+Se añadió role check (`ADMIN` | `SOCIO`) al handler PATCH, igual que DELETE. Cualquier usuario autenticado que no sea ADMIN o SOCIO recibe 403 al intentar editar.
 
 ---
 
-### 2. Separar GET /api/orders en dos endpoints
-
-**Archivo:** `src/app/api/orders/route.ts:13-48`
-
-El handler GET acumula dos casos de uso distintos en un solo condicional:
-- `?upcoming=true` → NotificationBell (hoy + mañana)
-- `?month=&year=` → OrdersPage (listado por mes)
-
-Cada nuevo caso de uso agranda el condicional y fragiliza el módulo.
-
-**Acción necesaria:** Extraer `/api/orders/upcoming` para notificaciones. Mantener el endpoint principal solo para el listado con month/year.
-
-**Prioridad:** Media — funcional, pero dificulta extensión futura.
-
----
-
-### 3. Mover filtro de fecha de EMPLEADO/OBRADOR al server
+### 2. Separar GET /api/orders en dos endpoints ✅
 
 **Archivos:**
-- `src/app/api/orders/route.ts:29-40` — server no filtra para EMPLEADO/OBRADOR
-- `src/hooks/useOrders.ts:42-44` — filtro client-side: `deliveryDate >= today`
+- `src/app/api/orders/route.ts` — solo listado con month/year
+- `src/app/api/orders/upcoming/route.ts` — nuevo endpoint para notificaciones (hoy + mañana)
 
-El servidor devuelve todos los encargos a EMPLEADO/OBRADOR y el cliente filtra después. Esto desperdicia ancho de banda y expone datos innecesarios.
-
-**Acción necesaria:** Añadir `deliveryDate >= today` al WHERE de Prisma para roles no-admin. El filtro de fecha se testea en el server sin montar UI.
-
-**Prioridad:** Baja — funcional, inefficiency menor.
+El GET principal ya no maneja `?upcoming=true`. NotificationBell apunta a `/api/orders/upcoming`.
 
 ---
 
-### 4. Integrar NotificationBell con useOrders
+### 3. Mover filtro de fecha de EMPLEADO/OBRADOR al server ✅
+
+**Archivo:** `src/app/api/orders/route.ts`
+
+Se añadió `deliveryDate >= today` al WHERE de Prisma para roles no-admin. El cliente ya no filtra — el servidor devuelve solo encargos de hoy en adelante.
+
+---
+
+### 4. Integrar NotificationBell con useOrders ✅
 
 **Archivo:** `src/components/notification-bell.tsx`
 
-El bell hace su propio fetch a `/api/orders?upcoming=true` independientemente del hook. En `/orders` se hacen dos llamadas simultáneas a la API.
-
-**Decisión registrada:** Mantener el fetch independiente por ahora. Integrar requiere un contexto global o lifting de estado que añade complejidad sin ganancia clara. Si se implementa el candidato 2 (separar endpoints), la llamada del bell apuntaría a `/api/orders/upcoming` y la duplicación se reduce naturalmente.
-
-**Prioridad:** Baja — se resuelve parcialmente con el candidato 2.
+NotificationBell acepta un prop opcional `upcomingOrders`. Cuando se pasa, usa esos datos en vez de hacer fetch propio. En otras páginas, mantiene su fetch independiente a `/api/orders/upcoming`.
 
 ## Consecuencias
 
-- Revisar este ADR antes de volver a sugerir estos cambios.
-- Si se implementa el candidato 1 (PATCH role check), marcarlo como resuelto aquí.
-- Los candidatos 2-4 pueden hacerse en cualquier orden, sin dependencias entre sí.
+- Todas las tareas de este ADR están resueltas. No re-sugerir.
+- El módulo de Encargos ahora tiene profundidad real: hooks, componentes, tipos compartidos, endpoints separados.

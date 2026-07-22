@@ -57,7 +57,10 @@ const mockOrders = [
 ]
 
 const server = setupServer(
-  http.get("/api/orders", () => HttpResponse.json(mockOrders)),
+  http.get("/api/orders", () => {
+    const filtered = mockOrders.filter((o) => o.deliveryDate.slice(0, 10) >= today)
+    return HttpResponse.json(filtered)
+  }),
 )
 
 beforeAll(() => server.listen())

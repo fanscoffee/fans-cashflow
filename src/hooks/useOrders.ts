@@ -34,12 +34,7 @@ export function useOrders({ month, year }: UseOrdersOptions = {}) {
       const res = await fetch(`/api/orders${qs}`)
       if (res.ok) {
         const data = await res.json()
-        if (role === "EMPLEADO" || role === "OBRADOR") {
-          const today = new Date().toISOString().slice(0, 10)
-          setOrders(data.filter((o: Order) => o.deliveryDate.slice(0, 10) >= today))
-        } else {
-          setOrders(data)
-        }
+        setOrders(data)
       }
     } catch {
       // ignore
