@@ -1,4 +1,5 @@
 import { describe, expect, it, vi, beforeEach } from "vitest"
+import type { NextRequest } from "next/server"
 
 vi.mock("@/lib/prisma", () => ({
   prisma: {
@@ -30,7 +31,7 @@ describe("Orders API /api/orders/[orderId]", () => {
   describe("PATCH", () => {
     it("returns 401 when not authenticated", async () => {
       vi.mocked(auth).mockResolvedValue(null as any)
-      const res = await PATCH(new Request("http://localhost/api/orders/o1", { method: "PATCH" }), { params: mockParams })
+      const res = await PATCH(new Request("http://localhost/api/orders/o1", { method: "PATCH" }) as unknown as NextRequest, { params: mockParams })
       expect(res.status).toBe(401)
     })
 
@@ -38,7 +39,7 @@ describe("Orders API /api/orders/[orderId]", () => {
       vi.mocked(auth).mockResolvedValue({
         user: { id: "2", role: "EMPLEADO" },
       } as any)
-      const res = await PATCH(new Request("http://localhost/api/orders/o1", { method: "PATCH" }), { params: mockParams })
+      const res = await PATCH(new Request("http://localhost/api/orders/o1", { method: "PATCH" }) as unknown as NextRequest, { params: mockParams })
       expect(res.status).toBe(403)
     })
 
@@ -53,7 +54,7 @@ describe("Orders API /api/orders/[orderId]", () => {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
         body,
-      })
+      }) as unknown as NextRequest
 
       const res = await PATCH(req, { params: mockParams })
       expect(res.status).toBe(404)
@@ -71,7 +72,7 @@ describe("Orders API /api/orders/[orderId]", () => {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
         body,
-      })
+      }) as unknown as NextRequest
 
       const res = await PATCH(req, { params: mockParams })
       expect(res.status).toBe(200)
@@ -90,7 +91,7 @@ describe("Orders API /api/orders/[orderId]", () => {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
         body,
-      })
+      }) as unknown as NextRequest
 
       const res = await PATCH(req, { params: mockParams })
       expect(res.status).toBe(200)
@@ -100,7 +101,7 @@ describe("Orders API /api/orders/[orderId]", () => {
   describe("DELETE", () => {
     it("returns 401 when not authenticated", async () => {
       vi.mocked(auth).mockResolvedValue(null as any)
-      const res = await DELETE(new Request("http://localhost/api/orders/o1"), { params: mockParams })
+      const res = await DELETE(new Request("http://localhost/api/orders/o1") as unknown as NextRequest, { params: mockParams })
       expect(res.status).toBe(401)
     })
 
@@ -108,7 +109,7 @@ describe("Orders API /api/orders/[orderId]", () => {
       vi.mocked(auth).mockResolvedValue({
         user: { id: "4", role: "OBRADOR" },
       } as any)
-      const res = await DELETE(new Request("http://localhost/api/orders/o1"), { params: mockParams })
+      const res = await DELETE(new Request("http://localhost/api/orders/o1") as unknown as NextRequest, { params: mockParams })
       expect(res.status).toBe(403)
     })
 
@@ -118,7 +119,7 @@ describe("Orders API /api/orders/[orderId]", () => {
       } as any)
       vi.mocked(prisma.order.findUnique).mockResolvedValue(null)
 
-      const res = await DELETE(new Request("http://localhost/api/orders/o1"), { params: mockParams })
+      const res = await DELETE(new Request("http://localhost/api/orders/o1") as unknown as NextRequest, { params: mockParams })
       expect(res.status).toBe(404)
     })
 
@@ -129,7 +130,7 @@ describe("Orders API /api/orders/[orderId]", () => {
       vi.mocked(prisma.order.findUnique).mockResolvedValue({ id: "o1" } as any)
       vi.mocked(prisma.order.delete).mockResolvedValue({ id: "o1" } as any)
 
-      const res = await DELETE(new Request("http://localhost/api/orders/o1"), { params: mockParams })
+      const res = await DELETE(new Request("http://localhost/api/orders/o1") as unknown as NextRequest, { params: mockParams })
       expect(res.status).toBe(200)
       expect(prisma.order.delete).toHaveBeenCalledWith({ where: { id: "o1" } })
     })

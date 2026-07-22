@@ -199,6 +199,7 @@ export default function TurnosPage() {
                         <div className="space-y-3">
                           {dayShifts.map((shift) => {
                             const totalExpenses = shift.expenses.reduce((sum, e) => sum + toN(e.importe), 0)
+                            const totalPorTurno = toN(shift.efectivo) + toN(shift.caixa) + toN(shift.santander)
                             return (
                               <div key={shift.id} className="rounded-md border border-gray-100 bg-white p-4">
                                 <div className="flex flex-col gap-1 sm:flex-row sm:items-center sm:justify-between">
@@ -214,6 +215,9 @@ export default function TurnosPage() {
                                         — {shift.createdBy.name || shift.createdBy.email}
                                       </span>
                                     )}
+                                    <span className="rounded-full bg-green-100 px-2 py-0.5 text-xs font-bold text-green-800">
+                                      {totalPorTurno.toFixed(2)} €
+                                    </span>
                                   </div>
                                 </div>
                                 <div className="mt-2 grid grid-cols-2 gap-2 text-sm md:grid-cols-4">

@@ -1,4 +1,5 @@
 import { describe, expect, it, vi, beforeEach } from "vitest"
+import type { NextRequest } from "next/server"
 
 vi.mock("@/lib/prisma", () => ({
   prisma: {
@@ -21,7 +22,7 @@ import { prisma } from "@/lib/prisma"
 import { auth } from "@/lib/auth"
 
 function mockRequest(url: string) {
-  return new Request(url) as unknown as Request
+  return new Request(url) as unknown as NextRequest
 }
 
 describe("Orders API /api/orders", () => {
@@ -95,7 +96,7 @@ describe("Orders API /api/orders", () => {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body,
-      }) as unknown as Request
+      }) as unknown as NextRequest
 
       const res = await POST(req)
       expect(res.status).toBe(400)
@@ -119,7 +120,7 @@ describe("Orders API /api/orders", () => {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body,
-      }) as unknown as Request
+      }) as unknown as NextRequest
 
       const res = await POST(req)
       expect(res.status).toBe(201)

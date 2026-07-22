@@ -1,4 +1,5 @@
 import { describe, expect, it, vi, beforeEach } from "vitest"
+import type { NextRequest } from "next/server"
 
 vi.mock("@/lib/prisma", () => ({
   prisma: {
@@ -20,7 +21,7 @@ import { prisma } from "@/lib/prisma"
 import { auth } from "@/lib/auth"
 
 function mockRequest(url: string) {
-  return new Request(url) as unknown as Request
+  return new Request(url) as unknown as NextRequest
 }
 
 describe("Fund API /api/fund", () => {

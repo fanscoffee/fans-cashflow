@@ -174,4 +174,35 @@ describe("TurnosPage", () => {
       expect(screen.getByText("No hay turnos registrados.")).toBeInTheDocument()
     })
   })
+
+  it("renders per-shift total badge with correct sum", async () => {
+    render(<TurnosPage />)
+    await waitFor(() => {
+      expect(screen.getByText("180.00 €")).toBeInTheDocument()
+      expect(screen.getByText("140.00 €")).toBeInTheDocument()
+    })
+  })
+
+  it("per-shift total badge has green styling", async () => {
+    render(<TurnosPage />)
+    await waitFor(() => {
+      const badges = screen.getAllByText(/\d+\.\d+ €/)
+      const greenBadge = badges.find((el) =>
+        el.className.includes("bg-green-100") && el.className.includes("text-green-800")
+      )
+      expect(greenBadge).toBeTruthy()
+    })
+  })
+
+  it("per-shift total badge appears after the person name", async () => {
+    render(<TurnosPage />)
+    await waitFor(() => {
+      const juanName = screen.getByText("— Juan")
+      const badges = juanName.parentElement?.querySelectorAll("span")
+      const badgeTexts = Array.from(badges || []).map((b) => b.textContent)
+      const juanIndex = badgeTexts.findIndex((t) => t?.includes("Juan"))
+      const totalIndex = badgeTexts.findIndex((t) => t?.includes("180.00"))
+      expect(totalIndex).toBeGreaterThan(juanIndex)
+    })
+  })
 })

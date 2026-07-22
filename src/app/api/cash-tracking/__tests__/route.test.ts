@@ -1,4 +1,5 @@
 import { describe, expect, it, vi, beforeEach } from "vitest"
+import type { NextRequest } from "next/server"
 
 vi.mock("@/lib/prisma", () => ({
   prisma: {
@@ -27,7 +28,7 @@ function mockRequest(url: string, method = "GET", body?: object) {
     opts.headers = { "Content-Type": "application/json" }
     opts.body = JSON.stringify(body)
   }
-  return new Request(url, opts) as unknown as Request
+  return new Request(url, opts) as unknown as NextRequest
 }
 
 describe("Cash Tracking API /api/cash-tracking", () => {

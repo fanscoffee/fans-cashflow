@@ -40,8 +40,8 @@ vi.mock("@/components/orders/order-list", () => ({
       {(orders as any[]).map((o: any) => (
         <div key={o.id}>
           <span>{o.clientName}</span>
-          <button onClick={() => onEdit(o)}>Edit</button>
-          <button onClick={() => onDelete(o.id)}>Delete</button>
+          <button onClick={() => (onEdit as Function)(o)}>Edit</button>
+          <button onClick={() => (onDelete as Function)(o.id)}>Delete</button>
         </div>
       ))}
     </div>
