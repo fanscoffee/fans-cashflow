@@ -1,39 +1,29 @@
 import { NextResponse } from "next/server"
 import { z } from "zod"
 import { prisma } from "@/lib/prisma"
-import { auth } from "@/lib/auth"
+import { withAuth } from "@/lib/with-auth"
 
 const fundAdditionSchema = z.object({
   amount: z.number().min(0.01, "El monto debe ser mayor a 0"),
   description: z.string().optional(),
 })
 
-export async function GET() {
-  const session = await auth()
-  if (!session?.user?.id) {
-    return NextResponse.json({ error: "No autorizado" }, { status: 401 })
-  }
-
+export const GET = withAuth(async () => {
   const additions = await prisma.fundAddition.findMany({
     include: { createdBy: { select: { name: true, email: true } } },
     orderBy: { createdAt: "desc" },
   })
 
   return NextResponse.json(additions)
-}
+})
 
-export async function POST(request: Request) {
-  const session = await auth()
-  if (!session?.user?.id) {
-    return NextResponse.json({ error: "No autorizado" }, { status: 401 })
-  }
-
+export const POST = withAuth(async (req, session) => {
   if (session.user.role !== "SOCIO" && session.user.role !== "ADMIN") {
     return NextResponse.json({ error: "No autorizado" }, { status: 403 })
   }
 
   try {
-    const body = await request.json()
+    const body = await req.json()
     const data = fundAdditionSchema.parse(body)
 
     const addition = await prisma.fundAddition.create({
@@ -58,4 +48,4 @@ export async function POST(request: Request) {
       { status: 500 }
     )
   }
-}
+})

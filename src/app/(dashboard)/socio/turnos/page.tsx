@@ -3,6 +3,7 @@
 import { useState, useEffect, useMemo } from "react"
 import { useSession } from "next-auth/react"
 import AppHeader from "@/components/app-header"
+import { toN } from "@/lib/money"
 
 interface Expense {
   id: string
@@ -182,7 +183,7 @@ export default function TurnosPage() {
                   return Object.entries(groups).map(([day, dayShifts]) => {
                     dayShifts.sort((a, b) => a.turno === "mañana" ? -1 : 1)
                     const facturacion = dayShifts.reduce(
-                      (sum, s) => sum + Number(s.efectivo) + Number(s.caixa) + Number(s.santander),
+                      (sum, s) => sum + toN(s.efectivo) + toN(s.caixa) + toN(s.santander),
                       0
                     )
                     return (
@@ -197,7 +198,7 @@ export default function TurnosPage() {
                         </div>
                         <div className="space-y-3">
                           {dayShifts.map((shift) => {
-                            const totalExpenses = shift.expenses.reduce((sum, e) => sum + Number(e.importe), 0)
+                            const totalExpenses = shift.expenses.reduce((sum, e) => sum + toN(e.importe), 0)
                             return (
                               <div key={shift.id} className="rounded-md border border-gray-100 bg-white p-4">
                                 <div className="flex flex-col gap-1 sm:flex-row sm:items-center sm:justify-between">
@@ -218,23 +219,23 @@ export default function TurnosPage() {
                                 <div className="mt-2 grid grid-cols-2 gap-2 text-sm md:grid-cols-4">
                                   <div>
                                     <span className="text-gray-500">F. Inicial:</span>{" "}
-                                    <span className="font-medium text-gray-900">{Number(shift.fondoInicial).toFixed(2)}</span>
+                                     <span className="font-medium text-gray-900">{toN(shift.fondoInicial).toFixed(2)}</span>
                                   </div>
                                   <div>
                                     <span className="text-gray-500">F. Final:</span>{" "}
-                                    <span className="font-medium text-gray-900">{Number(shift.fondoFinal).toFixed(2)}</span>
+                                    <span className="font-medium text-gray-900">{toN(shift.fondoFinal).toFixed(2)}</span>
                                   </div>
                                   <div>
                                     <span className="text-gray-500">Efectivo:</span>{" "}
-                                    <span className="font-medium text-gray-900">{Number(shift.efectivo).toFixed(2)}</span>
+                                    <span className="font-medium text-gray-900">{toN(shift.efectivo).toFixed(2)}</span>
                                   </div>
                                   <div>
                                     <span className="text-gray-500">Caixa:</span>{" "}
-                                    <span className="font-medium text-gray-900">{Number(shift.caixa).toFixed(2)}</span>
+                                    <span className="font-medium text-gray-900">{toN(shift.caixa).toFixed(2)}</span>
                                   </div>
                                   <div>
                                     <span className="text-gray-500">Santander:</span>{" "}
-                                    <span className="font-medium text-gray-900">{Number(shift.santander).toFixed(2)}</span>
+                                    <span className="font-medium text-gray-900">{toN(shift.santander).toFixed(2)}</span>
                                   </div>
                                   <div>
                                     <span className="text-gray-500">Gastos:</span>{" "}
@@ -247,7 +248,7 @@ export default function TurnosPage() {
                                       {shift.expenses.map((expense) => (
                                         <div key={expense.id} className="flex justify-between text-xs">
                                           <span className="text-gray-600">{expense.proveedor}</span>
-                                          <span className="font-medium text-gray-900">{Number(expense.importe).toFixed(2)}</span>
+                                          <span className="font-medium text-gray-900">{toN(expense.importe).toFixed(2)}</span>
                                         </div>
                                       ))}
                                     </div>

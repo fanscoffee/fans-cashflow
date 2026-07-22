@@ -1,56 +1,57 @@
-import { render, screen, waitFor } from "@testing-library/react"
-import userEvent from "@testing-library/user-event"
-import { http, HttpResponse } from "msw"
-import { setupServer } from "msw/node"
-import { afterAll, afterEach, beforeAll, describe, expect, it, vi } from "vitest"
-
-const mockUsers = [
-  { id: "u1", name: "Admin", email: "admin@test.com", role: "ADMIN" },
-  { id: "u2", name: "Empleado 1", email: "emp@test.com", role: "EMPLEADO" },
-  { id: "u3", name: "Socio 1", email: "socio@test.com", role: "SOCIO" },
-]
-
-const server = setupServer(
-  http.get("/api/admin/users", () => HttpResponse.json(mockUsers)),
-  http.post("/api/admin/users", async ({ request }) => {
-    const body = await request.json() as { name: string; email: string; role: string }
-    return HttpResponse.json({ id: "u-new", ...body }, { status: 201 })
-  }),
-  http.patch("/api/admin/users/:id", () => HttpResponse.json({ ok: true })),
-)
-
-beforeAll(() => server.listen())
-afterEach(() => server.resetHandlers())
-afterAll(() => server.close())
-
-vi.mock("next-auth/react", () => ({
-  useSession: () => ({
-    data: { user: { id: "1", name: "Admin", email: "admin@test.com", role: "ADMIN" } },
-    status: "authenticated",
-  }),
-}))
-
-vi.mock("@/components/app-header", () => ({
-  default: ({ title, subtitle }: { title: string; subtitle?: string }) => (
-    <header>
-      <h1>{title}</h1>
-      {subtitle && <p>{subtitle}</p>}
-    </header>
-  ),
-}))
-
+import { describe, expect, it, vi, beforeEach } from "vitest"
+import { render, screen, fireEvent, waitFor } from "@testing-library/react"
 import AdminPage from "../page"
 
+vi.mock("next-auth/react", () => ({
+  useSession: vi.fn(),
+}))
+
+vi.mock("next/image", () => ({
+  default: (props: Record<string, unknown>) => {
+    const { src, alt, ...rest } = props
+    return <img src={src as string} alt={alt as string} {...rest} />
+  },
+}))
+
+vi.mock("next/navigation", () => ({
+  usePathname: vi.fn(),
+}))
+
+vi.mock("@/components/notification-bell", () => ({
+  default: () => <div data-testid="notification-bell" />,
+}))
+
+import { useSession } from "next-auth/react"
+import { usePathname } from "next/navigation"
+
+const mockUsers = [
+  { id: "u1", name: "Juan", email: "juan@test.com", role: "EMPLEADO" },
+  { id: "u2", name: "Ana", email: "ana@test.com", role: "SOCIO" },
+]
+
 describe("AdminPage", () => {
-  it("renders page title and subtitle", async () => {
-    render(<AdminPage />)
-    await waitFor(() => {
-      expect(screen.getByText("Fans Cashflow")).toBeInTheDocument()
-      expect(screen.getByText("Empleados")).toBeInTheDocument()
+  beforeEach(() => {
+    vi.clearAllMocks()
+    vi.mocked(useSession).mockReturnValue({
+      data: { user: { role: "ADMIN", name: "Admin" } },
+      status: "authenticated",
+      update: vi.fn(),
+    } as any)
+    vi.mocked(usePathname).mockReturnValue("/admin")
+    vi.spyOn(global, "fetch").mockImplementation((url: string | URL | Request) => {
+      const u = typeof url === "string" ? url : ""
+      if (u.includes("/api/admin/users") && u.includes("PATCH")) {
+        return Promise.resolve({ ok: true, json: () => Promise.resolve({}) } as any)
+      }
+      if (u.includes("/api/admin/users")) {
+        return Promise.resolve({ ok: true, json: () => Promise.resolve(mockUsers) } as any)
+      }
+      return Promise.resolve({ ok: true, json: () => Promise.resolve(null) } as any)
     })
   })
 
-  it("shows loading state initially", () => {
+  it("renders loading state initially", () => {
+    vi.mocked(global.fetch).mockImplementationOnce(() => new Promise(() => {}))
     render(<AdminPage />)
     expect(screen.getByText("Cargando...")).toBeInTheDocument()
   })
@@ -58,64 +59,195 @@ describe("AdminPage", () => {
   it("renders user list after loading", async () => {
     render(<AdminPage />)
     await waitFor(() => {
-      expect(screen.getAllByText("Empleado 1").length).toBeGreaterThanOrEqual(1)
-    })
-    expect(screen.getAllByText("Socio 1").length).toBeGreaterThanOrEqual(1)
-  })
-
-  it("shows section title", async () => {
-    render(<AdminPage />)
-    await waitFor(() => {
-      expect(screen.getByText("Empleados")).toBeInTheDocument()
+      expect(screen.getAllByText("Juan").length).toBeGreaterThan(0)
+      expect(screen.getAllByText("Ana").length).toBeGreaterThan(0)
     })
   })
 
-  it("shows new employee button", async () => {
+  it("shows role badges", async () => {
     render(<AdminPage />)
     await waitFor(() => {
-      expect(screen.getByText("+ Nuevo empleado")).toBeInTheDocument()
+      expect(screen.getAllByText("Empleado").length).toBeGreaterThan(0)
+      expect(screen.getAllByText("Socio").length).toBeGreaterThan(0)
+    })
+  })
+
+  it("toggles form when +Nuevo empleado is clicked", async () => {
+    render(<AdminPage />)
+    await waitFor(() => {
+      expect(screen.getAllByText("Juan").length).toBeGreaterThan(0)
+    })
+
+    fireEvent.click(screen.getByText("+ Nuevo empleado"))
+    expect(screen.getByPlaceholderText("Nombre del empleado")).toBeInTheDocument()
+    expect(screen.getByPlaceholderText("email@ejemplo.com")).toBeInTheDocument()
+    expect(screen.getByPlaceholderText("Mínimo 6 caracteres")).toBeInTheDocument()
+  })
+
+  it("creates user on form submit", async () => {
+    vi.mocked(global.fetch)
+      .mockResolvedValueOnce({
+        ok: true,
+        json: () => Promise.resolve(mockUsers),
+      } as any)
+      .mockResolvedValueOnce({
+        ok: true,
+        json: () => Promise.resolve({ id: "u3", name: "Pedro" }),
+      } as any)
+      .mockResolvedValueOnce({
+        ok: true,
+        json: () => Promise.resolve([...mockUsers, { id: "u3", name: "Pedro" }]),
+      } as any)
+
+    render(<AdminPage />)
+    await waitFor(() => {
+      expect(screen.getAllByText("Juan").length).toBeGreaterThan(0)
+    })
+
+    fireEvent.click(screen.getByText("+ Nuevo empleado"))
+
+    fireEvent.input(screen.getByPlaceholderText("Nombre del empleado"), { target: { value: "Pedro" } })
+    fireEvent.input(screen.getByPlaceholderText("email@ejemplo.com"), { target: { value: "pedro@test.com" } })
+    fireEvent.input(screen.getByPlaceholderText("Mínimo 6 caracteres"), { target: { value: "123456" } })
+
+    fireEvent.click(screen.getByText("Crear empleado"))
+
+    await waitFor(() => {
+      expect(global.fetch).toHaveBeenCalledWith(
+        "/api/admin/users",
+        expect.objectContaining({ method: "POST" })
+      )
+    })
+  })
+
+  it("shows error when user creation fails", async () => {
+    vi.mocked(global.fetch)
+      .mockResolvedValueOnce({
+        ok: true,
+        json: () => Promise.resolve(mockUsers),
+      } as any)
+      .mockResolvedValueOnce({
+        ok: false,
+        json: () => Promise.resolve({ error: "Email ya existe" }),
+      } as any)
+
+    render(<AdminPage />)
+    await waitFor(() => {
+      expect(screen.getAllByText("Juan").length).toBeGreaterThan(0)
+    })
+
+    fireEvent.click(screen.getByText("+ Nuevo empleado"))
+
+    fireEvent.input(screen.getByPlaceholderText("Nombre del empleado"), { target: { value: "Dup" } })
+    fireEvent.input(screen.getByPlaceholderText("email@ejemplo.com"), { target: { value: "juan@test.com" } })
+    fireEvent.input(screen.getByPlaceholderText("Mínimo 6 caracteres"), { target: { value: "123456" } })
+
+    fireEvent.click(screen.getByText("Crear empleado"))
+
+    await waitFor(() => {
+      expect(screen.getByText("Email ya existe")).toBeInTheDocument()
+    })
+  })
+
+  it("opens password editor for a user", async () => {
+    render(<AdminPage />)
+    await waitFor(() => {
+      expect(screen.getAllByText("Juan").length).toBeGreaterThan(0)
+    })
+
+    const editButtons = screen.getAllByText("Cambiar contraseña")
+    fireEvent.click(editButtons[0])
+
+    expect(screen.getAllByPlaceholderText("Nueva contraseña").length).toBeGreaterThan(0)
+  })
+
+  it("cancels password edit", async () => {
+    render(<AdminPage />)
+    await waitFor(() => {
+      expect(screen.getAllByText("Juan").length).toBeGreaterThan(0)
+    })
+
+    const editButtons = screen.getAllByText("Cambiar contraseña")
+    fireEvent.click(editButtons[0])
+
+    const cancelButtons = screen.getAllByText("Cancelar")
+    fireEvent.click(cancelButtons[cancelButtons.length - 1])
+
+    expect(screen.getAllByText("Cambiar contraseña").length).toBeGreaterThanOrEqual(2)
+  })
+
+  it("saves password successfully", async () => {
+    vi.mocked(global.fetch)
+      .mockResolvedValueOnce({
+        ok: true,
+        json: () => Promise.resolve(mockUsers),
+      } as any)
+      .mockResolvedValueOnce({
+        ok: true,
+        json: () => Promise.resolve({ message: "Contraseña actualizada" }),
+      } as any)
+
+    render(<AdminPage />)
+    await waitFor(() => {
+      expect(screen.getAllByText("Juan").length).toBeGreaterThan(0)
+    })
+
+    const editButtons = screen.getAllByText("Cambiar contraseña")
+    fireEvent.click(editButtons[0])
+
+    const pwInputs = screen.getAllByPlaceholderText("Nueva contraseña")
+    fireEvent.input(pwInputs[0], { target: { value: "newpass123" } })
+
+    const guardarButtons = screen.getAllByText("Guardar")
+    fireEvent.click(guardarButtons[0])
+
+    await waitFor(() => {
+      expect(screen.getAllByText("Cambiar contraseña").length).toBeGreaterThanOrEqual(2)
     })
   })
 
   it("shows empty state when no users", async () => {
-    server.use(http.get("/api/admin/users", () => HttpResponse.json([])))
+    vi.mocked(global.fetch).mockResolvedValue({
+      ok: true,
+      json: () => Promise.resolve([]),
+    } as any)
+
     render(<AdminPage />)
     await waitFor(() => {
       expect(screen.getByText("No hay usuarios registrados.")).toBeInTheDocument()
     })
   })
 
-  it("toggles form on new employee button click", async () => {
-    const user = userEvent.setup()
+  it("shows success after user creation", async () => {
+    vi.mocked(global.fetch)
+      .mockResolvedValueOnce({
+        ok: true,
+        json: () => Promise.resolve(mockUsers),
+      } as any)
+      .mockResolvedValueOnce({
+        ok: true,
+        json: () => Promise.resolve({ id: "u3", name: "Pedro" }),
+      } as any)
+      .mockResolvedValueOnce({
+        ok: true,
+        json: () => Promise.resolve([...mockUsers, { id: "u3", name: "Pedro" }]),
+      } as any)
+
     render(<AdminPage />)
     await waitFor(() => {
-      expect(screen.getByText("+ Nuevo empleado")).toBeInTheDocument()
+      expect(screen.getAllByText("Juan").length).toBeGreaterThan(0)
     })
 
-    await user.click(screen.getByText("+ Nuevo empleado"))
-    expect(screen.getByText("Crear empleado")).toBeInTheDocument()
+    fireEvent.click(screen.getByText("+ Nuevo empleado"))
 
-    await user.click(screen.getByText("Cancelar"))
-    expect(screen.queryByText("Crear empleado")).not.toBeInTheDocument()
-  })
+    fireEvent.input(screen.getByPlaceholderText("Nombre del empleado"), { target: { value: "Pedro" } })
+    fireEvent.input(screen.getByPlaceholderText("email@ejemplo.com"), { target: { value: "pedro@test.com" } })
+    fireEvent.input(screen.getByPlaceholderText("Mínimo 6 caracteres"), { target: { value: "123456" } })
 
-  it("shows change password button for each user", async () => {
-    render(<AdminPage />)
+    fireEvent.click(screen.getByText("Crear empleado"))
+
     await waitFor(() => {
-      expect(screen.getAllByText("Empleado 1").length).toBeGreaterThanOrEqual(1)
+      expect(screen.getByText("Usuario Pedro creado correctamente")).toBeInTheDocument()
     })
-    const pwdButtons = screen.getAllByText("Cambiar contraseña")
-    expect(pwdButtons.length).toBeGreaterThanOrEqual(3)
-  })
-
-  it("opens password form on user click", async () => {
-    const user = userEvent.setup()
-    render(<AdminPage />)
-    await waitFor(() => {
-      expect(screen.getAllByText("Empleado 1").length).toBeGreaterThanOrEqual(1)
-    })
-    const pwdButtons = screen.getAllByText("Cambiar contraseña")
-    await user.click(pwdButtons[0])
-    expect(screen.getAllByPlaceholderText("Nueva contraseña").length).toBeGreaterThanOrEqual(1)
   })
 })

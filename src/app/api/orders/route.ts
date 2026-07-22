@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server"
 import { z } from "zod"
 import { prisma } from "@/lib/prisma"
-import { auth } from "@/lib/auth"
+import { withAuth } from "@/lib/with-auth"
 
 const orderSchema = z.object({
   clientName: z.string().min(1, "El nombre del cliente es obligatorio"),
@@ -10,13 +10,8 @@ const orderSchema = z.object({
   comment: z.string().optional(),
 })
 
-export async function GET(request: Request) {
-  const session = await auth()
-  if (!session?.user?.id) {
-    return NextResponse.json({ error: "No autorizado" }, { status: 401 })
-  }
-
-  const { searchParams } = new URL(request.url)
+export const GET = withAuth(async (req, session) => {
+  const { searchParams } = new URL(req.url)
   const month = searchParams.get("month")
   const year = searchParams.get("year")
 
@@ -42,16 +37,11 @@ export async function GET(request: Request) {
   })
 
   return NextResponse.json(orders)
-}
+})
 
-export async function POST(request: Request) {
-  const session = await auth()
-  if (!session?.user?.id) {
-    return NextResponse.json({ error: "No autorizado" }, { status: 401 })
-  }
-
+export const POST = withAuth(async (req, session) => {
   try {
-    const body = await request.json()
+    const body = await req.json()
     const data = orderSchema.parse(body)
 
     const order = await prisma.order.create({
@@ -78,4 +68,4 @@ export async function POST(request: Request) {
       { status: 500 }
     )
   }
-}
+})

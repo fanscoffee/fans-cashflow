@@ -55,38 +55,11 @@ interface DashboardData {
   }[]
 }
 
+import { downloadCSV } from "@/lib/csv"
+import { MONTH_NAMES } from "@/lib/constants"
+import { toN } from "@/lib/money"
+
 const COLORS = ["#3b82f6", "#f59e0b", "#10b981", "#ef4444", "#8b5cf6"]
-
-const MONTH_NAMES = [
-  "Enero", "Febrero", "Marzo", "Abril", "Mayo", "Junio",
-  "Julio", "Agosto", "Septiembre", "Octubre", "Noviembre", "Diciembre",
-]
-
-function downloadCSV(data: Record<string, unknown>[], filename: string) {
-  if (data.length === 0) return
-  const headers = Object.keys(data[0])
-  const csvRows = [
-    headers.join(","),
-    ...data.map((row) =>
-      headers
-        .map((h) => {
-          const val = row[h as keyof typeof row]
-          const str = String(val ?? "")
-          return str.includes(",") || str.includes('"') || str.includes("\n")
-            ? `"${str.replace(/"/g, '""')}"`
-            : str
-        })
-        .join(",")
-    ),
-  ]
-  const blob = new Blob([csvRows.join("\n")], { type: "text/csv;charset=utf-8;" })
-  const url = URL.createObjectURL(blob)
-  const a = document.createElement("a")
-  a.href = url
-  a.download = filename
-  a.click()
-  URL.revokeObjectURL(url)
-}
 
 export default function Dashboard() {
   const { data: session } = useSession()
@@ -219,7 +192,7 @@ export default function Dashboard() {
                   <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
                 ))}
               </Pie>
-              <Tooltip formatter={(value) => `${Number(value ?? 0).toFixed(2)} €`} />
+              <Tooltip formatter={(value) => `${toN(value).toFixed(2)} €`} />
             </PieChart>
           </ResponsiveContainer>
         </div>

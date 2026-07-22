@@ -1,12 +1,6 @@
 import { NextResponse } from "next/server"
 import { auth } from "@/lib/auth"
-
-const ROLE_REDIRECT: Record<string, string> = {
-  ADMIN: "/admin",
-  SOCIO: "/socio",
-  EMPLEADO: "/empleado",
-  OBRADOR: "/orders",
-}
+import { ROLE_REDIRECT } from "@/lib/roles"
 
 export default auth((req) => {
   const { pathname } = req.nextUrl
@@ -19,7 +13,7 @@ export default auth((req) => {
   // Logged in user visiting login/root → redirect to their dashboard
   if (session && isLoginPage) {
     const role = session.user?.role as string
-    return NextResponse.redirect(new URL(ROLE_REDIRECT[role] ?? "/empleado", req.url))
+    return NextResponse.redirect(new URL(ROLE_REDIRECT[role] ?? "/", req.url))
   }
 
   // Not logged in visiting dashboard or orders → redirect to login (root)

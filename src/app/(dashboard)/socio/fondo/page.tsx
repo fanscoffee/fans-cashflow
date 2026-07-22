@@ -6,6 +6,7 @@ import { useForm } from "react-hook-form"
 import { zodResolver } from "@hookform/resolvers/zod"
 import { z } from "zod"
 import AppHeader from "@/components/app-header"
+import { toFixed } from "@/lib/money"
 
 const fundSchema = z.object({
   amount: z.number().min(0.01, "El monto debe ser mayor a 0"),
@@ -149,7 +150,7 @@ export default function FondoPage() {
             <div className="flex items-center gap-2 rounded-md bg-blue-50 px-3 py-2 sm:hidden">
               <span className="text-xs text-gray-600">Fondo:</span>
               <span className="text-sm font-bold text-blue-700">
-                {fondo !== null ? `${fondo.toFixed(2)} €` : "..."}
+                {fondo !== null ? `${toFixed(fondo)} €` : "..."}
               </span>
             </div>
             <div>
@@ -176,7 +177,7 @@ export default function FondoPage() {
             <div className="hidden items-center gap-2 rounded-md bg-blue-50 px-3 py-2 sm:flex">
               <span className="text-xs text-gray-600">Fondo:</span>
               <span className="text-sm font-bold text-blue-700">
-                {fondo !== null ? `${fondo.toFixed(2)} €` : "..."}
+                {fondo !== null ? `${toFixed(fondo)} €` : "..."}
               </span>
             </div>
             <button
@@ -246,7 +247,7 @@ export default function FondoPage() {
                   <div key={addition.id} className="flex items-center justify-between rounded-md border border-gray-100 px-4 py-3">
                     <div>
                       <p className="text-sm font-medium text-gray-900">
-                        + {Number(addition.amount).toFixed(2)} €
+                        + {toFixed(addition.amount)} €
                       </p>
                       {addition.description && (
                         <p className="text-xs text-gray-500">{addition.description}</p>

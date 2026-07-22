@@ -1,76 +1,89 @@
-import { render, screen } from "@testing-library/react"
-import userEvent from "@testing-library/user-event"
-import { describe, expect, it, vi } from "vitest"
+import { describe, expect, it, vi, beforeEach } from "vitest"
+import { render, screen, fireEvent } from "@testing-library/react"
 import AppHeader from "../app-header"
 
 vi.mock("next-auth/react", () => ({
-  useSession: () => ({
-    data: { user: { id: "1", email: "test@test.com", name: "Test User", role: "ADMIN" } },
-    status: "authenticated",
-  }),
+  useSession: vi.fn(),
   signOut: vi.fn(),
 }))
 
 vi.mock("next/navigation", () => ({
-  usePathname: () => "/orders",
+  usePathname: vi.fn(),
+}))
+
+vi.mock("next/image", () => ({
+  default: (props: Record<string, unknown>) => {
+    const { src, alt, ...rest } = props
+    return <img src={src as string} alt={alt as string} {...rest} />
+  },
 }))
 
 vi.mock("@/components/notification-bell", () => ({
   default: () => <div data-testid="notification-bell" />,
 }))
 
+import { useSession, signOut } from "next-auth/react"
+import { usePathname } from "next/navigation"
+
 describe("AppHeader", () => {
-  it("renders title", () => {
-    render(<AppHeader title="Fans Cashflow" />)
-    expect(screen.getByText("Fans Cashflow")).toBeInTheDocument()
+  beforeEach(() => {
+    vi.clearAllMocks()
+    vi.mocked(useSession).mockReturnValue({
+      data: { user: { role: "ADMIN" } },
+      status: "authenticated",
+      update: vi.fn(),
+    } as any)
+    vi.mocked(usePathname).mockReturnValue("/socio")
   })
 
-  it("renders subtitle when provided", () => {
-    const { container } = render(<AppHeader title="Fans Cashflow" subtitle="Encargos" />)
-    const subtitle = container.querySelector("p")
-    expect(subtitle).toBeInTheDocument()
-    expect(subtitle!.textContent).toBe("Encargos")
+  it("renders title and subtitle", () => {
+    render(<AppHeader title="Fans Cashflow" subtitle="My Subtitle" />)
+    expect(screen.getByText("Fans Cashflow")).toBeInTheDocument()
+    expect(screen.getByText("My Subtitle")).toBeInTheDocument()
   })
 
   it("renders nav links for ADMIN role", () => {
     render(<AppHeader title="Fans Cashflow" />)
-    expect(screen.getByText("Dashboard")).toBeInTheDocument()
-    expect(screen.getByText("Fondo")).toBeInTheDocument()
-    expect(screen.getByText("Turnos")).toBeInTheDocument()
-    expect(screen.getByText("Efectivo")).toBeInTheDocument()
-    expect(screen.getByText("Encargos")).toBeInTheDocument()
-    expect(screen.getByText("Admin")).toBeInTheDocument()
+    expect(screen.getByRole("link", { name: "Dashboard" })).toBeInTheDocument()
+    expect(screen.getByRole("link", { name: "Fondo" })).toBeInTheDocument()
+    expect(screen.getByRole("link", { name: "Turnos" })).toBeInTheDocument()
+    expect(screen.getByRole("link", { name: "Efectivo" })).toBeInTheDocument()
+    expect(screen.getByRole("link", { name: "Encargos" })).toBeInTheDocument()
+    expect(screen.getByRole("link", { name: "Turno" })).toBeInTheDocument()
+    expect(screen.getByRole("link", { name: "Admin" })).toBeInTheDocument()
   })
 
-  it("renders sign out button", () => {
+  it("renders limited nav links for EMPLEADO role", () => {
+    vi.mocked(useSession).mockReturnValue({
+      data: { user: { role: "EMPLEADO" } },
+      status: "authenticated",
+      update: vi.fn(),
+    } as any)
     render(<AppHeader title="Fans Cashflow" />)
-    expect(screen.getByText("Salir")).toBeInTheDocument()
+    expect(screen.getByRole("link", { name: "Turno" })).toBeInTheDocument()
+    expect(screen.getByRole("link", { name: "Encargos" })).toBeInTheDocument()
+    expect(screen.queryByRole("link", { name: "Dashboard" })).not.toBeInTheDocument()
   })
 
-  it("renders hamburger menu button for mobile", () => {
-    render(<AppHeader title="Fans Cashflow" />)
-    expect(screen.getByRole("button", { name: /menú/i })).toBeInTheDocument()
+  it("renders custom links when provided", () => {
+    const customLinks = [
+      { href: "/custom", label: "CustomLink" },
+    ]
+    render(<AppHeader title="Fans Cashflow" links={customLinks} />)
+    expect(screen.getByRole("link", { name: "CustomLink" })).toBeInTheDocument()
+    expect(screen.queryByRole("link", { name: "Dashboard" })).not.toBeInTheDocument()
   })
 
-  it("opens mobile menu on hamburger click", async () => {
-    const user = userEvent.setup()
+  it("calls signOut when Salir is clicked", () => {
     render(<AppHeader title="Fans Cashflow" />)
-    await user.click(screen.getByRole("button", { name: /menú/i }))
+    fireEvent.click(screen.getByText("Salir"))
+    expect(signOut).toHaveBeenCalledWith({ callbackUrl: "/login" })
+  })
+
+  it("toggles mobile menu on hamburger click", () => {
+    render(<AppHeader title="Fans Cashflow" />)
+    const hamburger = screen.getByLabelText("Menú")
+    fireEvent.click(hamburger)
     expect(screen.getByText("Cerrar sesión")).toBeInTheDocument()
-  })
-
-  it("renders NotificationBell", () => {
-    render(<AppHeader title="Fans Cashflow" />)
-    expect(screen.getByTestId("notification-bell")).toBeInTheDocument()
-  })
-
-  it("uses custom links when provided", () => {
-    render(
-      <AppHeader
-        title="Fans Cashflow"
-        links={[{ href: "/custom", label: "Custom Link" }]}
-      />
-    )
-    expect(screen.getByText("Custom Link")).toBeInTheDocument()
   })
 })

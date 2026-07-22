@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server"
 import { z } from "zod"
 import { prisma } from "@/lib/prisma"
-import { auth } from "@/lib/auth"
+import { withAuth } from "@/lib/with-auth"
 
 const updateShiftSchema = z.object({
   efectivo: z.number().min(0).optional(),
@@ -12,16 +12,8 @@ const updateShiftSchema = z.object({
   status: z.enum(["ABIERTO", "CERRADO"]).optional(),
 })
 
-export async function PATCH(
-  request: Request,
-  { params }: { params: Promise<{ shiftId: string }> }
-) {
-  const session = await auth()
-  if (!session?.user?.id) {
-    return NextResponse.json({ error: "No autorizado" }, { status: 401 })
-  }
-
-  const { shiftId } = await params
+export const PATCH = withAuth(async (req, session, context) => {
+  const { shiftId } = await context.params
 
   const shift = await prisma.shift.findUnique({ where: { id: shiftId } })
   if (!shift) {
@@ -37,7 +29,7 @@ export async function PATCH(
     return NextResponse.json({ error: "El turno ya está cerrado" }, { status: 400 })
   }
 
-  const body = await request.json()
+  const body = await req.json()
   const data = updateShiftSchema.parse(body)
 
   const updated = await prisma.shift.update({
@@ -54,4 +46,4 @@ export async function PATCH(
   })
 
   return NextResponse.json(updated)
-}
+})

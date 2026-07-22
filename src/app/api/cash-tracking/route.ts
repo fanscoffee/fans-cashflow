@@ -1,25 +1,20 @@
 import { NextResponse } from "next/server"
 import { z } from "zod"
 import { prisma } from "@/lib/prisma"
-import { auth } from "@/lib/auth"
+import { withAuth } from "@/lib/with-auth"
 
 const cashTrackingSchema = z.object({
   shiftId: z.string(),
   destination: z.enum(["DEPOSITO", "INGRESO_EN_FONDO", "GUARDADO", "FANS"]),
 })
 
-export async function GET(request: Request) {
-  const session = await auth()
-  if (!session?.user?.id) {
-    return NextResponse.json({ error: "No autorizado" }, { status: 401 })
-  }
-
+export const GET = withAuth(async (req, session) => {
   const role = session.user.role
   if (role !== "ADMIN" && role !== "SOCIO") {
     return NextResponse.json({ error: "No autorizado" }, { status: 403 })
   }
 
-  const { searchParams } = new URL(request.url)
+  const { searchParams } = new URL(req.url)
   const month = parseInt(searchParams.get("month") || String(new Date().getMonth() + 1))
   const year = parseInt(searchParams.get("year") || String(new Date().getFullYear()))
 
@@ -41,21 +36,16 @@ export async function GET(request: Request) {
   })
 
   return NextResponse.json(shifts)
-}
+})
 
-export async function PATCH(request: Request) {
-  const session = await auth()
-  if (!session?.user?.id) {
-    return NextResponse.json({ error: "No autorizado" }, { status: 401 })
-  }
-
+export const PATCH = withAuth(async (req, session) => {
   const role = session.user.role
   if (role !== "ADMIN" && role !== "SOCIO") {
     return NextResponse.json({ error: "No autorizado" }, { status: 403 })
   }
 
   try {
-    const body = await request.json()
+    const body = await req.json()
     const data = cashTrackingSchema.parse(body)
 
     const existing = await prisma.cashTracking.findUnique({
@@ -91,4 +81,4 @@ export async function PATCH(request: Request) {
       { status: 500 }
     )
   }
-}
+})

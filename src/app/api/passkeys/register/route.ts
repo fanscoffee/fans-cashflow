@@ -2,15 +2,10 @@ import { NextResponse } from "next/server"
 import { generateRegistrationOptions, verifyRegistrationResponse } from "@simplewebauthn/server"
 import { isoBase64URL } from "@simplewebauthn/server/helpers"
 import { prisma } from "@/lib/prisma"
-import { auth } from "@/lib/auth"
+import { withAuth } from "@/lib/with-auth"
 import { RP_ID, RP_NAME, ORIGINS } from "@/lib/webauthn"
 
-export async function GET() {
-  const session = await auth()
-  if (!session?.user?.id) {
-    return NextResponse.json({ error: "No autorizado" }, { status: 401 })
-  }
-
+export const GET = withAuth(async (req, session) => {
   try {
     const user = await prisma.user.findUnique({
       where: { id: session.user.id },
@@ -46,16 +41,11 @@ export async function GET() {
       { status: 500 }
     )
   }
-}
+})
 
-export async function POST(request: Request) {
-  const session = await auth()
-  if (!session?.user?.id) {
-    return NextResponse.json({ error: "No autorizado" }, { status: 401 })
-  }
-
+export const POST = withAuth(async (req, session) => {
   try {
-    const body = await request.json()
+    const body = await req.json()
     const { credential, challenge } = body
 
     if (!credential || !challenge) {
@@ -95,4 +85,4 @@ export async function POST(request: Request) {
       { status: 500 }
     )
   }
-}
+})

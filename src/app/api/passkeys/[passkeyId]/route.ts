@@ -1,17 +1,9 @@
 import { NextResponse } from "next/server"
 import { prisma } from "@/lib/prisma"
-import { auth } from "@/lib/auth"
+import { withAuth } from "@/lib/with-auth"
 
-export async function DELETE(
-  request: Request,
-  { params }: { params: Promise<{ passkeyId: string }> }
-) {
-  const session = await auth()
-  if (!session?.user?.id) {
-    return NextResponse.json({ error: "No autorizado" }, { status: 401 })
-  }
-
-  const { passkeyId } = await params
+export const DELETE = withAuth(async (req, session, context) => {
+  const { passkeyId } = await context.params
 
   const passkey = await prisma.passkey.findUnique({
     where: { id: passkeyId },
@@ -26,4 +18,4 @@ export async function DELETE(
   })
 
   return NextResponse.json({ success: true })
-}
+})

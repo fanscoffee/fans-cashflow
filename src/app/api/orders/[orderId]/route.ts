@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server"
 import { z } from "zod"
 import { prisma } from "@/lib/prisma"
-import { auth } from "@/lib/auth"
+import { withAuth } from "@/lib/with-auth"
 
 const updateOrderSchema = z.object({
   clientName: z.string().min(1).optional(),
@@ -10,24 +10,16 @@ const updateOrderSchema = z.object({
   comment: z.string().optional(),
 })
 
-export async function PATCH(
-  request: Request,
-  { params }: { params: Promise<{ orderId: string }> }
-) {
-  const session = await auth()
-  if (!session?.user?.id) {
-    return NextResponse.json({ error: "No autorizado" }, { status: 401 })
-  }
-
+export const PATCH = withAuth(async (req, session, context) => {
   const role = session.user.role
   if (role !== "ADMIN" && role !== "SOCIO") {
     return NextResponse.json({ error: "No autorizado" }, { status: 403 })
   }
 
-  const { orderId } = await params
+  const { orderId } = await context.params
 
   try {
-    const body = await request.json()
+    const body = await req.json()
     const data = updateOrderSchema.parse(body)
 
     const existing = await prisma.order.findUnique({ where: { id: orderId } })
@@ -59,23 +51,15 @@ export async function PATCH(
       { status: 500 }
     )
   }
-}
+})
 
-export async function DELETE(
-  request: Request,
-  { params }: { params: Promise<{ orderId: string }> }
-) {
-  const session = await auth()
-  if (!session?.user?.id) {
-    return NextResponse.json({ error: "No autorizado" }, { status: 401 })
-  }
-
+export const DELETE = withAuth(async (req, session, context) => {
   const role = session.user.role
   if (role !== "ADMIN" && role !== "SOCIO") {
     return NextResponse.json({ error: "No autorizado" }, { status: 403 })
   }
 
-  const { orderId } = await params
+  const { orderId } = await context.params
 
   const existing = await prisma.order.findUnique({ where: { id: orderId } })
   if (!existing) {
@@ -85,4 +69,4 @@ export async function DELETE(
   await prisma.order.delete({ where: { id: orderId } })
 
   return NextResponse.json({ success: true })
-}
+})

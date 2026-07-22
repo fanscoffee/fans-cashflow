@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server"
 import { z } from "zod"
 import { prisma } from "@/lib/prisma"
-import { auth } from "@/lib/auth"
+import { withAuth } from "@/lib/with-auth"
 
 const expenseSchema = z.object({
   proveedor: z.string().min(1, "El proveedor es obligatorio"),
@@ -16,23 +16,15 @@ async function checkAccess(shiftId: string, userId: string, userRole: string) {
   return shift
 }
 
-export async function POST(
-  request: Request,
-  { params }: { params: Promise<{ shiftId: string }> }
-) {
-  const session = await auth()
-  if (!session?.user?.id) {
-    return NextResponse.json({ error: "No autorizado" }, { status: 401 })
-  }
-
-  const { shiftId } = await params
+export const POST = withAuth(async (req, session, context) => {
+  const { shiftId } = await context.params
   const shift = await checkAccess(shiftId, session.user.id, session.user.role)
   if (!shift) {
     return NextResponse.json({ error: "Turno no encontrado" }, { status: 404 })
   }
 
   try {
-    const body = await request.json()
+    const body = await req.json()
     const data = expenseSchema.parse(body)
 
     const expense = await prisma.expense.create({
@@ -56,25 +48,17 @@ export async function POST(
       { status: 500 }
     )
   }
-}
+})
 
-export async function PATCH(
-  request: Request,
-  { params }: { params: Promise<{ shiftId: string }> }
-) {
-  const session = await auth()
-  if (!session?.user?.id) {
-    return NextResponse.json({ error: "No autorizado" }, { status: 401 })
-  }
-
-  const { shiftId } = await params
+export const PATCH = withAuth(async (req, session, context) => {
+  const { shiftId } = await context.params
   const shift = await checkAccess(shiftId, session.user.id, session.user.role)
   if (!shift) {
     return NextResponse.json({ error: "Turno no encontrado" }, { status: 404 })
   }
 
   try {
-    const body = await request.json()
+    const body = await req.json()
     const data = z.object({
       expenseId: z.string(),
       proveedor: z.string().min(1).optional(),
@@ -102,25 +86,17 @@ export async function PATCH(
       { status: 500 }
     )
   }
-}
+})
 
-export async function DELETE(
-  request: Request,
-  { params }: { params: Promise<{ shiftId: string }> }
-) {
-  const session = await auth()
-  if (!session?.user?.id) {
-    return NextResponse.json({ error: "No autorizado" }, { status: 401 })
-  }
-
-  const { shiftId } = await params
+export const DELETE = withAuth(async (req, session, context) => {
+  const { shiftId } = await context.params
   const shift = await checkAccess(shiftId, session.user.id, session.user.role)
   if (!shift) {
     return NextResponse.json({ error: "Turno no encontrado" }, { status: 404 })
   }
 
   try {
-    const { expenseId } = await request.json()
+    const { expenseId } = await req.json()
     await prisma.expense.delete({ where: { id: expenseId } })
     return NextResponse.json({ ok: true })
   } catch {
@@ -129,4 +105,4 @@ export async function DELETE(
       { status: 500 }
     )
   }
-}
+})

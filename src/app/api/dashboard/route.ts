@@ -1,13 +1,9 @@
-import { NextResponse, NextRequest } from "next/server"
+import { NextResponse } from "next/server"
 import { prisma } from "@/lib/prisma"
-import { auth } from "@/lib/auth"
+import { withAuth } from "@/lib/with-auth"
+import { toN, sum, sub, toJSON, toFixed } from "@/lib/money"
 
-export async function GET(req: NextRequest) {
-  const session = await auth()
-  if (!session?.user?.id) {
-    return NextResponse.json({ error: "No autorizado" }, { status: 401 })
-  }
-
+export const GET = withAuth(async (req) => {
   const { searchParams } = new URL(req.url)
   const monthParam = searchParams.get("month")
   const yearParam = searchParams.get("year")
@@ -31,12 +27,12 @@ export async function GET(req: NextRequest) {
   })
 
   const totalIngresos = shifts.reduce(
-    (sum, s) => sum + Number(s.efectivo) + Number(s.caixa) + Number(s.santander),
+    (acc, s) => acc + sum(s.efectivo, s.caixa, s.santander),
     0
   )
-  const totalGastosShift = shifts.reduce((sum, s) => sum + Number(s.efectivoGasto), 0)
+  const totalGastosShift = shifts.reduce((acc, s) => acc + toN(s.efectivoGasto), 0)
   const totalGastosExpense = shifts.reduce(
-    (sum, s) => sum + s.expenses.reduce((e, exp) => e + Number(exp.importe), 0),
+    (acc, s) => acc + s.expenses.reduce((e, exp) => e + toN(exp.importe), 0),
     0
   )
   const totalGastos = totalGastosShift + totalGastosExpense
@@ -46,8 +42,8 @@ export async function GET(req: NextRequest) {
   for (const s of shifts) {
     const key = new Date(s.date).toLocaleDateString("es-ES", { day: "2-digit", month: "short" })
     if (!porDia[key]) porDia[key] = { ingresos: 0, gastos: 0, mañana: 0, tarde: 0 }
-    const ingreso = Number(s.efectivo) + Number(s.caixa) + Number(s.santander)
-    const gasto = Number(s.efectivoGasto) + s.expenses.reduce((e, exp) => e + Number(exp.importe), 0)
+    const ingreso = sum(s.efectivo, s.caixa, s.santander)
+    const gasto = toN(s.efectivoGasto) + s.expenses.reduce((e, exp) => e + toN(exp.importe), 0)
     porDia[key].ingresos += ingreso
     porDia[key].gastos += gasto
     if (s.turno === "mañana") porDia[key].mañana += ingreso
@@ -56,34 +52,34 @@ export async function GET(req: NextRequest) {
 
   const dailyData = Object.entries(porDia).map(([dia, v]) => ({
     dia,
-    ingresos: Math.round(v.ingresos * 100) / 100,
-    gastos: Math.round(v.gastos * 100) / 100,
-    mañana: Math.round(v.mañana * 100) / 100,
-    tarde: Math.round(v.tarde * 100) / 100,
+    ingresos: toJSON(v.ingresos),
+    gastos: toJSON(v.gastos),
+    mañana: toJSON(v.mañana),
+    tarde: toJSON(v.tarde),
   }))
 
   const morningTotal = shifts
     .filter((s) => s.turno === "mañana")
-    .reduce((sum, s) => sum + Number(s.efectivo) + Number(s.caixa) + Number(s.santander), 0)
+    .reduce((acc, s) => acc + sum(s.efectivo, s.caixa, s.santander), 0)
   const afternoonTotal = shifts
     .filter((s) => s.turno === "tarde")
-    .reduce((sum, s) => sum + Number(s.efectivo) + Number(s.caixa) + Number(s.santander), 0)
+    .reduce((acc, s) => acc + sum(s.efectivo, s.caixa, s.santander), 0)
 
   const turnoData = [
-    { name: "Mañana", value: Math.round(morningTotal * 100) / 100 },
-    { name: "Tarde", value: Math.round(afternoonTotal * 100) / 100 },
+    { name: "Mañana", value: toJSON(morningTotal) },
+    { name: "Tarde", value: toJSON(afternoonTotal) },
   ]
 
   const gastosPorProveedor: Record<string, number> = {}
   for (const s of shifts) {
     for (const e of s.expenses) {
-      gastosPorProveedor[e.proveedor] = (gastosPorProveedor[e.proveedor] ||  0) + Number(e.importe)
+      gastosPorProveedor[e.proveedor] = (gastosPorProveedor[e.proveedor] || 0) + toN(e.importe)
     }
   }
   const expenseData = Object.entries(gastosPorProveedor)
     .map(([proveedor, total]) => ({
       proveedor,
-      total: Math.round(total * 100) / 100,
+      total: toJSON(total),
     }))
     .sort((a, b) => b.total - a.total)
 
@@ -92,14 +88,14 @@ export async function GET(req: NextRequest) {
     turno: s.turno,
     estado: s.status,
     creadoPor: s.createdBy?.name || "",
-    fondoInicial: Number(s.fondoInicial),
-    efectivo: Number(s.efectivo),
-    caixa: Number(s.caixa),
-    santander: Number(s.santander),
-    efectivoGasto: Number(s.efectivoGasto),
-    fondoFinal: Number(s.fondoFinal),
-    totalGastos: s.expenses.reduce((e, exp) => e + Number(exp.importe), 0),
-    gastos: s.expenses.map((e) => `${e.proveedor}: ${Number(e.importe).toFixed(2)}`).join("; "),
+    fondoInicial: toJSON(s.fondoInicial),
+    efectivo: toJSON(s.efectivo),
+    caixa: toJSON(s.caixa),
+    santander: toJSON(s.santander),
+    efectivoGasto: toJSON(s.efectivoGasto),
+    fondoFinal: toJSON(s.fondoFinal),
+    totalGastos: s.expenses.reduce((e, exp) => e + toN(exp.importe), 0),
+    gastos: s.expenses.map((e) => `${e.proveedor}: ${toFixed(e.importe)}`).join("; "),
   }))
 
   const exportExpenses = shifts.flatMap((s) =>
@@ -107,7 +103,7 @@ export async function GET(req: NextRequest) {
       fecha: new Date(s.date).toLocaleDateString("es-ES"),
       turno: s.turno,
       proveedor: e.proveedor,
-      importe: Number(e.importe),
+      importe: toN(e.importe),
       creadoPor: s.createdBy?.name || "",
     }))
   )
@@ -115,9 +111,9 @@ export async function GET(req: NextRequest) {
   return NextResponse.json({
     resumen: {
       totalTurnos: shifts.length,
-      totalIngresos: Math.round(totalIngresos * 100) / 100,
-      totalGastos: Math.round(totalGastos * 100) / 100,
-      beneficioNeto: Math.round(beneficioNeto * 100) / 100,
+      totalIngresos: toJSON(totalIngresos),
+      totalGastos: toJSON(totalGastos),
+      beneficioNeto: toJSON(beneficioNeto),
     },
     dailyData,
     turnoData,
@@ -125,4 +121,4 @@ export async function GET(req: NextRequest) {
     exportData,
     exportExpenses,
   })
-}
+})

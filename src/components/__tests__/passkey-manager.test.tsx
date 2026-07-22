@@ -9,13 +9,29 @@ const mockPasskeys = [
   { id: "pk-1", credentialId: "cred-1", createdAt: "2026-07-22T10:00:00.000Z" },
 ]
 
+let registerGetCalled = false
+let registerPostOk = true
+
 const server = setupServer(
   http.get("/api/passkeys/list", () => HttpResponse.json(mockPasskeys)),
+  http.get("/api/passkeys/register", () => {
+    registerGetCalled = true
+    if (!registerPostOk) return HttpResponse.json({ error: "Error" }, { status: 500 })
+    return HttpResponse.json({ challenge: "ch123", rp: { id: "test" }, user: { id: "u1", name: "test" }, pubKeyCredParams: [] })
+  }),
+  http.post("/api/passkeys/register", async () => {
+    if (!registerPostOk) return HttpResponse.json({ error: "Error al registrar" }, { status: 500 })
+    return HttpResponse.json({ ok: true })
+  }),
   http.delete("/api/passkeys/:id", () => HttpResponse.json({ ok: true })),
 )
 
 beforeAll(() => server.listen())
-afterEach(() => server.resetHandlers())
+afterEach(() => {
+  server.resetHandlers()
+  registerGetCalled = false
+  registerPostOk = true
+})
 afterAll(() => server.close())
 
 vi.mock("@simplewebauthn/browser", () => ({
@@ -74,5 +90,61 @@ describe("PasskeyManager", () => {
     await waitFor(() => {
       expect(screen.queryByText("Face ID registrado")).not.toBeInTheDocument()
     })
+  })
+
+  it("registers passkey successfully", async () => {
+    const user = userEvent.setup()
+    render(<PasskeyManager />)
+    await waitFor(() => {
+      expect(screen.getByText("Face ID registrado")).toBeInTheDocument()
+    })
+
+    await user.click(screen.getByRole("button", { name: /registrar face id/i }))
+
+    await waitFor(() => {
+      expect(screen.getByText("Face ID registrado correctamente")).toBeInTheDocument()
+    })
+  })
+
+  it("shows error when register options fetch fails", async () => {
+    registerPostOk = false
+    const user = userEvent.setup()
+    render(<PasskeyManager />)
+    await waitFor(() => {
+      expect(screen.getByText("Face ID registrado")).toBeInTheDocument()
+    })
+
+    await user.click(screen.getByRole("button", { name: /registrar face id/i }))
+
+    await waitFor(() => {
+      expect(screen.getByText("Error al obtener opciones de registro")).toBeInTheDocument()
+    })
+  })
+
+  it("shows error when startRegistration throws", async () => {
+    const { startRegistration } = await import("@simplewebauthn/browser")
+    vi.mocked(startRegistration).mockRejectedValueOnce(new Error("User cancelled"))
+    const user = userEvent.setup()
+    render(<PasskeyManager />)
+    await waitFor(() => {
+      expect(screen.getByText("Face ID registrado")).toBeInTheDocument()
+    })
+
+    await user.click(screen.getByRole("button", { name: /registrar face id/i }))
+
+    await waitFor(() => {
+      expect(screen.getByText("Error al registrar Face ID")).toBeInTheDocument()
+    })
+
+    vi.mocked(startRegistration).mockResolvedValue({ id: "cred-1", rawId: "raw", response: {} } as any)
+  })
+
+  it("shows empty state when no passkeys", async () => {
+    server.use(http.get("/api/passkeys/list", () => HttpResponse.json([])))
+    render(<PasskeyManager />)
+    await waitFor(() => {
+      expect(screen.getByRole("button", { name: /registrar face id/i })).toBeInTheDocument()
+    })
+    expect(screen.queryByText("Face ID registrado")).not.toBeInTheDocument()
   })
 })
