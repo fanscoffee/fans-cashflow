@@ -1,4 +1,44 @@
 import type { Order } from "@/types/order"
+import type { SortField, SortDirection } from "@/hooks/useOrderFilters"
+import OrderActions from "./order-actions"
+
+interface SortableHeaderProps {
+  field: SortField
+  label: string
+  sortField: SortField
+  sortDirection: SortDirection
+  onSort: (field: SortField) => void
+}
+
+function SortableHeader({ field, label, sortField, sortDirection, onSort }: SortableHeaderProps) {
+  const isActive = sortField === field
+  return (
+    <th
+      className="cursor-pointer select-none pb-2 hover:text-gray-700"
+      onClick={() => onSort(field)}
+    >
+      <div className="flex items-center gap-1">
+        {label}
+        <span className="inline-flex w-3 flex-col items-center">
+          <svg
+            className={`h-2 ${isActive && sortDirection === "asc" ? "text-gray-900" : "text-gray-300"}`}
+            viewBox="0 0 10 6"
+            fill="currentColor"
+          >
+            <path d="M5 0L10 6H0L5 0Z" />
+          </svg>
+          <svg
+            className={`h-2 -mt-0.5 ${isActive && sortDirection === "desc" ? "text-gray-900" : "text-gray-300"}`}
+            viewBox="0 0 10 6"
+            fill="currentColor"
+          >
+            <path d="M5 6L0 0H10L5 6Z" />
+          </svg>
+        </span>
+      </div>
+    </th>
+  )
+}
 
 interface OrderTableProps {
   orders: Order[]
@@ -6,6 +46,10 @@ interface OrderTableProps {
   canDelete: boolean
   onEdit: (order: Order) => void
   onDelete: (orderId: string) => void
+  onToggleStatus: (orderId: string, field: "isPaid" | "isDelivered", value: boolean) => void
+  sortField: SortField
+  sortDirection: SortDirection
+  onSort: (field: SortField) => void
 }
 
 export default function OrderTable({
@@ -14,16 +58,20 @@ export default function OrderTable({
   canDelete,
   onEdit,
   onDelete,
+  onToggleStatus,
+  sortField,
+  sortDirection,
+  onSort,
 }: OrderTableProps) {
   return (
     <div className="hidden overflow-x-auto sm:block">
       <table className="w-full text-left text-sm">
         <thead>
           <tr className="border-b text-xs font-medium text-gray-500">
-            <th className="pb-2">Creado</th>
-            <th className="pb-2">Entrega</th>
-            <th className="pb-2">Cliente</th>
-            <th className="pb-2">Teléfono</th>
+            <SortableHeader field="createdAt" label="Creado" sortField={sortField} sortDirection={sortDirection} onSort={onSort} />
+            <SortableHeader field="deliveryDate" label="Entrega" sortField={sortField} sortDirection={sortDirection} onSort={onSort} />
+            <SortableHeader field="clientName" label="Cliente" sortField={sortField} sortDirection={sortDirection} onSort={onSort} />
+            <SortableHeader field="clientPhone" label="Teléfono" sortField={sortField} sortDirection={sortDirection} onSort={onSort} />
             <th className="pb-2">Comentario</th>
             <th className="pb-2">Creado por</th>
             <th className="pb-2 text-right">Acciones</th>
@@ -54,23 +102,25 @@ export default function OrderTable({
                   {order.createdBy?.name || order.createdBy?.email || "—"}
                 </td>
                 <td className="py-3 text-right">
-                  <div className="flex justify-end gap-2">
-                    {canEdit && (
-                      <button
-                        onClick={() => onEdit(order)}
-                        className="rounded bg-gray-100 px-2 py-1 text-xs font-medium text-gray-700 hover:bg-gray-200"
-                      >
-                        Editar
-                      </button>
+                  <div className="flex items-center justify-end gap-1">
+                    {order.isPaid && (
+                      <span className="inline-flex items-center rounded-full bg-green-50 px-2 py-0.5 text-xs font-medium text-green-700">
+                        Pagado
+                      </span>
                     )}
-                    {canDelete && (
-                      <button
-                        onClick={() => onDelete(order.id)}
-                        className="rounded bg-red-100 px-2 py-1 text-xs font-medium text-red-600 hover:bg-red-200"
-                      >
-                        Eliminar
-                      </button>
+                    {order.isDelivered && (
+                      <span className="inline-flex items-center rounded-full bg-blue-50 px-2 py-0.5 text-xs font-medium text-blue-700">
+                        Entregado
+                      </span>
                     )}
+                    <OrderActions
+                      order={order}
+                      canEdit={canEdit}
+                      canDelete={canDelete}
+                      onEdit={onEdit}
+                      onDelete={onDelete}
+                      onToggleStatus={onToggleStatus}
+                    />
                   </div>
                 </td>
               </tr>
