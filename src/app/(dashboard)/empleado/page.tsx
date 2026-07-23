@@ -197,6 +197,7 @@ export default function EmpleadoPage() {
             hasOpenShift={hasOpenShift}
             dateStr={dateStr}
             userRole={session?.user?.role}
+            onDateChange={setDateStr}
             onSubmit={onSubmitShift}
           />
         )}
