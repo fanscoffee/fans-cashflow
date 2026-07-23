@@ -25,7 +25,9 @@ export default function LoginPage() {
   const [error, setError] = useState<string | null>(null)
   const [loading, setLoading] = useState(false)
   const [passkeyLoading, setPasskeyLoading] = useState(false)
-  const [supportsPasskeys] = useState(() => browserSupportsWebAuthn())
+  const [supportsPasskeys] = useState(
+    () => typeof window !== "undefined" && browserSupportsWebAuthn(),
+  )
   const [passkeyError, setPasskeyError] = useState<string | null>(null)
 
   const {
