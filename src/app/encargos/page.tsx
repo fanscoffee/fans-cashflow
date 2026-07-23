@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useEffect, useMemo } from "react"
+import { useState, useMemo } from "react"
 import { useSession } from "next-auth/react"
 import AppHeader from "@/components/app-header"
 import { useOrders } from "@/hooks/useOrders"
@@ -83,20 +83,16 @@ function FilterBar({
 
 export default function OrdersPage() {
   const { data: session, status } = useSession()
-  const [selectedMonth, setSelectedMonth] = useState(0)
-  const [selectedYear, setSelectedYear] = useState(0)
-  const [initialized, setInitialized] = useState(false)
+  const initDate = new Date()
+  const [selectedMonth, setSelectedMonth] = useState(initDate.getMonth() + 1)
+  const [selectedYear, setSelectedYear] = useState(initDate.getFullYear())
+  const [initialized] = useState(true)
   const [showForm, setShowForm] = useState(false)
   const [editingOrder, setEditingOrder] = useState<Order | null>(null)
   const [saving, setSaving] = useState(false)
   const [showPast, setShowPast] = useState(false)
 
-  useEffect(() => {
-    const now = new Date()
-    setSelectedMonth(now.getMonth() + 1)
-    setSelectedYear(now.getFullYear())
-    setInitialized(true)
-  }, [])
+
 
   const showFilters = session?.user?.role === "ADMIN" || session?.user?.role === "SOCIO"
 

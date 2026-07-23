@@ -9,13 +9,11 @@ const mockPasskeys = [
   { id: "pk-1", credentialId: "cred-1", createdAt: "2026-07-22T10:00:00.000Z" },
 ]
 
-let registerGetCalled = false
 let registerPostOk = true
 
 const server = setupServer(
   http.get("/api/passkeys/list", () => HttpResponse.json(mockPasskeys)),
   http.get("/api/passkeys/register", () => {
-    registerGetCalled = true
     if (!registerPostOk) return HttpResponse.json({ error: "Error" }, { status: 500 })
     return HttpResponse.json({ challenge: "ch123", rp: { id: "test" }, user: { id: "u1", name: "test" }, pubKeyCredParams: [] })
   }),
@@ -29,7 +27,6 @@ const server = setupServer(
 beforeAll(() => server.listen())
 afterEach(() => {
   server.resetHandlers()
-  registerGetCalled = false
   registerPostOk = true
 })
 afterAll(() => server.close())

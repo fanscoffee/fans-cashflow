@@ -17,13 +17,9 @@ export default function EmpleadoPage() {
   const [success, setSuccess] = useState<string | null>(null)
   const [closingShift, setClosingShift] = useState<string | null>(null)
   const [fondoInicial, setFondoInicial] = useState<number | null>(null)
-  const [dateStr, setDateStr] = useState("")
+  const [dateStr, setDateStr] = useState(() => new Date().toISOString().split("T")[0])
 
   useAutoLogout(session?.user?.role === "EMPLEADO")
-
-  useEffect(() => {
-    setDateStr(new Date().toISOString().split("T")[0])
-  }, [])
 
   const refreshData = useCallback(async () => {
     const [shiftsRes, fundRes] = await Promise.all([

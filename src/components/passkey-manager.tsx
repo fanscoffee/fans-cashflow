@@ -37,9 +37,11 @@ export default function PasskeyManager() {
     }
   }
 
+  /* eslint-disable react-hooks/set-state-in-effect */
   useEffect(() => {
     fetchPasskeys()
   }, [])
+  /* eslint-enable react-hooks/set-state-in-effect */
 
   async function handleRegister() {
     setRegistering(true)
