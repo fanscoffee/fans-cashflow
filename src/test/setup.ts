@@ -1,6 +1,7 @@
-import { act } from "react"
-import React from "react"
-
-Object.defineProperty(React, "act", { value: act, writable: true })
-
 import "@testing-library/jest-dom/vitest"
+import { afterEach } from "vitest"
+import { cleanup } from "@testing-library/react"
+
+afterEach(() => {
+  cleanup()
+})
