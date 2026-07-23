@@ -47,7 +47,7 @@ export default function LoginPage() {
         const res = await fetch("/api/auth/session")
         const session = await res.json()
         if (session?.user?.role) {
-          window.location.href = ROLE_REDIRECT[session.user.role] ?? "/empleado"
+          window.location.href = ROLE_REDIRECT[session.user.role] ?? "/empleado" // eslint-disable-line react-hooks/immutability
           return
         }
         await new Promise((r) => setTimeout(r, 200))

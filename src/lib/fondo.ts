@@ -1,4 +1,4 @@
-import { toN, sum } from "@/lib/money"
+import { toN } from "@/lib/money"
 
 export function calculateFondo(
   lastShift: { fondoFinal: unknown } | null,
