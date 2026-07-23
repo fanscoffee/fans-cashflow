@@ -8,7 +8,7 @@ export default auth((req) => {
 
   const isLoginPage = pathname === "/" || pathname === "/login"
   const isDashboardPage = pathname.startsWith("/admin") || pathname.startsWith("/socio") || pathname.startsWith("/empleado")
-  const isOrdersPage = pathname.startsWith("/orders")
+  const isOrdersPage = pathname.startsWith("/encargos")
 
   // Logged in user visiting login/root → redirect to their dashboard
   if (session && isLoginPage) {
@@ -28,7 +28,7 @@ export default auth((req) => {
     if (role === "ADMIN" || role === "SOCIO") return NextResponse.next()
 
     if (role === "OBRADOR") {
-      return NextResponse.redirect(new URL("/orders", req.url))
+      return NextResponse.redirect(new URL("/encargos", req.url))
     }
 
     const allowedPrefix = `/${role.toLowerCase()}`
@@ -42,5 +42,5 @@ export default auth((req) => {
 })
 
 export const config = {
-  matcher: ["/", "/login", "/admin/:path*", "/socio/:path*", "/empleado/:path*", "/orders/:path*"],
+  matcher: ["/", "/login", "/admin/:path*", "/socio/:path*", "/empleado/:path*", "/encargos/:path*"],
 }

@@ -21,14 +21,14 @@ function mockRequest(url: string) {
   return new Request(url) as unknown as NextRequest
 }
 
-describe("Orders Upcoming API /api/orders/upcoming", () => {
+describe("Orders Upcoming API /api/encargos/upcoming", () => {
   beforeEach(() => {
     vi.clearAllMocks()
   })
 
   it("returns 401 when not authenticated", async () => {
     vi.mocked(auth).mockResolvedValue(null as any)
-    const res = await GET(mockRequest("http://localhost/api/orders/upcoming"))
+    const res = await GET(mockRequest("http://localhost/api/encargos/upcoming"))
     expect(res.status).toBe(401)
   })
 
@@ -40,7 +40,7 @@ describe("Orders Upcoming API /api/orders/upcoming", () => {
       { id: "o1", clientName: "Juan" },
     ] as any)
 
-    const res = await GET(mockRequest("http://localhost/api/orders/upcoming"))
+    const res = await GET(mockRequest("http://localhost/api/encargos/upcoming"))
     expect(res.status).toBe(200)
     expect(prisma.order.findMany).toHaveBeenCalledWith(
       expect.objectContaining({
@@ -60,7 +60,7 @@ describe("Orders Upcoming API /api/orders/upcoming", () => {
     } as any)
     vi.mocked(prisma.order.findMany).mockResolvedValue([])
 
-    const res = await GET(mockRequest("http://localhost/api/orders/upcoming"))
+    const res = await GET(mockRequest("http://localhost/api/encargos/upcoming"))
     const data = await res.json()
     expect(data).toEqual([])
   })

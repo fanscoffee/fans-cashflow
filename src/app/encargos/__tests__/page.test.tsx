@@ -79,7 +79,7 @@ describe("OrdersPage", () => {
     } as any)
     vi.spyOn(global, "fetch").mockImplementation((url: string | URL | Request) => {
       const u = typeof url === "string" ? url : ""
-      if (u.includes("/api/orders")) {
+      if (u.includes("/api/encargos")) {
         return Promise.resolve({ ok: true, json: () => Promise.resolve(mockOrders) } as any)
       }
       return Promise.resolve({ ok: true, json: () => Promise.resolve(null) } as any)
@@ -154,7 +154,7 @@ describe("OrdersPage", () => {
   it("shows empty message when no orders", async () => {
     vi.mocked(global.fetch).mockImplementation((url: string | URL | Request) => {
       const u = typeof url === "string" ? url : ""
-      if (u.includes("/api/orders")) {
+      if (u.includes("/api/encargos")) {
         return Promise.resolve({ ok: true, json: () => Promise.resolve([]) } as any)
       }
       return Promise.resolve({ ok: true, json: () => Promise.resolve(null) } as any)

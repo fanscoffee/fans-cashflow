@@ -57,7 +57,7 @@ const mockOrders = [
 ]
 
 const server = setupServer(
-  http.get("/api/orders", () => {
+  http.get("/api/encargos", () => {
     const filtered = mockOrders.filter((o) => o.deliveryDate.slice(0, 10) >= today)
     return HttpResponse.json(filtered)
   }),

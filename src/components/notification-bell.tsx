@@ -15,7 +15,7 @@ export default function NotificationBell({ upcomingOrders }: NotificationBellPro
   const fetchOrders = useCallback(async () => {
     setLoading(true)
     try {
-      const res = await fetch("/api/orders/upcoming")
+      const res = await fetch("/api/encargos/upcoming")
       if (res.ok) {
         const data = await res.json()
         setOrders(data)

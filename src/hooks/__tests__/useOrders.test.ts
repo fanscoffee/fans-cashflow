@@ -51,7 +51,7 @@ describe("useOrders", () => {
     const { result } = renderHook(() => useOrders({ month: 7, year: 2026 }))
 
     await waitFor(() => expect(result.current.loading).toBe(false))
-    expect(global.fetch).toHaveBeenCalledWith("/api/orders?month=7&year=2026")
+    expect(global.fetch).toHaveBeenCalledWith("/api/encargos?month=7&year=2026")
   })
 
   it("does not send month/year for EMPLEADO", async () => {
@@ -60,7 +60,7 @@ describe("useOrders", () => {
     const { result } = renderHook(() => useOrders({ month: 7, year: 2026 }))
 
     await waitFor(() => expect(result.current.loading).toBe(false))
-    expect(global.fetch).toHaveBeenCalledWith("/api/orders")
+    expect(global.fetch).toHaveBeenCalledWith("/api/encargos")
   })
 
   it("canEdit is true for ADMIN and SOCIO", () => {
@@ -99,7 +99,7 @@ describe("useOrders", () => {
     })
 
     expect(success).toBe(true)
-    expect(global.fetch).toHaveBeenCalledWith("/api/orders", expect.objectContaining({ method: "POST" }))
+    expect(global.fetch).toHaveBeenCalledWith("/api/encargos", expect.objectContaining({ method: "POST" }))
   })
 
   it("createOrder returns false on error", async () => {
@@ -147,7 +147,7 @@ describe("useOrders", () => {
     })
 
     expect(success).toBe(true)
-    expect(global.fetch).toHaveBeenCalledWith("/api/orders/o1", expect.objectContaining({ method: "PATCH" }))
+    expect(global.fetch).toHaveBeenCalledWith("/api/encargos/o1", expect.objectContaining({ method: "PATCH" }))
   })
 
   it("deleteOrder sends DELETE after confirm", async () => {
@@ -167,7 +167,7 @@ describe("useOrders", () => {
     })
 
     expect(success).toBe(true)
-    expect(global.fetch).toHaveBeenCalledWith("/api/orders/o1", expect.objectContaining({ method: "DELETE" }))
+    expect(global.fetch).toHaveBeenCalledWith("/api/encargos/o1", expect.objectContaining({ method: "DELETE" }))
   })
 
   it("deleteOrder returns false when confirm is cancelled", async () => {
@@ -200,7 +200,7 @@ describe("useOrders", () => {
     })
 
     expect(success).toBe(true)
-    expect(global.fetch).toHaveBeenCalledWith("/api/orders/o1", expect.objectContaining({ method: "PATCH" }))
+    expect(global.fetch).toHaveBeenCalledWith("/api/encargos/o1", expect.objectContaining({ method: "PATCH" }))
   })
 
   it("toggleOrderStatus reverts optimistic update on error", async () => {

@@ -21,7 +21,7 @@ import { PATCH, DELETE } from "../route"
 import { prisma } from "@/lib/prisma"
 import { auth } from "@/lib/auth"
 
-describe("Orders API /api/orders/[orderId]", () => {
+describe("Orders API /api/encargos/[orderId]", () => {
   const mockParams = Promise.resolve({ orderId: "o1" })
 
   beforeEach(() => {
@@ -31,7 +31,7 @@ describe("Orders API /api/orders/[orderId]", () => {
   describe("PATCH", () => {
     it("returns 401 when not authenticated", async () => {
       vi.mocked(auth).mockResolvedValue(null as any)
-      const res = await PATCH(new Request("http://localhost/api/orders/o1", { method: "PATCH" }) as unknown as NextRequest, { params: mockParams })
+      const res = await PATCH(new Request("http://localhost/api/encargos/o1", { method: "PATCH" }) as unknown as NextRequest, { params: mockParams })
       expect(res.status).toBe(401)
     })
 
@@ -39,7 +39,7 @@ describe("Orders API /api/orders/[orderId]", () => {
       vi.mocked(auth).mockResolvedValue({
         user: { id: "2", role: "EMPLEADO" },
       } as any)
-      const res = await PATCH(new Request("http://localhost/api/orders/o1", { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ clientName: "Hacked" }) }) as unknown as NextRequest, { params: mockParams })
+      const res = await PATCH(new Request("http://localhost/api/encargos/o1", { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ clientName: "Hacked" }) }) as unknown as NextRequest, { params: mockParams })
       expect(res.status).toBe(403)
     })
 
@@ -50,7 +50,7 @@ describe("Orders API /api/orders/[orderId]", () => {
       vi.mocked(prisma.order.findUnique).mockResolvedValue(null)
 
       const body = JSON.stringify({ clientName: "Updated" })
-      const req = new Request("http://localhost/api/orders/o1", {
+      const req = new Request("http://localhost/api/encargos/o1", {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
         body,
@@ -68,7 +68,7 @@ describe("Orders API /api/orders/[orderId]", () => {
       vi.mocked(prisma.order.update).mockResolvedValue({ id: "o1", clientName: "Updated" } as any)
 
       const body = JSON.stringify({ clientName: "Updated" })
-      const req = new Request("http://localhost/api/orders/o1", {
+      const req = new Request("http://localhost/api/encargos/o1", {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
         body,
@@ -87,7 +87,7 @@ describe("Orders API /api/orders/[orderId]", () => {
       vi.mocked(prisma.order.update).mockResolvedValue({ id: "o1" } as any)
 
       const body = JSON.stringify({ clientName: "Updated" })
-      const req = new Request("http://localhost/api/orders/o1", {
+      const req = new Request("http://localhost/api/encargos/o1", {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
         body,
@@ -105,7 +105,7 @@ describe("Orders API /api/orders/[orderId]", () => {
       vi.mocked(prisma.order.update).mockResolvedValue({ id: "o1", isPaid: true } as any)
 
       const body = JSON.stringify({ isPaid: true })
-      const req = new Request("http://localhost/api/orders/o1", {
+      const req = new Request("http://localhost/api/encargos/o1", {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
         body,
@@ -126,7 +126,7 @@ describe("Orders API /api/orders/[orderId]", () => {
       vi.mocked(prisma.order.update).mockResolvedValue({ id: "o1", isDelivered: true } as any)
 
       const body = JSON.stringify({ isDelivered: true })
-      const req = new Request("http://localhost/api/orders/o1", {
+      const req = new Request("http://localhost/api/encargos/o1", {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
         body,
@@ -146,7 +146,7 @@ describe("Orders API /api/orders/[orderId]", () => {
       vi.mocked(prisma.order.findUnique).mockResolvedValue({ id: "o1" } as any)
 
       const body = JSON.stringify({ clientName: "Hacked" })
-      const req = new Request("http://localhost/api/orders/o1", {
+      const req = new Request("http://localhost/api/encargos/o1", {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
         body,
@@ -160,7 +160,7 @@ describe("Orders API /api/orders/[orderId]", () => {
   describe("DELETE", () => {
     it("returns 401 when not authenticated", async () => {
       vi.mocked(auth).mockResolvedValue(null as any)
-      const res = await DELETE(new Request("http://localhost/api/orders/o1") as unknown as NextRequest, { params: mockParams })
+      const res = await DELETE(new Request("http://localhost/api/encargos/o1") as unknown as NextRequest, { params: mockParams })
       expect(res.status).toBe(401)
     })
 
@@ -168,7 +168,7 @@ describe("Orders API /api/orders/[orderId]", () => {
       vi.mocked(auth).mockResolvedValue({
         user: { id: "4", role: "OBRADOR" },
       } as any)
-      const res = await DELETE(new Request("http://localhost/api/orders/o1") as unknown as NextRequest, { params: mockParams })
+      const res = await DELETE(new Request("http://localhost/api/encargos/o1") as unknown as NextRequest, { params: mockParams })
       expect(res.status).toBe(403)
     })
 
@@ -178,7 +178,7 @@ describe("Orders API /api/orders/[orderId]", () => {
       } as any)
       vi.mocked(prisma.order.findUnique).mockResolvedValue(null)
 
-      const res = await DELETE(new Request("http://localhost/api/orders/o1") as unknown as NextRequest, { params: mockParams })
+      const res = await DELETE(new Request("http://localhost/api/encargos/o1") as unknown as NextRequest, { params: mockParams })
       expect(res.status).toBe(404)
     })
 
@@ -189,7 +189,7 @@ describe("Orders API /api/orders/[orderId]", () => {
       vi.mocked(prisma.order.findUnique).mockResolvedValue({ id: "o1" } as any)
       vi.mocked(prisma.order.delete).mockResolvedValue({ id: "o1" } as any)
 
-      const res = await DELETE(new Request("http://localhost/api/orders/o1") as unknown as NextRequest, { params: mockParams })
+      const res = await DELETE(new Request("http://localhost/api/encargos/o1") as unknown as NextRequest, { params: mockParams })
       expect(res.status).toBe(200)
       expect(prisma.order.delete).toHaveBeenCalledWith({ where: { id: "o1" } })
     })

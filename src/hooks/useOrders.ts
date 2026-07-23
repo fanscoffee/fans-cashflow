@@ -31,7 +31,7 @@ export function useOrders({ month, year }: UseOrdersOptions = {}) {
         params.set("year", String(year))
       }
       const qs = params.toString() ? `?${params}` : ""
-      const res = await fetch(`/api/orders${qs}`)
+      const res = await fetch(`/api/encargos${qs}`)
       if (res.ok) {
         const data = await res.json()
         setOrders(data)
@@ -62,7 +62,7 @@ export function useOrders({ month, year }: UseOrdersOptions = {}) {
       setError(null)
       setSuccess(null)
       try {
-        const res = await fetch("/api/orders", {
+        const res = await fetch("/api/encargos", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify(payload),
@@ -96,7 +96,7 @@ export function useOrders({ month, year }: UseOrdersOptions = {}) {
       setError(null)
       setSuccess(null)
       try {
-        const res = await fetch(`/api/orders/${orderId}`, {
+        const res = await fetch(`/api/encargos/${orderId}`, {
           method: "PATCH",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify(payload),
@@ -123,7 +123,7 @@ export function useOrders({ month, year }: UseOrdersOptions = {}) {
       setError(null)
       setSuccess(null)
       try {
-        const res = await fetch(`/api/orders/${orderId}`, { method: "DELETE" })
+        const res = await fetch(`/api/encargos/${orderId}`, { method: "DELETE" })
         if (!res.ok) {
           setError("Error al eliminar el encargo")
           return false
@@ -145,7 +145,7 @@ export function useOrders({ month, year }: UseOrdersOptions = {}) {
         prev.map((o) => (o.id === orderId ? { ...o, [field]: value } : o))
       )
       try {
-        const res = await fetch(`/api/orders/${orderId}`, {
+        const res = await fetch(`/api/encargos/${orderId}`, {
           method: "PATCH",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ [field]: value }),

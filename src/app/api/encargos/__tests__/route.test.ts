@@ -25,7 +25,7 @@ function mockRequest(url: string) {
   return new Request(url) as unknown as NextRequest
 }
 
-describe("Orders API /api/orders", () => {
+describe("Orders API /api/encargos", () => {
   beforeEach(() => {
     vi.clearAllMocks()
   })
@@ -33,7 +33,7 @@ describe("Orders API /api/orders", () => {
   describe("GET", () => {
     it("returns 401 when not authenticated", async () => {
       vi.mocked(auth).mockResolvedValue(null as any)
-      const res = await GET(mockRequest("http://localhost/api/orders"))
+      const res = await GET(mockRequest("http://localhost/api/encargos"))
       expect(res.status).toBe(401)
     })
 
@@ -45,7 +45,7 @@ describe("Orders API /api/orders", () => {
         { id: "o1", clientName: "Test" },
       ] as any)
 
-      const res = await GET(mockRequest("http://localhost/api/orders?month=7&year=2026"))
+      const res = await GET(mockRequest("http://localhost/api/encargos?month=7&year=2026"))
       expect(res.status).toBe(200)
       expect(prisma.order.findMany).toHaveBeenCalled()
     })
@@ -56,7 +56,7 @@ describe("Orders API /api/orders", () => {
       } as any)
       vi.mocked(prisma.order.findMany).mockResolvedValue([])
 
-      await GET(mockRequest("http://localhost/api/orders"))
+      await GET(mockRequest("http://localhost/api/encargos"))
       expect(prisma.order.findMany).toHaveBeenCalledWith(
         expect.objectContaining({
           where: expect.objectContaining({
@@ -72,7 +72,7 @@ describe("Orders API /api/orders", () => {
       } as any)
       vi.mocked(prisma.order.findMany).mockResolvedValue([])
 
-      await GET(mockRequest("http://localhost/api/orders"))
+      await GET(mockRequest("http://localhost/api/encargos"))
       expect(prisma.order.findMany).toHaveBeenCalledWith(
         expect.objectContaining({ where: {} })
       )
@@ -82,7 +82,7 @@ describe("Orders API /api/orders", () => {
   describe("POST", () => {
     it("returns 401 when not authenticated", async () => {
       vi.mocked(auth).mockResolvedValue(null as any)
-      const res = await POST(mockRequest("http://localhost/api/orders"))
+      const res = await POST(mockRequest("http://localhost/api/encargos"))
       expect(res.status).toBe(401)
     })
 
@@ -92,7 +92,7 @@ describe("Orders API /api/orders", () => {
       } as any)
 
       const body = JSON.stringify({ clientName: "" })
-      const req = new Request("http://localhost/api/orders", {
+      const req = new Request("http://localhost/api/encargos", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body,
@@ -116,7 +116,7 @@ describe("Orders API /api/orders", () => {
         clientPhone: "555-1234",
         deliveryDate: "2026-07-22T14:00:00.000Z",
       })
-      const req = new Request("http://localhost/api/orders", {
+      const req = new Request("http://localhost/api/encargos", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body,
