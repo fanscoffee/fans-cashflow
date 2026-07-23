@@ -1,13 +1,8 @@
 import { NextResponse } from "next/server"
 import { prisma } from "@/lib/prisma"
-import { auth } from "@/lib/auth"
+import { withAuth } from "@/lib/with-auth"
 
-export async function GET() {
-  const session = await auth()
-  if (!session?.user?.id) {
-    return NextResponse.json({ error: "No autorizado" }, { status: 401 })
-  }
-
+export const GET = withAuth(async (req, session) => {
   const passkeys = await prisma.passkey.findMany({
     where: { userId: session.user.id },
     select: {
@@ -19,4 +14,4 @@ export async function GET() {
   })
 
   return NextResponse.json(passkeys)
-}
+})

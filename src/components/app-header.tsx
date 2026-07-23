@@ -19,7 +19,7 @@ function getNavLinks(role?: string): HeaderLink[] {
       { href: "/socio/fondo", label: "Fondo" },
       { href: "/socio/turnos", label: "Turnos" },
       { href: "/socio/efectivo", label: "Efectivo" },
-      { href: "/orders", label: "Encargos" },
+      { href: "/encargos", label: "Encargos" },
       { href: "/empleado", label: "Turno" },
       { href: "/admin", label: "Admin" },
     ]
@@ -30,19 +30,19 @@ function getNavLinks(role?: string): HeaderLink[] {
       { href: "/socio/fondo", label: "Fondo" },
       { href: "/socio/turnos", label: "Turnos" },
       { href: "/socio/efectivo", label: "Efectivo" },
-      { href: "/orders", label: "Encargos" },
+      { href: "/encargos", label: "Encargos" },
       { href: "/empleado", label: "Turno" },
     ]
   }
   if (role === "EMPLEADO") {
     return [
       { href: "/empleado", label: "Turno" },
-      { href: "/orders", label: "Encargos" },
+      { href: "/encargos", label: "Encargos" },
     ]
   }
   if (role === "OBRADOR") {
     return [
-      { href: "/orders", label: "Encargos" },
+      { href: "/encargos", label: "Encargos" },
     ]
   }
   return []

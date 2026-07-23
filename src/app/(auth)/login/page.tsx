@@ -11,6 +11,7 @@ import {
   startAuthentication,
   browserSupportsWebAuthn,
 } from "@simplewebauthn/browser"
+import { ROLE_REDIRECT } from "@/lib/roles"
 
 const loginSchema = z.object({
   email: z.string().email("Email no válido"),
@@ -18,12 +19,6 @@ const loginSchema = z.object({
 })
 
 type LoginFormData = z.infer<typeof loginSchema>
-
-const ROLE_REDIRECT: Record<string, string> = {
-  ADMIN: "/admin",
-  SOCIO: "/socio",
-  EMPLEADO: "/empleado",
-}
 
 export default function LoginPage() {
   const router = useRouter()

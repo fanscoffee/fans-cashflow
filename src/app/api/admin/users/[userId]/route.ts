@@ -2,25 +2,21 @@ import { NextResponse } from "next/server"
 import { z } from "zod"
 import bcrypt from "bcryptjs"
 import { prisma } from "@/lib/prisma"
-import { auth } from "@/lib/auth"
+import { withAuth } from "@/lib/with-auth"
 
 const updatePasswordSchema = z.object({
   password: z.string().min(6, "La contraseña debe tener al menos 6 caracteres"),
 })
 
-export async function PATCH(
-  request: Request,
-  { params }: { params: Promise<{ userId: string }> }
-) {
-  const session = await auth()
-  if (!session?.user?.id || session.user.role !== "ADMIN") {
+export const PATCH = withAuth(async (req, session, context) => {
+  if (session.user.role !== "ADMIN") {
     return NextResponse.json({ error: "No autorizado" }, { status: 401 })
   }
 
-  const { userId } = await params
+  const { userId } = await context.params
 
   try {
-    const body = await request.json()
+    const body = await req.json()
     const data = updatePasswordSchema.parse(body)
 
     const hashedPassword = await bcrypt.hash(data.password, 10)
@@ -43,4 +39,4 @@ export async function PATCH(
       { status: 500 }
     )
   }
-}
+})

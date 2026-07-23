@@ -20,43 +20,9 @@ interface Shift {
   createdBy?: { name: string | null; email: string }
 }
 
-const MONTH_NAMES = [
-  "Enero", "Febrero", "Marzo", "Abril", "Mayo", "Junio",
-  "Julio", "Agosto", "Septiembre", "Octubre", "Noviembre", "Diciembre",
-]
-
-const DESTINATION_LABELS: Record<string, string> = {
-  DEPOSITO: "Depósito",
-  INGRESO_EN_FONDO: "Ingreso en fondo",
-  GUARDADO: "Guardado",
-  FANS: "Fans",
-}
-
-function downloadCSV(data: Record<string, unknown>[], filename: string) {
-  if (data.length === 0) return
-  const headers = Object.keys(data[0])
-  const csvRows = [
-    headers.join(","),
-    ...data.map((row) =>
-      headers
-        .map((h) => {
-          const val = row[h as keyof typeof row]
-          const str = String(val ?? "")
-          return str.includes(",") || str.includes('"') || str.includes("\n")
-            ? `"${str.replace(/"/g, '""')}"`
-            : str
-        })
-        .join(",")
-    ),
-  ]
-  const blob = new Blob([csvRows.join("\n")], { type: "text/csv;charset=utf-8;" })
-  const url = URL.createObjectURL(blob)
-  const a = document.createElement("a")
-  a.href = url
-  a.download = filename
-  a.click()
-  URL.revokeObjectURL(url)
-}
+import { downloadCSV } from "@/lib/csv"
+import { MONTH_NAMES, DESTINATION_LABELS, DESTINATION_KEYS } from "@/lib/constants"
+import { toN, toFixed } from "@/lib/money"
 
 export default function EfectivoPage() {
   const { data: session, status } = useSession()
@@ -125,7 +91,7 @@ export default function EfectivoPage() {
     const data = shifts.map((s) => ({
       Fecha: new Date(s.date).toLocaleDateString("es-ES"),
       Turno: s.turno,
-      Efectivo: Number(s.efectivo).toFixed(2),
+      Efectivo: toFixed(s.efectivo),
       Destino: s.cashTracking ? DESTINATION_LABELS[s.cashTracking.destination] || s.cashTracking.destination : "Sin asignar",
       AsignadoPor: s.cashTracking?.createdBy?.name || s.cashTracking?.createdBy?.email || "",
       CreadoPor: s.createdBy?.name || s.createdBy?.email || "",
@@ -194,10 +160,10 @@ export default function EfectivoPage() {
                           {shift.turno}
                         </span>
                       </div>
-                      <span className="text-sm font-bold text-gray-900">{Number(shift.efectivo).toFixed(2)} €</span>
+                      <span className="text-sm font-bold text-gray-900">{toFixed(shift.efectivo)} €</span>
                     </div>
                     <div className="flex gap-2">
-                      {(["DEPOSITO", "INGRESO_EN_FONDO", "GUARDADO", "FANS"] as const).map((dest) => (
+                        {DESTINATION_KEYS.map((dest) => (
                         <label key={dest} className={`flex flex-1 cursor-pointer items-center justify-center gap-1 rounded-md border px-2 py-1.5 text-xs font-medium transition-colors ${
                           shift.cashTracking?.destination === dest
                             ? "border-blue-500 bg-blue-50 text-blue-700"
@@ -241,9 +207,9 @@ export default function EfectivoPage() {
                         </td>
                         <td className="py-3 text-gray-900">{shift.turno}</td>
                         <td className="py-3 text-right font-medium text-gray-900">
-                          {Number(shift.efectivo).toFixed(2)} €
+                          {toFixed(shift.efectivo)} €
                         </td>
-                        {(["DEPOSITO", "INGRESO_EN_FONDO", "GUARDADO", "FANS"] as const).map((dest) => (
+                    {DESTINATION_KEYS.map((dest) => (
                           <td key={dest} className="py-3 text-center">
                             <input
                               type="radio"

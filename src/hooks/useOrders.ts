@@ -31,15 +31,10 @@ export function useOrders({ month, year }: UseOrdersOptions = {}) {
         params.set("year", String(year))
       }
       const qs = params.toString() ? `?${params}` : ""
-      const res = await fetch(`/api/orders${qs}`)
+      const res = await fetch(`/api/encargos${qs}`)
       if (res.ok) {
         const data = await res.json()
-        if (role === "EMPLEADO" || role === "OBRADOR") {
-          const today = new Date().toISOString().slice(0, 10)
-          setOrders(data.filter((o: Order) => o.deliveryDate.slice(0, 10) >= today))
-        } else {
-          setOrders(data)
-        }
+        setOrders(data)
       }
     } catch {
       // ignore
@@ -67,7 +62,7 @@ export function useOrders({ month, year }: UseOrdersOptions = {}) {
       setError(null)
       setSuccess(null)
       try {
-        const res = await fetch("/api/orders", {
+        const res = await fetch("/api/encargos", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify(payload),
@@ -101,7 +96,7 @@ export function useOrders({ month, year }: UseOrdersOptions = {}) {
       setError(null)
       setSuccess(null)
       try {
-        const res = await fetch(`/api/orders/${orderId}`, {
+        const res = await fetch(`/api/encargos/${orderId}`, {
           method: "PATCH",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify(payload),
@@ -128,7 +123,7 @@ export function useOrders({ month, year }: UseOrdersOptions = {}) {
       setError(null)
       setSuccess(null)
       try {
-        const res = await fetch(`/api/orders/${orderId}`, { method: "DELETE" })
+        const res = await fetch(`/api/encargos/${orderId}`, { method: "DELETE" })
         if (!res.ok) {
           setError("Error al eliminar el encargo")
           return false
@@ -144,6 +139,36 @@ export function useOrders({ month, year }: UseOrdersOptions = {}) {
     [fetchOrders]
   )
 
+  const toggleOrderStatus = useCallback(
+    async (orderId: string, field: "isPaid" | "isDelivered", value: boolean) => {
+      setOrders((prev) =>
+        prev.map((o) => (o.id === orderId ? { ...o, [field]: value } : o))
+      )
+      try {
+        const res = await fetch(`/api/encargos/${orderId}`, {
+          method: "PATCH",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ [field]: value }),
+        })
+        if (!res.ok) {
+          setOrders((prev) =>
+            prev.map((o) => (o.id === orderId ? { ...o, [field]: !value } : o))
+          )
+          setError("Error al actualizar el estado")
+          return false
+        }
+        return true
+      } catch {
+        setOrders((prev) =>
+          prev.map((o) => (o.id === orderId ? { ...o, [field]: !value } : o))
+        )
+        setError("Error al conectar con el servidor")
+        return false
+      }
+    },
+    []
+  )
+
   return {
     orders,
     loading: status !== "authenticated" || loading,
@@ -155,6 +180,7 @@ export function useOrders({ month, year }: UseOrdersOptions = {}) {
     createOrder,
     updateOrder,
     deleteOrder,
+    toggleOrderStatus,
     clearMessages,
   }
 }

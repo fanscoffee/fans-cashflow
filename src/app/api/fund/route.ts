@@ -1,13 +1,10 @@
 import { NextResponse } from "next/server"
 import { prisma } from "@/lib/prisma"
-import { auth } from "@/lib/auth"
+import { calculateFondo } from "@/lib/fondo"
+import { withAuth } from "@/lib/with-auth"
+import { toJSON } from "@/lib/money"
 
-export async function GET() {
-  const session = await auth()
-  if (!session?.user?.id) {
-    return NextResponse.json({ error: "No autorizado" }, { status: 401 })
-  }
-
+export const GET = withAuth(async () => {
   const lastShift = await prisma.shift.findFirst({
     orderBy: { createdAt: "desc" },
   })
@@ -19,8 +16,8 @@ export async function GET() {
     where: { createdAt: { gt: sinceDate } },
   })
 
-  const totalAdditions = Number(additionsResult._sum.amount ?? 0)
-  const fondo = (lastShift ? Number(lastShift.fondoFinal) : 0) + totalAdditions
+  const additions = [{ amount: toJSON(additionsResult._sum.amount) }]
+  const fondo = calculateFondo(lastShift, additions)
 
-  return NextResponse.json({ fondo: Math.round(fondo * 100) / 100 })
-}
+  return NextResponse.json({ fondo })
+})

@@ -1,12 +1,6 @@
 import { NextResponse } from "next/server"
 import { auth } from "@/lib/auth"
-
-const ROLE_REDIRECT: Record<string, string> = {
-  ADMIN: "/admin",
-  SOCIO: "/socio",
-  EMPLEADO: "/empleado",
-  OBRADOR: "/orders",
-}
+import { ROLE_REDIRECT } from "@/lib/roles"
 
 export default auth((req) => {
   const { pathname } = req.nextUrl
@@ -14,12 +8,12 @@ export default auth((req) => {
 
   const isLoginPage = pathname === "/" || pathname === "/login"
   const isDashboardPage = pathname.startsWith("/admin") || pathname.startsWith("/socio") || pathname.startsWith("/empleado")
-  const isOrdersPage = pathname.startsWith("/orders")
+  const isOrdersPage = pathname.startsWith("/encargos")
 
   // Logged in user visiting login/root → redirect to their dashboard
   if (session && isLoginPage) {
     const role = session.user?.role as string
-    return NextResponse.redirect(new URL(ROLE_REDIRECT[role] ?? "/empleado", req.url))
+    return NextResponse.redirect(new URL(ROLE_REDIRECT[role] ?? "/", req.url))
   }
 
   // Not logged in visiting dashboard or orders → redirect to login (root)
@@ -34,7 +28,7 @@ export default auth((req) => {
     if (role === "ADMIN" || role === "SOCIO") return NextResponse.next()
 
     if (role === "OBRADOR") {
-      return NextResponse.redirect(new URL("/orders", req.url))
+      return NextResponse.redirect(new URL("/encargos", req.url))
     }
 
     const allowedPrefix = `/${role.toLowerCase()}`
@@ -48,5 +42,5 @@ export default auth((req) => {
 })
 
 export const config = {
-  matcher: ["/", "/login", "/admin/:path*", "/socio/:path*", "/empleado/:path*", "/orders/:path*"],
+  matcher: ["/", "/login", "/admin/:path*", "/socio/:path*", "/empleado/:path*", "/encargos/:path*"],
 }

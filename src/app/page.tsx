@@ -5,6 +5,7 @@ import { useForm } from "react-hook-form"
 import { zodResolver } from "@hookform/resolvers/zod"
 import { z } from "zod"
 import { signIn } from "next-auth/react"
+import { ROLE_REDIRECT } from "@/lib/roles"
 
 const loginSchema = z.object({
   email: z.string().email("Email no válido"),
@@ -12,12 +13,6 @@ const loginSchema = z.object({
 })
 
 type LoginFormData = z.infer<typeof loginSchema>
-
-const ROLE_REDIRECT: Record<string, string> = {
-  ADMIN: "/admin",
-  SOCIO: "/socio",
-  EMPLEADO: "/empleado",
-}
 
 export default function LoginPage() {
   const [error, setError] = useState<string | null>(null)

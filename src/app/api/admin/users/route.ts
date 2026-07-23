@@ -2,7 +2,7 @@ import { NextResponse } from "next/server"
 import { z } from "zod"
 import bcrypt from "bcryptjs"
 import { prisma } from "@/lib/prisma"
-import { auth } from "@/lib/auth"
+import { withAuth } from "@/lib/with-auth"
 
 const createUserSchema = z.object({
   name: z.string().min(2, "El nombre debe tener al menos 2 caracteres"),
@@ -11,9 +11,8 @@ const createUserSchema = z.object({
   role: z.enum(["ADMIN", "SOCIO", "EMPLEADO", "OBRADOR"]),
 })
 
-export async function GET() {
-  const session = await auth()
-  if (!session?.user?.id || session.user.role !== "ADMIN") {
+export const GET = withAuth(async (req, session) => {
+  if (session.user.role !== "ADMIN") {
     return NextResponse.json({ error: "No autorizado" }, { status: 401 })
   }
 
@@ -28,16 +27,15 @@ export async function GET() {
   })
 
   return NextResponse.json(users)
-}
+})
 
-export async function POST(request: Request) {
-  const session = await auth()
-  if (!session?.user?.id || session.user.role !== "ADMIN") {
+export const POST = withAuth(async (req, session) => {
+  if (session.user.role !== "ADMIN") {
     return NextResponse.json({ error: "No autorizado" }, { status: 401 })
   }
 
   try {
-    const body = await request.json()
+    const body = await req.json()
     const data = createUserSchema.parse(body)
 
     const existingUser = await prisma.user.findUnique({ where: { email: data.email } })
@@ -78,4 +76,4 @@ export async function POST(request: Request) {
       { status: 500 }
     )
   }
-}
+})

@@ -98,6 +98,8 @@ model Order {
   clientPhone  String
   deliveryDate DateTime
   comment      String?
+  isPaid       Boolean  @default(false)
+  isDelivered  Boolean  @default(false)
   createdById  String
   createdBy    User     @relation(fields: [createdById], references: [id])
   createdAt    DateTime @default(now())

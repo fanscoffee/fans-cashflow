@@ -28,7 +28,7 @@ const mockOrders = [
 ]
 
 const server = setupServer(
-  http.get("/api/orders", () => HttpResponse.json(mockOrders)),
+  http.get("/api/encargos/upcoming", () => HttpResponse.json(mockOrders)),
 )
 
 beforeAll(() => server.listen())
@@ -37,7 +37,7 @@ afterAll(() => server.close())
 
 describe("NotificationBell", () => {
   it("does not render when there are no orders", async () => {
-    server.use(http.get("/api/orders", () => HttpResponse.json([])))
+    server.use(http.get("/api/encargos/upcoming", () => HttpResponse.json([])))
     render(<NotificationBell />)
     await waitFor(() => {
       expect(screen.queryByRole("button", { name: /notificaciones/i })).not.toBeInTheDocument()
@@ -78,7 +78,7 @@ describe("NotificationBell", () => {
   it("shows empty state after re-fetch returns no orders", async () => {
     let callCount = 0
     server.use(
-      http.get("/api/orders", () => {
+      http.get("/api/encargos/upcoming", () => {
         callCount++
         return HttpResponse.json(callCount === 1 ? mockOrders : [])
       }),

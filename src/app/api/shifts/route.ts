@@ -1,19 +1,16 @@
 import { NextResponse } from "next/server"
 import { z } from "zod"
 import { prisma } from "@/lib/prisma"
-import { auth } from "@/lib/auth"
+import { calculateFondo } from "@/lib/fondo"
+import { withAuth } from "@/lib/with-auth"
+import { toJSON } from "@/lib/money"
 
 const shiftSchema = z.object({
   date: z.string(),
   turno: z.enum(["mañana", "tarde"]),
 })
 
-export async function GET() {
-  const session = await auth()
-  if (!session?.user?.id) {
-    return NextResponse.json({ error: "No autorizado" }, { status: 401 })
-  }
-
+export const GET = withAuth(async (req, session) => {
   const isAdminOrSocio = session.user.role === "ADMIN" || session.user.role === "SOCIO"
 
   let shifts
@@ -42,14 +39,9 @@ export async function GET() {
   }
 
   return NextResponse.json(shifts)
-}
+})
 
-export async function POST(request: Request) {
-  const session = await auth()
-  if (!session?.user?.id) {
-    return NextResponse.json({ error: "No autorizado" }, { status: 401 })
-  }
-
+export const POST = withAuth(async (req, session) => {
   const openShift = await prisma.shift.findFirst({
     where: { status: "ABIERTO" },
   })
@@ -61,7 +53,7 @@ export async function POST(request: Request) {
   }
 
   try {
-    const body = await request.json()
+    const body = await req.json()
     const data = shiftSchema.parse(body)
 
     const existingShift = await prisma.shift.findFirst({
@@ -88,8 +80,8 @@ export async function POST(request: Request) {
       where: { createdAt: { gt: sinceDate } },
     })
 
-    const totalAdditions = Number(additionsResult._sum.amount ?? 0)
-    const fondoInicial = (lastShift ? Number(lastShift.fondoFinal) : 0) + totalAdditions
+    const additions = [{ amount: toJSON(additionsResult._sum.amount) }]
+    const fondoInicial = calculateFondo(lastShift, additions)
 
     const shift = await prisma.shift.create({
       data: {
@@ -120,4 +112,4 @@ export async function POST(request: Request) {
       { status: 500 }
     )
   }
-}
+})
