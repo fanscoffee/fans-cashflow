@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server"
 import { prisma } from "@/lib/prisma"
 import { withAuth } from "@/lib/with-auth"
-import { toN, sum, sub, toJSON, toFixed } from "@/lib/money"
+import { toN, sum, toJSON, toFixed } from "@/lib/money"
 
 export const GET = withAuth(async (req) => {
   const { searchParams } = new URL(req.url)

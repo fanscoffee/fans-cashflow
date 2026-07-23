@@ -43,9 +43,11 @@ export function useOrders({ month, year }: UseOrdersOptions = {}) {
     }
   }, [role, month, year])
 
+  /* eslint-disable react-hooks/set-state-in-effect */
   useEffect(() => {
     if (status === "authenticated") fetchOrders()
   }, [status, fetchOrders])
+  /* eslint-enable react-hooks/set-state-in-effect */
 
   const clearMessages = useCallback(() => {
     setError(null)

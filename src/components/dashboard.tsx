@@ -84,9 +84,11 @@ export default function Dashboard() {
     }
   }, [selectedMonth, selectedYear])
 
+  /* eslint-disable react-hooks/set-state-in-effect */
   useEffect(() => {
     fetchData()
   }, [fetchData])
+  /* eslint-enable react-hooks/set-state-in-effect */
 
   function handleExport() {
     if (!data?.exportData) return

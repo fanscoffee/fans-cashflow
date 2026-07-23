@@ -22,7 +22,7 @@ interface Shift {
 
 import { downloadCSV } from "@/lib/csv"
 import { MONTH_NAMES, DESTINATION_LABELS, DESTINATION_KEYS } from "@/lib/constants"
-import { toN, toFixed } from "@/lib/money"
+import { toFixed } from "@/lib/money"
 
 export default function EfectivoPage() {
   const { data: session, status } = useSession()
@@ -30,16 +30,10 @@ export default function EfectivoPage() {
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState<string | null>(null)
 
-  const [selectedMonth, setSelectedMonth] = useState(0)
-  const [selectedYear, setSelectedYear] = useState(0)
-  const [initialized, setInitialized] = useState(false)
-
-  useEffect(() => {
-    const now = new Date()
-    setSelectedMonth(now.getMonth() + 1)
-    setSelectedYear(now.getFullYear())
-    setInitialized(true)
-  }, [])
+  const now = new Date()
+  const [selectedMonth, setSelectedMonth] = useState(now.getMonth() + 1)
+  const [selectedYear, setSelectedYear] = useState(now.getFullYear())
+  const [initialized] = useState(true)
 
   useEffect(() => {
     if (status !== "authenticated" || !initialized) return

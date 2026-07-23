@@ -29,9 +29,11 @@ export default function NotificationBell({ upcomingOrders }: NotificationBellPro
 
   const displayOrders = upcomingOrders ?? orders
 
+  /* eslint-disable react-hooks/set-state-in-effect */
   useEffect(() => {
     if (upcomingOrders === undefined) fetchOrders()
   }, [fetchOrders, upcomingOrders])
+  /* eslint-enable react-hooks/set-state-in-effect */
 
   function handleOpen() {
     setOpen(true)

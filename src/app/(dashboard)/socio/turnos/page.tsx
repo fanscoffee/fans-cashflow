@@ -181,7 +181,7 @@ export default function TurnosPage() {
                     groups[day].push(shift)
                   }
                   return Object.entries(groups).map(([day, dayShifts]) => {
-                    dayShifts.sort((a, b) => a.turno === "mañana" ? -1 : 1)
+                    dayShifts.sort((a) => a.turno === "mañana" ? -1 : 1)
                     const facturacion = dayShifts.reduce(
                       (sum, s) => sum + toN(s.efectivo) + toN(s.caixa) + toN(s.santander),
                       0
