@@ -185,6 +185,40 @@ describe("useOrders", () => {
     expect(success).toBe(false)
   })
 
+  it("toggleOrderStatus sends PATCH with optimistic update", async () => {
+    mockSession("ADMIN")
+    vi.mocked(global.fetch)
+      .mockResolvedValueOnce({ ok: true, json: () => Promise.resolve([]) } as any)
+      .mockResolvedValueOnce({ ok: true, json: () => Promise.resolve({}) } as any)
+
+    const { result } = renderHook(() => useOrders())
+    await waitFor(() => expect(result.current.loading).toBe(false))
+
+    let success: boolean = false
+    await act(async () => {
+      success = await result.current.toggleOrderStatus("o1", "isPaid", true)
+    })
+
+    expect(success).toBe(true)
+    expect(global.fetch).toHaveBeenCalledWith("/api/orders/o1", expect.objectContaining({ method: "PATCH" }))
+  })
+
+  it("toggleOrderStatus reverts optimistic update on error", async () => {
+    mockSession("ADMIN")
+    vi.mocked(global.fetch)
+      .mockResolvedValueOnce({ ok: true, json: () => Promise.resolve([{ id: "o1", isPaid: false }]) } as any)
+      .mockResolvedValueOnce({ ok: false, json: () => Promise.resolve({ error: "fail" }) } as any)
+
+    const { result } = renderHook(() => useOrders())
+    await waitFor(() => expect(result.current.loading).toBe(false))
+
+    await act(async () => {
+      await result.current.toggleOrderStatus("o1", "isPaid", true)
+    })
+
+    expect(result.current.orders[0].isPaid).toBe(false)
+  })
+
   it("clearMessages resets error and success", async () => {
     mockSession("ADMIN")
     vi.mocked(global.fetch)

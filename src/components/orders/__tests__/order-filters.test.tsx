@@ -15,6 +15,8 @@ const baseOrders = [
     clientPhone: "555",
     deliveryDate: "2026-07-22T14:00:00.000Z",
     comment: null,
+    isPaid: false,
+    isDelivered: false,
     createdAt: "2026-07-20T10:00:00.000Z",
     createdBy: { name: "Admin", email: "admin@test.com" },
   },

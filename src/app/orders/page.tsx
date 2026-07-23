@@ -27,7 +27,7 @@ export default function OrdersPage() {
 
   const showFilters = session?.user?.role === "ADMIN" || session?.user?.role === "SOCIO"
 
-  const { orders, loading, error, success, canEdit, canDelete, createOrder, updateOrder, deleteOrder, clearMessages } = useOrders(
+  const { orders, loading, error, success, canEdit, canDelete, createOrder, updateOrder, deleteOrder, toggleOrderStatus, clearMessages } = useOrders(
     showFilters && initialized ? { month: selectedMonth, year: selectedYear } : undefined
   )
 
@@ -132,6 +132,7 @@ export default function OrdersPage() {
               canDelete={canDelete}
               onEdit={handleEdit}
               onDelete={handleDelete}
+              onToggleStatus={toggleOrderStatus}
             />
           )}
         </section>

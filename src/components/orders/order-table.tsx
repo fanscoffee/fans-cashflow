@@ -1,4 +1,5 @@
 import type { Order } from "@/types/order"
+import OrderActions from "./order-actions"
 
 interface OrderTableProps {
   orders: Order[]
@@ -6,6 +7,7 @@ interface OrderTableProps {
   canDelete: boolean
   onEdit: (order: Order) => void
   onDelete: (orderId: string) => void
+  onToggleStatus: (orderId: string, field: "isPaid" | "isDelivered", value: boolean) => void
 }
 
 export default function OrderTable({
@@ -14,6 +16,7 @@ export default function OrderTable({
   canDelete,
   onEdit,
   onDelete,
+  onToggleStatus,
 }: OrderTableProps) {
   return (
     <div className="hidden overflow-x-auto sm:block">
@@ -54,23 +57,25 @@ export default function OrderTable({
                   {order.createdBy?.name || order.createdBy?.email || "—"}
                 </td>
                 <td className="py-3 text-right">
-                  <div className="flex justify-end gap-2">
-                    {canEdit && (
-                      <button
-                        onClick={() => onEdit(order)}
-                        className="rounded bg-gray-100 px-2 py-1 text-xs font-medium text-gray-700 hover:bg-gray-200"
-                      >
-                        Editar
-                      </button>
+                  <div className="flex items-center justify-end gap-1">
+                    {order.isPaid && (
+                      <span className="inline-flex items-center rounded-full bg-green-50 px-2 py-0.5 text-xs font-medium text-green-700">
+                        Pagado
+                      </span>
                     )}
-                    {canDelete && (
-                      <button
-                        onClick={() => onDelete(order.id)}
-                        className="rounded bg-red-100 px-2 py-1 text-xs font-medium text-red-600 hover:bg-red-200"
-                      >
-                        Eliminar
-                      </button>
+                    {order.isDelivered && (
+                      <span className="inline-flex items-center rounded-full bg-blue-50 px-2 py-0.5 text-xs font-medium text-blue-700">
+                        Entregado
+                      </span>
                     )}
+                    <OrderActions
+                      order={order}
+                      canEdit={canEdit}
+                      canDelete={canDelete}
+                      onEdit={onEdit}
+                      onDelete={onDelete}
+                      onToggleStatus={onToggleStatus}
+                    />
                   </div>
                 </td>
               </tr>

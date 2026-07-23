@@ -60,8 +60,8 @@ import { useSession } from "next-auth/react"
 import { useRouter } from "next/navigation"
 
 const mockOrders = [
-  { id: "o1", clientName: "Juan", clientPhone: "123", deliveryDate: "2026-07-25T10:00:00Z", status: "PENDIENTE", comment: null },
-  { id: "o2", clientName: "Ana", clientPhone: "456", deliveryDate: "2026-07-26T12:00:00Z", status: "ENTREGADO", comment: "Urgente" },
+  { id: "o1", clientName: "Juan", clientPhone: "123", deliveryDate: "2026-07-25T10:00:00Z", isPaid: false, isDelivered: false, comment: null },
+  { id: "o2", clientName: "Ana", clientPhone: "456", deliveryDate: "2026-07-26T12:00:00Z", isPaid: true, isDelivered: true, comment: "Urgente" },
 ]
 
 describe("OrdersPage", () => {

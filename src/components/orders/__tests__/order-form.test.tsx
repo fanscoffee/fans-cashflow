@@ -27,6 +27,8 @@ function renderEdit() {
     clientPhone: "555-1234",
     deliveryDate: "2026-07-22T14:30:00.000Z",
     comment: "Test comment",
+    isPaid: false,
+    isDelivered: false,
     createdAt: "2026-07-22T10:00:00.000Z",
   }
   return render(

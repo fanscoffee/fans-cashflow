@@ -4,6 +4,8 @@ export interface Order {
   clientPhone: string
   deliveryDate: string
   comment: string | null
+  isPaid: boolean
+  isDelivered: boolean
   createdAt: string
   createdBy?: { name: string | null; email: string }
 }

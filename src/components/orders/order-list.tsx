@@ -8,6 +8,7 @@ interface OrderListProps {
   canDelete: boolean
   onEdit: (order: Order) => void
   onDelete: (orderId: string) => void
+  onToggleStatus: (orderId: string, field: "isPaid" | "isDelivered", value: boolean) => void
 }
 
 export default function OrderList({
@@ -16,6 +17,7 @@ export default function OrderList({
   canDelete,
   onEdit,
   onDelete,
+  onToggleStatus,
 }: OrderListProps) {
   return (
     <>
@@ -25,6 +27,7 @@ export default function OrderList({
         canDelete={canDelete}
         onEdit={onEdit}
         onDelete={onDelete}
+        onToggleStatus={onToggleStatus}
       />
       <OrderTable
         orders={orders}
@@ -32,6 +35,7 @@ export default function OrderList({
         canDelete={canDelete}
         onEdit={onEdit}
         onDelete={onDelete}
+        onToggleStatus={onToggleStatus}
       />
     </>
   )

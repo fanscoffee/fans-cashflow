@@ -139,6 +139,36 @@ export function useOrders({ month, year }: UseOrdersOptions = {}) {
     [fetchOrders]
   )
 
+  const toggleOrderStatus = useCallback(
+    async (orderId: string, field: "isPaid" | "isDelivered", value: boolean) => {
+      setOrders((prev) =>
+        prev.map((o) => (o.id === orderId ? { ...o, [field]: value } : o))
+      )
+      try {
+        const res = await fetch(`/api/orders/${orderId}`, {
+          method: "PATCH",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ [field]: value }),
+        })
+        if (!res.ok) {
+          setOrders((prev) =>
+            prev.map((o) => (o.id === orderId ? { ...o, [field]: !value } : o))
+          )
+          setError("Error al actualizar el estado")
+          return false
+        }
+        return true
+      } catch {
+        setOrders((prev) =>
+          prev.map((o) => (o.id === orderId ? { ...o, [field]: !value } : o))
+        )
+        setError("Error al conectar con el servidor")
+        return false
+      }
+    },
+    []
+  )
+
   return {
     orders,
     loading: status !== "authenticated" || loading,
@@ -150,6 +180,7 @@ export function useOrders({ month, year }: UseOrdersOptions = {}) {
     createOrder,
     updateOrder,
     deleteOrder,
+    toggleOrderStatus,
     clearMessages,
   }
 }

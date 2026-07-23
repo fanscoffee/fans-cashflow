@@ -8,19 +8,25 @@ const updateOrderSchema = z.object({
   clientPhone: z.string().min(1).optional(),
   deliveryDate: z.string().optional(),
   comment: z.string().optional(),
+  isPaid: z.boolean().optional(),
+  isDelivered: z.boolean().optional(),
 })
+
+const dataFields = ["clientName", "clientPhone", "deliveryDate", "comment"]
 
 export const PATCH = withAuth(async (req, session, context) => {
   const role = session.user.role
-  if (role !== "ADMIN" && role !== "SOCIO") {
-    return NextResponse.json({ error: "No autorizado" }, { status: 403 })
-  }
 
   const { orderId } = await context.params
 
   try {
     const body = await req.json()
     const data = updateOrderSchema.parse(body)
+
+    const hasDataFields = dataFields.some((f) => data[f as keyof typeof data] !== undefined)
+    if (hasDataFields && role !== "ADMIN" && role !== "SOCIO") {
+      return NextResponse.json({ error: "No autorizado" }, { status: 403 })
+    }
 
     const existing = await prisma.order.findUnique({ where: { id: orderId } })
     if (!existing) {
@@ -34,6 +40,8 @@ export const PATCH = withAuth(async (req, session, context) => {
         ...(data.clientPhone !== undefined && { clientPhone: data.clientPhone }),
         ...(data.deliveryDate !== undefined && { deliveryDate: new Date(data.deliveryDate) }),
         ...(data.comment !== undefined && { comment: data.comment }),
+        ...(data.isPaid !== undefined && { isPaid: data.isPaid }),
+        ...(data.isDelivered !== undefined && { isDelivered: data.isDelivered }),
       },
       include: { createdBy: { select: { name: true, email: true } } },
     })
