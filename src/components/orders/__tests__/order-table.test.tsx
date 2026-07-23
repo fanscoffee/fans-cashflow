@@ -35,6 +35,9 @@ const defaultProps = {
   onEdit: vi.fn(),
   onDelete: vi.fn(),
   onToggleStatus: vi.fn(),
+  sortField: "deliveryDate" as const,
+  sortDirection: "asc" as const,
+  onSort: vi.fn(),
 }
 
 describe("OrderTable", () => {
@@ -101,5 +104,20 @@ describe("OrderTable", () => {
   it("renders '—' for null comment", () => {
     render(<OrderTable {...defaultProps} />)
     expect(screen.getAllByText("—").length).toBeGreaterThan(0)
+  })
+
+  it("calls onSort when sortable header clicked", async () => {
+    const onSort = vi.fn()
+    const user = userEvent.setup()
+    render(<OrderTable {...defaultProps} onSort={onSort} />)
+
+    await user.click(screen.getByText("Cliente"))
+    expect(onSort).toHaveBeenCalledWith("clientName")
+  })
+
+  it("highlights active sort column", () => {
+    render(<OrderTable {...defaultProps} sortField="clientName" sortDirection="asc" />)
+    const clienteHeader = screen.getByText("Cliente").closest("th")
+    expect(clienteHeader).toBeInTheDocument()
   })
 })

@@ -26,6 +26,9 @@ describe("OrderList", () => {
         onEdit={vi.fn()}
         onDelete={vi.fn()}
         onToggleStatus={vi.fn()}
+        sortField="deliveryDate"
+        sortDirection="asc"
+        onSort={vi.fn()}
       />
     )
     const juanElements = screen.getAllByText("Juan")
@@ -41,6 +44,9 @@ describe("OrderList", () => {
         onEdit={vi.fn()}
         onDelete={vi.fn()}
         onToggleStatus={vi.fn()}
+        sortField="deliveryDate"
+        sortDirection="asc"
+        onSort={vi.fn()}
       />
     )
     const actionButtons = screen.getAllByLabelText("Acciones")
@@ -56,6 +62,9 @@ describe("OrderList", () => {
         onEdit={vi.fn()}
         onDelete={vi.fn()}
         onToggleStatus={vi.fn()}
+        sortField="deliveryDate"
+        sortDirection="asc"
+        onSort={vi.fn()}
       />
     )
     const actionButtons = screen.getAllByLabelText("Acciones")
