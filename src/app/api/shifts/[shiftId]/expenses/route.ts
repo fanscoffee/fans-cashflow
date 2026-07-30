@@ -2,6 +2,7 @@ import { NextResponse } from "next/server"
 import { z } from "zod"
 import { prisma } from "@/lib/prisma"
 import { withAuth } from "@/lib/with-auth"
+import { toN } from "@/lib/money"
 
 const expenseSchema = z.object({
   proveedor: z.string().min(1, "El proveedor es obligatorio"),
@@ -14,6 +15,23 @@ async function checkAccess(shiftId: string, userId: string, userRole: string) {
   const isAdminOrSocio = userRole === "ADMIN" || userRole === "SOCIO"
   if (!isAdminOrSocio && shift.createdById !== userId) return null
   return shift
+}
+
+async function recalculateFondoFinal(shiftId: string) {
+  const [shift, expensesAgg] = await Promise.all([
+    prisma.shift.findUnique({ where: { id: shiftId }, select: { fondoInicial: true } }),
+    prisma.expense.aggregate({
+      _sum: { importe: true },
+      where: { shiftId },
+    }),
+  ])
+  if (!shift) return
+  const totalExpenses = toN(expensesAgg._sum.importe)
+  const fondoFinal = toN(shift.fondoInicial) - totalExpenses
+  await prisma.shift.update({
+    where: { id: shiftId },
+    data: { fondoFinal },
+  })
 }
 
 export const POST = withAuth(async (req, session, context) => {
@@ -34,6 +52,8 @@ export const POST = withAuth(async (req, session, context) => {
         importe: data.importe,
       },
     })
+
+    await recalculateFondoFinal(shiftId)
 
     return NextResponse.json(expense, { status: 201 })
   } catch (error) {
@@ -73,6 +93,8 @@ export const PATCH = withAuth(async (req, session, context) => {
       },
     })
 
+    await recalculateFondoFinal(shiftId)
+
     return NextResponse.json(expense)
   } catch (error) {
     if (error instanceof z.ZodError) {
@@ -98,6 +120,7 @@ export const DELETE = withAuth(async (req, session, context) => {
   try {
     const { expenseId } = await req.json()
     await prisma.expense.delete({ where: { id: expenseId } })
+    await recalculateFondoFinal(shiftId)
     return NextResponse.json({ ok: true })
   } catch {
     return NextResponse.json(

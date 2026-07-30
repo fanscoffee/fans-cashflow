@@ -35,6 +35,19 @@ export const POST = withAuth(async (req, session) => {
       include: { createdBy: { select: { name: true, email: true } } },
     })
 
+    const openShift = await prisma.shift.findFirst({
+      where: { status: "ABIERTO" },
+    })
+    if (openShift) {
+      await prisma.shift.update({
+        where: { id: openShift.id },
+        data: {
+          fondoInicial: { increment: data.amount },
+          fondoFinal: { increment: data.amount },
+        },
+      })
+    }
+
     return NextResponse.json(addition, { status: 201 })
   } catch (error) {
     if (error instanceof z.ZodError) {
