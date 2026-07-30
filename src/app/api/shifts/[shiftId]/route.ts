@@ -2,13 +2,13 @@ import { NextResponse } from "next/server"
 import { z } from "zod"
 import { prisma } from "@/lib/prisma"
 import { withAuth } from "@/lib/with-auth"
+import { toN } from "@/lib/money"
 
 const updateShiftSchema = z.object({
   efectivo: z.number().min(0).optional(),
   caixa: z.number().min(0).optional(),
   santander: z.number().min(0).optional(),
-  fondoInicial: z.number().optional(),
-  fondoFinal: z.number().optional(),
+  fondoInicial: z.number().min(0).optional(),
   status: z.enum(["ABIERTO", "CERRADO"]).optional(),
 })
 
@@ -32,6 +32,14 @@ export const PATCH = withAuth(async (req, session, context) => {
   const body = await req.json()
   const data = updateShiftSchema.parse(body)
 
+  const expensesAgg = await prisma.expense.aggregate({
+    _sum: { importe: true },
+    where: { shiftId },
+  })
+  const totalExpenses = toN(expensesAgg._sum.importe)
+  const newFondoInicial = data.fondoInicial !== undefined ? data.fondoInicial : toN(shift.fondoInicial)
+  const fondoFinal = newFondoInicial - totalExpenses
+
   const updated = await prisma.shift.update({
     where: { id: shiftId },
     data: {
@@ -39,8 +47,8 @@ export const PATCH = withAuth(async (req, session, context) => {
       ...(data.caixa !== undefined && { caixa: data.caixa }),
       ...(data.santander !== undefined && { santander: data.santander }),
       ...(data.fondoInicial !== undefined && { fondoInicial: data.fondoInicial }),
-      ...(data.fondoFinal !== undefined && { fondoFinal: data.fondoFinal }),
       ...(data.status && { status: data.status }),
+      fondoFinal,
     },
     include: { expenses: true },
   })
