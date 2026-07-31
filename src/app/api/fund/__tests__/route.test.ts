@@ -39,11 +39,14 @@ describe("Fund API /api/fund", () => {
     vi.mocked(auth).mockResolvedValue({
       user: { id: "1", role: "ADMIN" },
     } as any)
-    vi.mocked(prisma.shift.findFirst).mockResolvedValue({
-      id: "s1",
-      fondoFinal: 500,
-      createdAt: new Date("2026-07-20"),
-    } as any)
+    vi.mocked(prisma.shift.findFirst)
+      .mockResolvedValueOnce(null)
+      .mockResolvedValueOnce({
+        id: "s1",
+        fondoFinal: 500,
+        createdAt: new Date("2026-07-20"),
+        closedAt: new Date("2026-07-20T12:00:00Z"),
+      } as any)
     vi.mocked(prisma.fundAddition.aggregate).mockResolvedValue({
       _sum: { amount: 150 },
     } as any)
@@ -53,6 +56,21 @@ describe("Fund API /api/fund", () => {
 
     const data = await res.json()
     expect(data.fondo).toBe(650)
+  })
+
+  it("returns the open shift fondoFinal when a shift is open", async () => {
+    vi.mocked(auth).mockResolvedValue({
+      user: { id: "1", role: "ADMIN" },
+    } as any)
+    vi.mocked(prisma.shift.findFirst).mockResolvedValueOnce({
+      id: "s-open",
+      status: "ABIERTO",
+      fondoFinal: 999.5,
+    } as any)
+
+    const res = await GET(mockRequest("http://localhost/api/fund"))
+    const data = await res.json()
+    expect(data.fondo).toBe(999.5)
   })
 
   it("returns 0 when no shifts and no additions", async () => {

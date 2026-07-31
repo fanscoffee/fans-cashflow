@@ -73,7 +73,7 @@ export const POST = withAuth(async (req, session) => {
       orderBy: { createdAt: "desc" },
     })
 
-    const sinceDate = lastShift?.createdAt ?? new Date(0)
+    const sinceDate = lastShift?.closedAt ?? lastShift?.createdAt ?? new Date(0)
 
     const additionsResult = await prisma.fundAddition.aggregate({
       _sum: { amount: true },
