@@ -48,6 +48,8 @@ export const PATCH = withAuth(async (req, session, context) => {
       ...(data.santander !== undefined && { santander: data.santander }),
       ...(data.fondoInicial !== undefined && { fondoInicial: data.fondoInicial }),
       ...(data.status && { status: data.status }),
+      ...(data.status === "CERRADO" && { closedAt: new Date() }),
+      ...(data.status === "ABIERTO" && { closedAt: null }),
       fondoFinal,
     },
     include: { expenses: true },

@@ -51,6 +51,7 @@ model Shift {
   efectivoGasto Decimal   @db.Decimal(10, 2)
   fondoInicial  Decimal   @db.Decimal(10, 2)
   fondoFinal    Decimal   @db.Decimal(10, 2)
+  closedAt      DateTime?
   expenses      Expense[]
   cashTracking  CashTracking?
   createdAt     DateTime  @default(now())
