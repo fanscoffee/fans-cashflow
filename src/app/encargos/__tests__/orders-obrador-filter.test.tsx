@@ -22,36 +22,47 @@ vi.mock("@/components/app-header", () => ({
   ),
 }))
 
-const today = new Date().toISOString().slice(0, 10)
-const yesterday = new Date(Date.now() - 86_400_000).toISOString().slice(0, 10)
-const tomorrow = new Date(Date.now() + 86_400_000).toISOString().slice(0, 10)
+function localDateStr(offsetDays: number): string {
+  const d = new Date()
+  d.setDate(d.getDate() + offsetDays)
+  const y = d.getFullYear()
+  const m = String(d.getMonth() + 1).padStart(2, "0")
+  const day = String(d.getDate()).padStart(2, "0")
+  return `${y}-${m}-${day}`
+}
+
+function localDateTime(offsetDays: number, hour = 12): string {
+  return `${localDateStr(offsetDays)}T${String(hour).padStart(2, "0")}:00:00`
+}
+
+const today = localDateStr(0)
 
 const mockOrders = [
   {
     id: "1",
     clientName: "Cliente Ayer",
     clientPhone: "555-0001",
-    deliveryDate: `${yesterday}T14:30:00.000Z`,
+    deliveryDate: localDateTime(-1),
     comment: "Pedido de ayer",
-    createdAt: `${yesterday}T10:00:00.000Z`,
+    createdAt: localDateTime(-1, 10),
     createdBy: { name: "Admin", email: "admin@test.com" },
   },
   {
     id: "2",
     clientName: "Cliente Hoy",
     clientPhone: "555-0002",
-    deliveryDate: `${today}T10:00:00.000Z`,
+    deliveryDate: localDateTime(0),
     comment: "Pedido de hoy",
-    createdAt: `${today}T08:00:00.000Z`,
+    createdAt: localDateTime(0, 8),
     createdBy: { name: "Admin", email: "admin@test.com" },
   },
   {
     id: "3",
     clientName: "Cliente Mañana",
     clientPhone: "555-0003",
-    deliveryDate: `${tomorrow}T16:00:00.000Z`,
+    deliveryDate: localDateTime(1, 16),
     comment: "Pedido de mañana",
-    createdAt: `${today}T09:00:00.000Z`,
+    createdAt: localDateTime(0, 9),
     createdBy: { name: "Admin", email: "admin@test.com" },
   },
 ]

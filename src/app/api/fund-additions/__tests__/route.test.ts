@@ -7,6 +7,9 @@ vi.mock("@/lib/prisma", () => ({
       findMany: vi.fn(),
       create: vi.fn(),
     },
+    shift: {
+      findFirst: vi.fn(),
+    },
   },
 }))
 
@@ -77,6 +80,7 @@ describe("Fund Additions API /api/fund-additions", () => {
       vi.mocked(prisma.fundAddition.create).mockResolvedValue({
         id: "a1", amount: 100,
       } as any)
+      vi.mocked(prisma.shift.findFirst).mockResolvedValue(null)
 
       const res = await POST(mockRequest("http://localhost/api/fund-additions", "POST", {
         amount: 100, description: "Test",
