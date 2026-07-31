@@ -3,6 +3,7 @@ import { http, HttpResponse } from "msw"
 import { setupServer } from "msw/node"
 import { afterAll, afterEach, beforeAll, describe, expect, it, vi } from "vitest"
 import Dashboard from "../dashboard"
+import { MONTH_NAMES } from "@/lib/constants"
 
 vi.mock("next-auth/react", () => ({
   useSession: () => ({
@@ -56,8 +57,10 @@ describe("Dashboard", () => {
     await waitFor(() => {
       expect(screen.getByText("Turnos")).toBeInTheDocument()
     })
-    const monthSelect = screen.getByDisplayValue("Julio")
-    expect(monthSelect).toBeInTheDocument()
+    const currentMonth = MONTH_NAMES[new Date().getMonth()]
+    const currentYear = String(new Date().getFullYear())
+    expect(screen.getByDisplayValue(currentMonth)).toBeInTheDocument()
+    expect(screen.getByDisplayValue(currentYear)).toBeInTheDocument()
   })
 
   it("renders expense table when expenseData exists", async () => {
@@ -99,9 +102,11 @@ describe("Dashboard", () => {
     await waitFor(() => {
       expect(screen.getByText("Turnos")).toBeInTheDocument()
     })
-    const monthSelect = screen.getByDisplayValue("Julio")
-    fireEvent.change(monthSelect, { target: { value: "1" } })
-    expect((monthSelect as HTMLSelectElement).value).toBe("1")
+    const currentMonthIndex = new Date().getMonth()
+    const monthSelect = screen.getByDisplayValue(MONTH_NAMES[currentMonthIndex])
+    const target = String(currentMonthIndex === 0 ? 2 : 1)
+    fireEvent.change(monthSelect, { target: { value: target } })
+    expect((monthSelect as HTMLSelectElement).value).toBe(target)
   })
 
   it("allows year change", async () => {
