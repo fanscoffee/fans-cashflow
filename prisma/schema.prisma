@@ -15,47 +15,91 @@ enum Role {
 }
 
 model User {
-  id              String           @id @default(cuid())
-  name            String?
-  email           String           @unique
-  password        String
-  role            Role             @default(EMPLEADO)
-  createdShifts   Shift[]
-  fundAdditions   FundAddition[]
-  cashTrackings   CashTracking[]
-  passkeys        Passkey[]
-  orders          Order[]
+  id                      String             @id @default(cuid())
+  name                    String?
+  email                   String             @unique
+  password                String
+  role                    Role               @default(EMPLEADO)
+  createdShifts           Shift[]
+  fundAdditions           FundAddition[]
+  cashTrackings           CashTracking[]
+  passkeys                Passkey[]
+  orders                  Order[]
+  productos               Producto[]
+  proveedores             Proveedor[]
+  recepcionesRecibidas    Recepcion[]
+  inventariosFisicos      InventarioFisico[]
+  cierresTurnoConfirmados CierreTurno[]
 }
 
 model Passkey {
-  id                String   @id @default(cuid())
-  credentialId      String   @unique
-  userId            String
-  user              User     @relation(fields: [userId], references: [id], onDelete: Cascade)
-  publicKey         Bytes
-  counter           BigInt   @default(0)
-  transports        String?
-  createdAt         DateTime @default(now())
+  id           String   @id @default(cuid())
+  credentialId String   @unique
+  userId       String
+  user         User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  publicKey    Bytes
+  counter      BigInt   @default(0)
+  transports   String?
+  createdAt    DateTime @default(now())
 }
 
 model Shift {
-  id            String    @id @default(cuid())
-  date          DateTime  @db.Date
+  id            String        @id @default(cuid())
+  date          DateTime      @db.Date
   turno         String
-  status        String    @default("ABIERTO")
+  status        String        @default("ABIERTO")
   createdById   String
-  createdBy     User      @relation(fields: [createdById], references: [id])
-  efectivo      Decimal   @db.Decimal(10, 2)
-  caixa         Decimal   @db.Decimal(10, 2)
-  santander     Decimal   @db.Decimal(10, 2)
-  efectivoGasto Decimal   @db.Decimal(10, 2)
-  fondoInicial  Decimal   @db.Decimal(10, 2)
-  fondoFinal    Decimal   @db.Decimal(10, 2)
+  createdBy     User          @relation(fields: [createdById], references: [id])
+  efectivo      Decimal       @db.Decimal(10, 2)
+  caixa         Decimal       @db.Decimal(10, 2)
+  santander     Decimal       @db.Decimal(10, 2)
+  efectivoGasto Decimal       @db.Decimal(10, 2)
+  fondoInicial  Decimal       @db.Decimal(10, 2)
+  fondoFinal    Decimal       @db.Decimal(10, 2)
   closedAt      DateTime?
   expenses      Expense[]
   cashTracking  CashTracking?
-  createdAt     DateTime  @default(now())
-  updatedAt     DateTime  @updatedAt
+  cierreTurno   CierreTurno?
+  createdAt     DateTime      @default(now())
+  updatedAt     DateTime      @updatedAt
+}
+
+model CierreTurno {
+  id                   String   @id @default(cuid())
+  shiftId              String   @unique
+  numeroCierreCaja     String
+  tpv                  String
+  fechaHoraApertura    DateTime
+  fechaHoraCierre      DateTime
+  fondoCajaAnterior    Decimal  @db.Decimal(12, 2)
+  cobrosEfectivo       Decimal  @db.Decimal(12, 2)
+  reembolsosEfectivo   Decimal  @db.Decimal(12, 2)
+  depositado           Decimal  @db.Decimal(12, 2)
+  pagosSalidas         Decimal  @db.Decimal(12, 2)
+  efectivoTeoricoCaja  Decimal  @db.Decimal(12, 2)
+  cantidadEfectivoReal Decimal  @db.Decimal(12, 2)
+  descuadre            Decimal  @db.Decimal(12, 2)
+  ventasBrutas         Decimal  @db.Decimal(12, 2)
+  reembolsos           Decimal  @db.Decimal(12, 2)
+  descuentos           Decimal  @db.Decimal(12, 2)
+  ventasNetas          Decimal  @db.Decimal(12, 2)
+  ventasEfectivo       Decimal  @db.Decimal(12, 2)
+  ventasTarjeta        Decimal  @db.Decimal(12, 2)
+  ivaPan4Base          Decimal  @db.Decimal(12, 2)
+  ivaPan4Cuota         Decimal  @db.Decimal(12, 2)
+  iva10Base            Decimal  @db.Decimal(12, 2)
+  iva10Cuota           Decimal  @db.Decimal(12, 2)
+  observacionDescuadre String?
+  confirmadoPorId      String
+  confirmadoAt         DateTime @default(now())
+  createdAt            DateTime @default(now())
+  updatedAt            DateTime @updatedAt
+
+  shift         Shift @relation(fields: [shiftId], references: [id])
+  confirmadoPor User  @relation(fields: [confirmadoPorId], references: [id])
+
+  @@unique([tpv, numeroCierreCaja])
+  @@index([confirmadoAt])
 }
 
 model Expense {
@@ -83,14 +127,14 @@ enum CashDestination {
 }
 
 model CashTracking {
-  id          String           @id @default(cuid())
-  shiftId     String           @unique
-  shift       Shift            @relation(fields: [shiftId], references: [id])
+  id          String          @id @default(cuid())
+  shiftId     String          @unique
+  shift       Shift           @relation(fields: [shiftId], references: [id])
   destination CashDestination
   createdById String
-  createdBy   User             @relation(fields: [createdById], references: [id])
-  createdAt   DateTime         @default(now())
-  updatedAt   DateTime         @updatedAt
+  createdBy   User            @relation(fields: [createdById], references: [id])
+  createdAt   DateTime        @default(now())
+  updatedAt   DateTime        @updatedAt
 }
 
 model Order {
@@ -105,4 +149,215 @@ model Order {
   createdBy    User     @relation(fields: [createdById], references: [id])
   createdAt    DateTime @default(now())
   updatedAt    DateTime @updatedAt
+}
+
+model Catalogo {
+  id          String   @id @default(cuid())
+  tipo        String
+  valor       String
+  descripcion String?
+  activo      Boolean  @default(true)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@unique([tipo, valor])
+  @@index([tipo])
+}
+
+model Proveedor {
+  id               String  @id @default(cuid())
+  razonSocial      String
+  cifNif           String  @unique
+  direccionFiscal  String?
+  contactoNombre   String?
+  contactoTelefono String?
+  contactoEmail    String?
+  iban             String?
+
+  categoriaServicio String?
+  condicionesPago   String?
+  plazoEntregaDias  Int?
+  pedidoMinimo      Decimal? @db.Decimal(10, 3)
+  notasCondiciones  String?
+
+  frecuenciaEntrega String?
+  horarioEntrega    String?
+  metodoPedido      String?
+
+  fechaAlta            DateTime @default(now())
+  estado               String   @default("Activo")
+  valoracionFiabilidad Int?
+  valoracionCalidad    Int?
+  valoracionPrecio     Int?
+  incidencias          String?
+  observaciones        String?
+
+  productos   ProveedorProducto[]
+  recepciones Recepcion[]
+  createdById String?
+  createdBy   User?               @relation(fields: [createdById], references: [id])
+  createdAt   DateTime            @default(now())
+  updatedAt   DateTime            @updatedAt
+
+  @@index([estado])
+}
+
+model ProveedorProducto {
+  id                 String    @id @default(cuid())
+  proveedorId        String
+  proveedor          Proveedor @relation(fields: [proveedorId], references: [id], onDelete: Cascade)
+  productoId         String
+  producto           Producto  @relation(fields: [productoId], references: [id], onDelete: Cascade)
+  refProveedor       String?
+  precioCompraSinIva Decimal?  @db.Decimal(10, 4)
+  plazoEntregaDias   Int?
+  pedidoMinimo       Decimal?  @db.Decimal(10, 3)
+  esPrincipal        Boolean   @default(false)
+  activo             Boolean   @default(true)
+  createdAt          DateTime  @default(now())
+  updatedAt          DateTime  @updatedAt
+
+  @@unique([proveedorId, productoId])
+  @@index([productoId])
+}
+
+model Recepcion {
+  id             String   @id @default(cuid())
+  codigoAlbaran  String
+  proveedorId    String
+  fechaRecepcion DateTime
+  recibidoById   String?
+  notas          String?
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  proveedor  Proveedor        @relation(fields: [proveedorId], references: [id])
+  recibidoBy User?            @relation(fields: [recibidoById], references: [id])
+  lineas     RecepcionLinea[]
+
+  @@unique([codigoAlbaran, proveedorId])
+  @@index([proveedorId])
+  @@index([fechaRecepcion])
+}
+
+model RecepcionLinea {
+  id               String    @id @default(cuid())
+  recepcionId      String
+  productoId       String
+  cantidadRecibida Decimal   @db.Decimal(10, 2)
+  precioUnitario   Decimal   @db.Decimal(10, 4)
+  lote             String?
+  fechaVencimiento DateTime?
+  createdAt        DateTime  @default(now())
+  updatedAt        DateTime  @updatedAt
+
+  recepcion Recepcion @relation(fields: [recepcionId], references: [id], onDelete: Cascade)
+  producto  Producto  @relation(fields: [productoId], references: [id])
+
+  @@index([recepcionId])
+  @@index([productoId])
+}
+
+model InventarioFisico {
+  id          String   @id @default(cuid())
+  fechaConteo DateTime @default(now())
+  creadoById  String
+  notas       String?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  creadoBy User                    @relation(fields: [creadoById], references: [id])
+  lineas   InventarioFisicoLinea[]
+
+  @@unique([fechaConteo])
+  @@index([fechaConteo])
+}
+
+model InventarioFisicoLinea {
+  id                 String   @id @default(cuid())
+  inventarioFisicoId String
+  productoId         String
+  cantidadUm1        Decimal  @db.Decimal(10, 2)
+  cantidadUm2        Decimal  @db.Decimal(10, 2)
+  createdAt          DateTime @default(now())
+  updatedAt          DateTime @updatedAt
+
+  inventarioFisico InventarioFisico @relation(fields: [inventarioFisicoId], references: [id], onDelete: Cascade)
+  producto         Producto         @relation(fields: [productoId], references: [id])
+
+  @@unique([inventarioFisicoId, productoId])
+  @@index([inventarioFisicoId])
+  @@index([productoId])
+}
+
+model Producto {
+  id                  String  @id @default(cuid())
+  codigo              String  @unique
+  codBarrasEan        String?
+  descripcionTpv      String
+  descripcionCompleta String
+
+  tipoArticulo String
+  familia      String
+  subfamilia   String?
+  seccion      String
+  esComprable  Boolean @default(false)
+  esElaborado  Boolean @default(false)
+  esVendible   Boolean @default(false)
+  llevaReceta  Boolean @default(false)
+
+  umBaseStock         String
+  umCompra            String?
+  factorCompraABase   Decimal? @db.Decimal(12, 6)
+  umVenta             String?
+  factorVentaABase    Decimal? @db.Decimal(12, 6)
+  pesoNetoUdG         Decimal? @db.Decimal(10, 2)
+  formatoPresentacion String?
+
+  costeUmBase      Decimal? @db.Decimal(10, 4)
+  mermaEstandarPct Decimal? @db.Decimal(5, 2)
+
+  codIva            String
+  ivaPct            Decimal? @db.Decimal(5, 2)
+  metodoPrecio      String
+  margenObjetivoPct Decimal? @db.Decimal(5, 2)
+  pvpObjetivoConIva Decimal? @db.Decimal(10, 4)
+  pvpFijoConIva     Decimal? @db.Decimal(10, 4)
+  pvpAplicadoConIva Decimal? @db.Decimal(10, 4)
+  pvpAplicadoSinIva Decimal? @db.Decimal(10, 4)
+  margenRealPct     Decimal? @db.Decimal(5, 2)
+  desviacionPp      Decimal? @db.Decimal(5, 2)
+  diferenciaEurUd   Decimal? @db.Decimal(10, 4)
+  diagnosticoPrecio String?
+
+  controlaStock    String   @default("SI")
+  metodoValoracion String
+  stockMinimo      Decimal? @db.Decimal(10, 3)
+  stockMaximo      Decimal? @db.Decimal(10, 3)
+  puntoPedido      Decimal? @db.Decimal(10, 3)
+  ubicacion        String?
+  claseAbc         String?
+
+  controlLote  String  @default("NO")
+  vidaUtilDias Int?
+  conservacion String?
+  alergenos    String?
+
+  estado        String   @default("Activo")
+  fechaAlta     DateTime @default(now())
+  observaciones String?
+
+  esEjemplo                Boolean                 @default(false)
+  createdById              String?
+  createdBy                User?                   @relation(fields: [createdById], references: [id])
+  proveedores              ProveedorProducto[]
+  recepcionesLineas        RecepcionLinea[]
+  inventariosFisicosLineas InventarioFisicoLinea[]
+  createdAt                DateTime                @default(now())
+  updatedAt                DateTime                @updatedAt
+
+  @@index([tipoArticulo])
+  @@index([familia])
+  @@index([seccion])
+  @@index([estado])
 }

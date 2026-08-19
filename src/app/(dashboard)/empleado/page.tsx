@@ -6,6 +6,7 @@ import AppHeader from "@/components/app-header"
 import PasskeyManager from "@/components/passkey-manager"
 import { OpenShiftForm } from "@/components/open-shift-form"
 import { ShiftCard } from "@/components/shift-card"
+import type { CierreTurnoFormData } from "@/components/cierre-turno-modal"
 import { useAutoLogout } from "@/hooks/useAutoLogout"
 import type { Shift, ShiftFormData } from "@/types/shift"
 
@@ -104,7 +105,7 @@ export default function EmpleadoPage() {
     }
   }
 
-  async function handleCloseShift(shiftId: string, fondoFinal: number) {
+  async function handleCloseShift(shiftId: string, cierre: CierreTurnoFormData): Promise<boolean> {
     setError(null)
     setSuccess(null)
     setClosingShift(shiftId)
@@ -112,17 +113,19 @@ export default function EmpleadoPage() {
       const res = await fetch(`/api/shifts/${shiftId}`, {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ status: "CERRADO", fondoFinal }),
+        body: JSON.stringify({ status: "CERRADO", cierre }),
       })
       if (!res.ok) {
         const result = await res.json()
         setError(result.error || "Error al cerrar el turno")
-        return
+        return false
       }
       setSuccess("Turno cerrado correctamente")
       await refreshData()
+      return true
     } catch {
       setError("Error al conectar con el servidor")
+      return false
     } finally {
       setClosingShift(null)
     }
