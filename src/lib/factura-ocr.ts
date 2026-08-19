@@ -95,6 +95,23 @@ function normalize(value: string) {
   return value.normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase().replace(/\s+/g, " ").trim()
 }
 
+function normalizeAlpha(value: string) {
+  return value.normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase().replace(/[^a-z0-9]/g, "").trim()
+}
+
+const CIF_RECEPTOR_DIGITS = "09711078"
+
+function matchesCifReceptor(text: string): boolean {
+  const cleaned = normalizeAlpha(text)
+  if (cleaned.includes("b09711078")) return true
+  const idx = cleaned.indexOf(CIF_RECEPTOR_DIGITS)
+  if (idx === -1) return false
+  if (idx === 0) return true
+  const charBefore = cleaned[idx - 1]
+  if (/[a-z]/.test(charBefore) || /\d/.test(charBefore)) return true
+  return false
+}
+
 function amount(value: string) {
   const cleaned = value.replace(/[^0-9,.-]/g, "").replace(/\.(?=.*\.)/g, "")
   if (!cleaned) return "0"
@@ -220,9 +237,9 @@ export function parseFacturaText(text: string): FacturaDraft {
   const draft = emptyFacturaDraft()
   const lines = text.split(/\r?\n/).map((line) => line.trim()).filter(Boolean)
   const normalized = lines.map(normalize)
-  const nifs = Array.from(new Set(text.match(/\b[A-Z]\d{8}\b|\b\d{8}[A-Z]\b/g) || []))
-  draft.nifEmisor = nifs.find((nif) => normalize(nif) !== "b09711078") || ""
-  draft.receptorCifValido = normalize(text).includes("b09711078")
+  const nifs = Array.from(new Set(text.match(/\b[A-Z]\d{8}\b|\b\d{8}[A-Z]\b|\b\d{9}\b/g) || []))
+  draft.nifEmisor = nifs.find((nif) => !matchesCifReceptor(nif)) || ""
+  draft.receptorCifValido = matchesCifReceptor(text)
 
   const invoiceLine = lines.find((line) => /numero.*factura|nº.*factura|factura\s+[A-Z0-9_-]+\s*\//i.test(line)) || ""
   const numberMatch = invoiceLine.match(/(?:numero\s+de\s+factura|nº\s*factura|factura)\s*[:#]?\s*([A-Z0-9_-]+\s*\/\s*[A-Z0-9_-]+)/i)
