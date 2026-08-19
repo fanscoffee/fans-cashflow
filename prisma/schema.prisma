@@ -30,6 +30,7 @@ model User {
   recepcionesRecibidas    Recepcion[]
   inventariosFisicos      InventarioFisico[]
   cierresTurnoConfirmados CierreTurno[]
+  facturasConfirmadas     Factura[]
 }
 
 model Passkey {
@@ -194,6 +195,7 @@ model Proveedor {
 
   productos   ProveedorProducto[]
   recepciones Recepcion[]
+  facturas    Factura[]
   createdById String?
   createdBy   User?               @relation(fields: [createdById], references: [id])
   createdAt   DateTime            @default(now())
@@ -225,6 +227,7 @@ model Recepcion {
   id             String   @id @default(cuid())
   codigoAlbaran  String
   proveedorId    String
+  facturaId      String?
   fechaRecepcion DateTime
   recibidoById   String?
   notas          String?
@@ -232,12 +235,102 @@ model Recepcion {
   updatedAt      DateTime @updatedAt
 
   proveedor  Proveedor        @relation(fields: [proveedorId], references: [id])
+  factura    Factura?         @relation(fields: [facturaId], references: [id])
   recibidoBy User?            @relation(fields: [recibidoById], references: [id])
   lineas     RecepcionLinea[]
 
   @@unique([codigoAlbaran, proveedorId])
   @@index([proveedorId])
+  @@index([facturaId])
   @@index([fechaRecepcion])
+}
+
+model Factura {
+  id                    String    @id @default(cuid())
+  proveedorId           String
+  serie                 String    @default("")
+  numero                String
+  fechaExpedicion       DateTime
+  fechaOperacion        DateTime?
+  fechaVencimiento      DateTime?
+  fechaPago             DateTime?
+  formaPago             String?
+  estado                String    @default("CONFIRMADA")
+  estadoPago            String    @default("PENDIENTE")
+  moneda                String    @default("EUR")
+  importePagado         Decimal?  @db.Decimal(12, 2)
+  razonSocialEmisor     String
+  nifEmisor             String
+  domicilioFiscalEmisor String
+  totalNeto             Decimal   @db.Decimal(12, 2)
+  totalIva              Decimal   @db.Decimal(12, 2)
+  totalRecargo          Decimal   @db.Decimal(12, 2)
+  totalRetenciones      Decimal   @db.Decimal(12, 2)
+  importeTotal          Decimal   @db.Decimal(12, 2)
+  observaciones         String?
+  alertas               Json?
+  confirmadoPorId       String
+  confirmadoAt          DateTime  @default(now())
+  createdAt             DateTime  @default(now())
+  updatedAt             DateTime  @updatedAt
+
+  proveedor     Proveedor         @relation(fields: [proveedorId], references: [id])
+  confirmadoPor User              @relation(fields: [confirmadoPorId], references: [id])
+  albaranes     Recepcion[]
+  lineas        FacturaLinea[]
+  impuestos     FacturaImpuesto[]
+
+  @@unique([proveedorId, serie, numero])
+  @@index([fechaExpedicion])
+  @@index([estado])
+  @@index([estadoPago])
+}
+
+model FacturaLinea {
+  id                  String    @id @default(cuid())
+  facturaId           String
+  productoId          String?
+  tipoLinea           String    @default("PRODUCTO")
+  referenciaProveedor String?
+  descripcion         String
+  unidadMedida        String?
+  formatoOriginal     String?
+  cantidad            Decimal   @db.Decimal(12, 4)
+  descuentoPorcentaje Decimal?  @db.Decimal(7, 4)
+  descuentoImporte    Decimal   @db.Decimal(12, 2)
+  precioUnitario      Decimal   @db.Decimal(12, 4)
+  precioUnitarioNeto  Decimal   @db.Decimal(12, 4)
+  baseImponible       Decimal   @db.Decimal(12, 2)
+  tipoIva             Decimal?  @db.Decimal(7, 4)
+  cuotaIva            Decimal   @db.Decimal(12, 2)
+  totalLinea          Decimal   @db.Decimal(12, 2)
+  lote                String?
+  fechaVencimiento    DateTime?
+  alertaValidacion    String?
+  createdAt           DateTime  @default(now())
+  updatedAt           DateTime  @updatedAt
+
+  factura  Factura   @relation(fields: [facturaId], references: [id], onDelete: Cascade)
+  producto Producto? @relation(fields: [productoId], references: [id])
+
+  @@index([facturaId])
+  @@index([productoId])
+}
+
+model FacturaImpuesto {
+  id            String   @id @default(cuid())
+  facturaId     String
+  tipo          String
+  porcentaje    Decimal? @db.Decimal(7, 4)
+  baseImponible Decimal  @db.Decimal(12, 2)
+  cuota         Decimal  @db.Decimal(12, 2)
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  factura Factura @relation(fields: [facturaId], references: [id], onDelete: Cascade)
+
+  @@index([facturaId])
+  @@index([tipo])
 }
 
 model RecepcionLinea {
@@ -353,6 +446,7 @@ model Producto {
   proveedores              ProveedorProducto[]
   recepcionesLineas        RecepcionLinea[]
   inventariosFisicosLineas InventarioFisicoLinea[]
+  facturasLineas           FacturaLinea[]
   createdAt                DateTime                @default(now())
   updatedAt                DateTime                @updatedAt
 
