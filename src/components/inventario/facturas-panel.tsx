@@ -22,18 +22,24 @@ interface FacturaDetail extends FacturaListItem {
   fechaOperacion: string | null
   fechaVencimiento: string | null
   fechaPago: string | null
+  numeroPedido: string | null
+  fechaPedido: string | null
+  centroEntrega: string | null
+  referenciaAlbaran: string | null
+  fechaAlbaran: string | null
   formaPago: string | null
   importePagado: number | string | null
   razonSocialEmisor: string
   nifEmisor: string
   domicilioFiscalEmisor: string
   totalNeto: number | string
+  totalDescuento: number | string
   totalIva: number | string
   totalRecargo: number | string
   totalRetenciones: number | string
   observaciones: string | null
   albaranes: Array<{ id: string; codigoAlbaran: string; fechaRecepcion: string }>
-  lineas: Array<{ id: string; productoId: string | null; tipoLinea: string; referenciaProveedor: string | null; descripcion: string; unidadMedida: string | null; formatoOriginal: string | null; cantidad: number | string; descuentoPorcentaje: number | string | null; descuentoImporte: number | string; precioUnitario: number | string; precioUnitarioNeto: number | string; baseImponible: number | string; tipoIva: number | string | null; cuotaIva: number | string; totalLinea: number | string; lote: string | null; fechaVencimiento: string | null; alertaValidacion: string | null; producto: { id: string; codigo: string; descripcionTpv: string; umCompra: string | null } | null }>
+  lineas: Array<{ id: string; productoId: string | null; tipoLinea: string; referenciaProveedor: string | null; codigoArticulo: string | null; descripcion: string; unidadMedida: string | null; formatoOriginal: string | null; cantidad: number | string; descuentoPorcentaje: number | string | null; descuentoImporte: number | string; precioUnitario: number | string; precioUnitarioNeto: number | string; baseImponible: number | string; tipoIva: number | string | null; cuotaIva: number | string; totalLinea: number | string; lote: string | null; fechaVencimiento: string | null; alertaValidacion: string | null; producto: { id: string; codigo: string; descripcionTpv: string; umCompra: string | null } | null }>
   impuestos: Array<{ tipo: "IVA" | "RECARGO_EQUIVALENCIA" | "IRPF"; porcentaje: number | string | null; baseImponible: number | string; cuota: number | string }>
 }
 
@@ -49,12 +55,18 @@ function toFormValues(factura: FacturaDetail): FacturaFormData {
     fechaOperacion: dateInput(factura.fechaOperacion),
     fechaVencimiento: dateInput(factura.fechaVencimiento),
     fechaPago: dateInput(factura.fechaPago),
+    numeroPedido: factura.numeroPedido || "",
+    fechaPedido: dateInput(factura.fechaPedido),
+    centroEntrega: factura.centroEntrega || "",
+    referenciaAlbaran: factura.referenciaAlbaran || "",
+    fechaAlbaran: dateInput(factura.fechaAlbaran),
     formaPago: factura.formaPago || "",
     estadoPago: "PENDIENTE",
     razonSocialEmisor: factura.razonSocialEmisor,
     nifEmisor: factura.nifEmisor,
     domicilioFiscalEmisor: factura.domicilioFiscalEmisor,
     totalNeto: number(factura.totalNeto),
+    totalDescuento: number(factura.totalDescuento),
     totalIva: number(factura.totalIva),
     totalRecargo: number(factura.totalRecargo),
     totalRetenciones: number(factura.totalRetenciones),
@@ -68,6 +80,7 @@ function toFormValues(factura: FacturaDetail): FacturaFormData {
       productoId: linea.productoId || "",
       tipoLinea: linea.tipoLinea === "CARGO" ? "CARGO" : "PRODUCTO",
       referenciaProveedor: linea.referenciaProveedor || "",
+      codigoArticulo: linea.codigoArticulo || "",
       descripcion: linea.descripcion,
       unidadMedida: linea.unidadMedida || "",
       formatoOriginal: linea.formatoOriginal || "",

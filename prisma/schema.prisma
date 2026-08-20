@@ -254,6 +254,11 @@ model Factura {
   fechaOperacion        DateTime?
   fechaVencimiento      DateTime?
   fechaPago             DateTime?
+  numeroPedido          String?
+  fechaPedido           DateTime?
+  centroEntrega         String?
+  referenciaAlbaran     String?
+  fechaAlbaran          DateTime?
   formaPago             String?
   estado                String    @default("CONFIRMADA")
   estadoPago            String    @default("PENDIENTE")
@@ -263,6 +268,7 @@ model Factura {
   nifEmisor             String
   domicilioFiscalEmisor String
   totalNeto             Decimal   @db.Decimal(12, 2)
+  totalDescuento        Decimal   @default(0) @db.Decimal(12, 2)
   totalIva              Decimal   @db.Decimal(12, 2)
   totalRecargo          Decimal   @db.Decimal(12, 2)
   totalRetenciones      Decimal   @db.Decimal(12, 2)
@@ -292,6 +298,7 @@ model FacturaLinea {
   productoId          String?
   tipoLinea           String    @default("PRODUCTO")
   referenciaProveedor String?
+  codigoArticulo      String?
   descripcion         String
   unidadMedida        String?
   formatoOriginal     String?
