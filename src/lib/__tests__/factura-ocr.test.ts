@@ -143,4 +143,47 @@ describe("parseFacturaText", () => {
     expect(draft.totalIva).toBe("15.59")
     expect(draft.importeTotal).toBe("89.93")
   })
+
+  it("covers OCR fallback branches and alternate value layouts", () => {
+    const draft = parseFacturaText([
+      "CIF: A-99999999",
+      "A09711078",
+      "Forma de Pago:",
+      "Contado",
+      "Total Bruto:",
+      "12,34",
+    ].join("\n"))
+    expect(draft.nifEmisor).toBe("A99999999")
+    expect(draft.receptorCifValido).toBe(true)
+    expect(draft.formaPago).toBe("Contado")
+    expect(draft.importeTotal).toBe("12.34")
+
+    expect(parseFacturaText("09711078").receptorCifValido).toBe(true)
+    expect(parseFacturaText("A-28812618").receptorCifValido).toBe(false)
+    expect(parseFacturaText("CIF: A-28812618").nifEmisor).toBe("A-28812618")
+    expect(parseFacturaText("CIF-B09711078").nifEmisor).toBe("B09711078")
+
+    const companyFallback = parseFacturaText("ACME S.L.\nCalle Mayor 1\n28007 Madrid")
+    expect(companyFallback.razonSocialEmisor).toBe("ACME S.L.")
+    expect(companyFallback.domicilioFiscalEmisor).toContain("Calle Mayor 1")
+
+    const yolmarWithoutLot = parseFacturaText("123 Producto Kilo 2,00 0,00 3,00 10% 0,60 6,00\nCaducidad: 01/01/27")
+    expect(yolmarWithoutLot.lineas[0]).toMatchObject({ referenciaProveedor: "123", lote: "", fechaVencimiento: "2027-01-01" })
+
+    const generic = parseFacturaText("123 Producto de prueba 2,00 Caja 3,00 6,00 10%")
+    expect(generic.lineas[0]).toMatchObject({ referenciaProveedor: "123", formatoOriginal: "123 Producto de prueba 2,00 Caja 3,00 6,00 10%", cantidad: "2.00", precioUnitario: "3.00", baseImponible: "6.00" })
+
+    const cashFallback = parseFacturaText("Saldo: 12,34\nEfectivo 20,00")
+    expect(cashFallback.importeTotal).toBe("12.34")
+
+    const standaloneTotal = parseFacturaText("BASE IMPONIBLE TOTAL\n10% 1,00 0,10\n123,45")
+    expect(standaloneTotal.importeTotal).toBe("123.45")
+
+    const protectedText = parseFacturaText("BASE IMPONIBLE TOTAL\nProtección de datos personales\n123,45")
+    expect(protectedText.importeTotal).toBe("0")
+
+    const legacyNumberFallback = parseFacturaText("ABC-1-2/3")
+    expect(legacyNumberFallback.serie).toBe("ABC-1-2")
+    expect(legacyNumberFallback.numero).toBe("3")
+  })
 })
