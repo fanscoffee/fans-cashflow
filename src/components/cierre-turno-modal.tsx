@@ -53,6 +53,7 @@ export interface CierreTurnoFormData {
   efectivo: string
   caixa: string
   santander: string
+  sinInformacion?: boolean
 }
 
 const EMPTY_FIELDS: CierreTurnoFormData = {
@@ -290,8 +291,8 @@ export default function CierreTurnoModal({
     }
 
     const values = initialCierre as unknown as Record<string, string | number | null>
-    const initial = { ...EMPTY_FIELDS }
-    for (const key of Object.keys(initial) as (keyof CierreTurnoFormData)[]) {
+    const initial = { ...EMPTY_FIELDS } as Omit<CierreTurnoFormData, "sinInformacion">
+    for (const key of Object.keys(initial) as (keyof typeof initial)[]) {
       if (key in values && values[key] != null) initial[key] = String(values[key])
     }
     initial.fechaHoraApertura = localDateTime(initialCierre.fechaHoraApertura)
@@ -367,6 +368,11 @@ export default function CierreTurnoModal({
   async function handleSubmit() {
     if (!canConfirm) return
     await onSubmit(fields)
+  }
+
+  async function handleQuickClose() {
+    if (!confirm("¿Cerrar el turno sin registrar información del ticket?")) return
+    await onSubmit({ ...EMPTY_FIELDS, sinInformacion: true })
   }
 
   return (
@@ -478,8 +484,11 @@ export default function CierreTurnoModal({
         )}
         {!ocrCompleted && requirePhoto && <p className="mt-4 rounded-md bg-amber-50 p-3 text-xs text-amber-800">La foto es obligatoria. Carga el ticket para rellenar los datos automáticamente.</p>}
 
-        <div className="mt-5 flex justify-end gap-2">
+        <div className="mt-5 flex flex-wrap justify-end gap-2">
           <button type="button" onClick={onCancel} className="rounded-md border border-gray-300 px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50">Cancelar</button>
+          <button type="button" onClick={handleQuickClose} disabled={saving} className="rounded-md border border-red-300 px-4 py-2 text-sm font-medium text-red-700 hover:bg-red-50 disabled:cursor-not-allowed disabled:opacity-50">
+            {saving ? "Cerrando..." : "Cerrar turno sin información"}
+          </button>
           <button type="button" onClick={handleSubmit} disabled={!canConfirm || saving} className="rounded-md bg-red-600 px-4 py-2 text-sm font-medium text-white hover:bg-red-700 disabled:cursor-not-allowed disabled:opacity-50">
             {saving ? "Guardando..." : "Confirmar y cerrar turno"}
           </button>

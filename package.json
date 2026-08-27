@@ -10,7 +10,9 @@
     "test": "vitest",
     "test:run": "vitest run",
     "postinstall": "prisma generate",
-    "db:seed": "npx tsx prisma/seed.ts"
+    "db:seed": "npx tsx prisma/seed.ts",
+    "db:migrate-payments-legacy": "npx tsx scripts/migrate-pagos-legacy.ts",
+    "db:seed-pagos-demo": "npx tsx scripts/seed-pagos-demo.ts"
   },
   "pnpm": {
     "onlyBuiltDependencies": [

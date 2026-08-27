@@ -113,7 +113,9 @@ export default function EmpleadoPage() {
       const res = await fetch(`/api/shifts/${shiftId}`, {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ status: "CERRADO", cierre }),
+        body: JSON.stringify(cierre.sinInformacion
+          ? { status: "CERRADO", sinInformacion: true }
+          : { status: "CERRADO", cierre }),
       })
       if (!res.ok) {
         const result = await res.json()

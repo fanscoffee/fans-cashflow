@@ -2,6 +2,7 @@ import { NextResponse } from "next/server"
 import { prisma } from "@/lib/prisma"
 import { withAuth } from "@/lib/with-auth"
 import { buildInvoiceAlerts, facturaSchema, normalizeNif } from "@/lib/facturas"
+import { ensureAcreedorForProveedor } from "@/lib/pagos"
 
 const lineData = (linea: ReturnType<typeof facturaSchema.parse>["lineas"][number], alertaValidacion: string | null) => ({
   productoId: linea.productoId || null,
@@ -36,6 +37,7 @@ export const GET = withAuth(async (_req, session, context) => {
       albaranes: { select: { id: true, codigoAlbaran: true, fechaRecepcion: true } },
       lineas: { include: { producto: { select: { id: true, codigo: true, descripcionTpv: true, umCompra: true } } }, orderBy: { createdAt: "asc" } },
       impuestos: { orderBy: { createdAt: "asc" } },
+      adjuntos: { select: { id: true, nombreArchivo: true, mimeType: true } },
     },
   })
   if (!factura) return NextResponse.json({ error: "Factura no encontrada" }, { status: 404 })
@@ -47,8 +49,9 @@ export const PATCH = withAuth(async (req, session, context) => {
   const { id } = await context.params
 
   try {
-    const existing = await prisma.factura.findUnique({ where: { id }, select: { id: true } })
+    const existing = await prisma.factura.findUnique({ where: { id }, select: { id: true, estadoCircuito: true } })
     if (!existing) return NextResponse.json({ error: "Factura no encontrada" }, { status: 404 })
+    if (existing.estadoCircuito === "CONFORMADA" || existing.estadoCircuito === "PARCIALMENTE_CONFORMADA") return NextResponse.json({ error: "Una factura conformada debe corregirse mediante una incidencia o abono" }, { status: 409 })
     const parsed = facturaSchema.safeParse(await req.json())
     if (!parsed.success) return NextResponse.json({ error: parsed.error.issues[0]?.message || "Datos no válidos" }, { status: 400 })
     const data = parsed.data
@@ -75,12 +78,21 @@ export const PATCH = withAuth(async (req, session, context) => {
     const validation = buildInvoiceAlerts(data, albaranes.flatMap((albaran) => albaran.lineas))
 
     const factura = await prisma.$transaction(async (tx) => {
+      const acreedor = await ensureAcreedorForProveedor(tx, { id: data.proveedorId, razonSocial: data.razonSocialEmisor, cifNif: data.nifEmisor }, session.user.id)
       await tx.recepcion.updateMany({ where: { facturaId: id }, data: { facturaId: null } })
       if (recepcionIds.length) await tx.recepcion.updateMany({ where: { id: { in: recepcionIds }, facturaId: null }, data: { facturaId: id } })
       return tx.factura.update({
         where: { id },
         data: {
           proveedorId: data.proveedorId,
+          acreedorId: acreedor.id,
+          entidad: data.entidad,
+          tipoDocumento: data.tipoDocumento,
+          estadoCircuito: "BORRADOR",
+          importeConformado: null,
+          importeRetenido: 0,
+          motivoRetencion: null,
+          referenciaOrigen: null,
           serie,
           numero: data.numero,
           fechaExpedicion: new Date(data.fechaExpedicion),

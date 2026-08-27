@@ -10,6 +10,15 @@ interface Albaran { id: string; codigoAlbaran: string; fechaRecepcion: string; l
 
 export interface FacturaFormData extends FacturaDraft {
   proveedorId: string
+  entidad: "OBRADOR" | "CAFETERIA"
+  tipoDocumento: "COMPRA_MERCANCIA" | "GASTO"
+  archivoFactura: File | null
+  confirmarConAdjunto: boolean
+  adjuntoExistente: boolean
+  importeConformado: string
+  importeRetenido: string
+  motivoRetencion: string
+  referenciaOrigen: string
   fechaPago: string
   estadoPago: "PENDIENTE"
   importePagado: string
@@ -21,6 +30,15 @@ function createInitial(): FacturaFormData {
   return {
     ...emptyFacturaDraft(),
     proveedorId: "",
+    entidad: "OBRADOR",
+    tipoDocumento: "COMPRA_MERCANCIA",
+    archivoFactura: null,
+    confirmarConAdjunto: true,
+    adjuntoExistente: false,
+    importeConformado: "",
+    importeRetenido: "0",
+    motivoRetencion: "",
+    referenciaOrigen: "",
     fechaPago: "",
     estadoPago: "PENDIENTE",
     importePagado: "",
@@ -46,6 +64,7 @@ function getMissingRequiredFields(data: FacturaFormData): MissingField[] {
   if (!data.razonSocialEmisor) add("factura-razon-social", "Emisor", "Razón social del emisor")
   if (!data.nifEmisor) add("factura-nif-emisor", "Emisor", "NIF del emisor")
   if (!data.domicilioFiscalEmisor) add("factura-domicilio-emisor", "Emisor", "Domicilio fiscal del emisor")
+  if (data.confirmarConAdjunto && !data.archivoFactura && !data.adjuntoExistente) add("factura-adjunto", "Documento", "Adjunto PDF o imagen")
 
   if (data.lineas.length === 0) {
     add("factura-lineas", "Líneas", "Al menos una línea de factura")
@@ -248,9 +267,9 @@ export default function FacturaForm({ initialValues, facturaId, onCancel, onSubm
       const text = await extractDocument(file, setOcrStatus)
       if (!text.trim()) throw new Error("El documento no contiene texto legible")
       const draft = parseFacturaText(text)
-      setData((current) => ({ ...current, ...draft, cifReceptor: draft.receptorCifValido ? "B09711078" : "" }))
-      const provider = proveedores.find((item) => item.cifNif.replace(/[\s.-]/g, "").toUpperCase() === draft.nifEmisor.replace(/[\s.-]/g, "").toUpperCase())
-      if (provider) setData((current) => ({ ...current, ...draft, proveedorId: provider.id, cifReceptor: draft.receptorCifValido ? "B09711078" : "" }))
+       setData((current) => ({ ...current, ...draft, archivoFactura: file, cifReceptor: draft.receptorCifValido ? "B09711078" : "" }))
+       const provider = proveedores.find((item) => item.cifNif.replace(/[\s.-]/g, "").toUpperCase() === draft.nifEmisor.replace(/[\s.-]/g, "").toUpperCase())
+       if (provider) setData((current) => ({ ...current, ...draft, archivoFactura: file, proveedorId: provider.id, cifReceptor: draft.receptorCifValido ? "B09711078" : "" }))
       setDocumentRead(true)
       setOcrStatus("Documento leído. Revisa datos y confirma.")
     } catch {
@@ -290,13 +309,14 @@ export default function FacturaForm({ initialValues, facturaId, onCancel, onSubm
 
   return (
     <form onSubmit={async (event) => { event.preventDefault(); if (!missingRequired) await onSubmit(data) }} className="space-y-5">
-      <div className="rounded-md border border-blue-100 bg-blue-50 p-3">
+       <div id="factura-adjunto" className="rounded-md border border-blue-100 bg-blue-50 p-3">
         <div className="flex flex-wrap items-center gap-2">
           <button type="button" onClick={() => fileInputRef.current?.click()} className="rounded-md bg-blue-600 px-3 py-2 text-xs font-medium text-white hover:bg-blue-700">Leer PDF / imagen / foto</button>
-          <input ref={fileInputRef} type="file" accept=".pdf,application/pdf,image/*" className="hidden" onChange={(event) => { const file = event.currentTarget.files?.[0]; event.currentTarget.value = ""; if (file) void handleFile(file) }} />
-          {documentRead && <span className="text-xs text-green-800">Documento leído</span>}
+           <input ref={fileInputRef} type="file" accept=".pdf,application/pdf,image/*" className="hidden" onChange={(event) => { const file = event.currentTarget.files?.[0]; event.currentTarget.value = ""; if (file) void handleFile(file) }} />
+           {documentRead && <span className="text-xs text-green-800">Documento leído</span>}
+           {data.adjuntoExistente && !data.archivoFactura && <span className="text-xs text-green-800">Adjunto existente</span>}
         </div>
-        <p className="mt-1 text-xs text-blue-800">Procesamiento local. Archivo no se guarda.</p>
+        <p className="mt-1 text-xs text-blue-800">El contenido se procesa localmente y el archivo se conserva como adjunto al confirmar si Storage está configurado.</p>
         {ocrStatus && <p className="mt-1 text-xs text-blue-800">{ocrStatus}</p>}
         {ocrError && <p className="mt-1 text-xs text-red-700">{ocrError}</p>}
       </div>
@@ -317,7 +337,9 @@ export default function FacturaForm({ initialValues, facturaId, onCancel, onSubm
       <section>
         <h3 className="mb-2 text-sm font-semibold text-gray-900">Identificación</h3>
         <div className="grid grid-cols-1 gap-3 sm:grid-cols-4">
-          <label className="block text-xs text-gray-600"><span className="mb-1 block font-medium">Proveedor *</span><select id="factura-proveedor" aria-invalid={missingFieldIds.has("factura-proveedor") || undefined} value={data.proveedorId} onChange={(event) => { const provider = proveedores.find((item) => item.id === event.target.value); update("proveedorId", event.target.value); if (provider) setData((current) => ({ ...current, razonSocialEmisor: provider.razonSocial, nifEmisor: provider.cifNif, domicilioFiscalEmisor: provider.direccionFiscal || "" })) }} className={`w-full rounded-md border px-2 py-1.5 text-sm text-gray-900 ${missingFieldIds.has("factura-proveedor") ? "border-red-500 bg-red-50" : "border-gray-300"}`}><option value="">Seleccionar...</option>{proveedores.map((provider) => <option key={provider.id} value={provider.id}>{provider.razonSocial} — {provider.cifNif}</option>)}</select></label>
+           <label className="block text-xs text-gray-600"><span className="mb-1 block font-medium">Proveedor *</span><select id="factura-proveedor" aria-invalid={missingFieldIds.has("factura-proveedor") || undefined} value={data.proveedorId} onChange={(event) => { const provider = proveedores.find((item) => item.id === event.target.value); update("proveedorId", event.target.value); if (provider) setData((current) => ({ ...current, razonSocialEmisor: provider.razonSocial, nifEmisor: provider.cifNif, domicilioFiscalEmisor: provider.direccionFiscal || "" })) }} className={`w-full rounded-md border px-2 py-1.5 text-sm text-gray-900 ${missingFieldIds.has("factura-proveedor") ? "border-red-500 bg-red-50" : "border-gray-300"}`}><option value="">Seleccionar...</option>{proveedores.map((provider) => <option key={provider.id} value={provider.id}>{provider.razonSocial} — {provider.cifNif}</option>)}</select></label>
+           <label className="block text-xs text-gray-600"><span className="mb-1 block font-medium">Entidad *</span><select value={data.entidad} onChange={(event) => update("entidad", event.target.value as FacturaFormData["entidad"])} className="w-full rounded-md border border-gray-300 px-2 py-1.5 text-sm text-gray-900"><option value="OBRADOR">Obrador</option><option value="CAFETERIA">Cafetería</option></select></label>
+           <label className="block text-xs text-gray-600"><span className="mb-1 block font-medium">Tipo *</span><select value={data.tipoDocumento} onChange={(event) => update("tipoDocumento", event.target.value as FacturaFormData["tipoDocumento"])} className="w-full rounded-md border border-gray-300 px-2 py-1.5 text-sm text-gray-900"><option value="COMPRA_MERCANCIA">Compra mercancía</option><option value="GASTO">Gasto</option></select></label>
           <Input label="Serie" value={data.serie} onChange={(value) => update("serie", value)} />
           <Input id="factura-numero" label="Número factura" value={data.numero} onChange={(value) => update("numero", value)} required error={missingFieldIds.has("factura-numero")} />
           <Input id="factura-fecha-expedicion" label="Fecha expedición" type="date" value={data.fechaExpedicion} onChange={(value) => update("fechaExpedicion", value)} required error={missingFieldIds.has("factura-fecha-expedicion")} />

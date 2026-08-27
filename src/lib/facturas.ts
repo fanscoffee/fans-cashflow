@@ -38,6 +38,8 @@ export const facturaImpuestoSchema = z.object({
 
 export const facturaSchema = z.object({
   proveedorId: z.string().min(1, "Selecciona un proveedor"),
+  entidad: z.enum(["OBRADOR", "CAFETERIA"]).default("OBRADOR"),
+  tipoDocumento: z.enum(["COMPRA_MERCANCIA", "GASTO"]).default("COMPRA_MERCANCIA"),
   cifReceptor: z.literal("B09711078", { error: "El CIF receptor debe ser B09711078" }),
   serie: z.string().trim().default(""),
   numero: z.string().trim().min(1, "El número de factura es obligatorio"),
@@ -62,6 +64,12 @@ export const facturaSchema = z.object({
   totalRetenciones: money,
   importeTotal: money,
   importePagado: z.coerce.number().finite().nullable().optional(),
+  importeConformado: z.coerce.number().finite().nonnegative().nullable().optional(),
+  importeRetenido: z.coerce.number().finite().nonnegative().default(0),
+  motivoRetencion: z.string().trim().max(500).optional().default(""),
+  referenciaOrigen: z.string().trim().max(120).optional().default(""),
+  confirmarConAdjunto: z.boolean().default(false),
+  adjuntoExistente: z.boolean().default(false),
   observaciones: z.string().optional().default(""),
   recepcionIds: z.array(z.string()).default([]),
   lineas: z.array(facturaLineaSchema).min(1, "Agrega al menos una línea"),

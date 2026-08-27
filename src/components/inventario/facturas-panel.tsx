@@ -11,6 +11,10 @@ interface FacturaListItem {
   fechaExpedicion: string
   estado: string
   estadoPago: string
+  estadoCircuito?: string
+  entidad?: "OBRADOR" | "CAFETERIA"
+  importeConformado?: number | string | null
+  importeRetenido?: number | string | null
   importeTotal: number | string
   alertas: unknown
   proveedor: { id: string; razonSocial: string; cifNif: string }
@@ -19,6 +23,7 @@ interface FacturaListItem {
 }
 
 interface FacturaDetail extends FacturaListItem {
+  tipoDocumento?: "COMPRA_MERCANCIA" | "GASTO"
   fechaOperacion: string | null
   fechaVencimiento: string | null
   fechaPago: string | null
@@ -41,6 +46,7 @@ interface FacturaDetail extends FacturaListItem {
   albaranes: Array<{ id: string; codigoAlbaran: string; fechaRecepcion: string }>
   lineas: Array<{ id: string; productoId: string | null; tipoLinea: string; referenciaProveedor: string | null; codigoArticulo: string | null; descripcion: string; unidadMedida: string | null; formatoOriginal: string | null; cantidad: number | string; descuentoPorcentaje: number | string | null; descuentoImporte: number | string; precioUnitario: number | string; precioUnitarioNeto: number | string; baseImponible: number | string; tipoIva: number | string | null; cuotaIva: number | string; totalLinea: number | string; lote: string | null; fechaVencimiento: string | null; alertaValidacion: string | null; producto: { id: string; codigo: string; descripcionTpv: string; umCompra: string | null } | null }>
   impuestos: Array<{ tipo: "IVA" | "RECARGO_EQUIVALENCIA" | "IRPF"; porcentaje: number | string | null; baseImponible: number | string; cuota: number | string }>
+  adjuntos: Array<{ id: string; nombreArchivo: string; mimeType: string }>
 }
 
 function number(value: unknown) { return Number(value || 0).toFixed(2) }
@@ -49,6 +55,15 @@ function dateInput(value: string | null | undefined) { return value ? new Date(v
 function toFormValues(factura: FacturaDetail): FacturaFormData {
   return {
     proveedorId: factura.proveedor.id,
+    entidad: factura.entidad || "OBRADOR",
+    tipoDocumento: factura.tipoDocumento || "COMPRA_MERCANCIA",
+    archivoFactura: null,
+    confirmarConAdjunto: true,
+    adjuntoExistente: factura.adjuntos.length > 0,
+    importeConformado: factura.importeConformado == null ? "" : number(factura.importeConformado),
+    importeRetenido: factura.importeRetenido == null ? "0" : number(factura.importeRetenido),
+    motivoRetencion: "",
+    referenciaOrigen: "",
     serie: factura.serie,
     numero: factura.numero,
     fechaExpedicion: dateInput(factura.fechaExpedicion),
@@ -139,8 +154,21 @@ export default function FacturasPanel() {
     setSaving(true); setError(""); setSuccess("")
     try {
       const response = await fetch(id ? `/api/inventario/facturas/${id}` : "/api/inventario/facturas", { method: id ? "PATCH" : "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(data) })
-      const result = await response.json()
-      if (!response.ok) throw new Error(result.error || "Error al guardar factura")
+       const result = await response.json()
+       if (!response.ok) throw new Error(result.error || "Error al guardar factura")
+       if (data.archivoFactura && result.factura?.id) {
+         const form = new FormData()
+         form.set("file", data.archivoFactura)
+         form.set("facturaId", result.factura.id)
+         const attachmentResponse = await fetch("/api/pagos/adjuntos", { method: "POST", body: form })
+         const attachmentResult = await attachmentResponse.json()
+         if (!attachmentResponse.ok) throw new Error(attachmentResult.error || "La factura se guardó, pero no se pudo guardar el adjunto")
+       }
+       if (data.confirmarConAdjunto && result.factura?.id) {
+         const conformResponse = await fetch(`/api/inventario/facturas/${result.factura.id}/conformar`, { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ entidad: data.entidad, importeConformado: Number(data.importeConformado || data.importeTotal), importeRetenido: Number(data.importeRetenido || 0), motivoRetencion: data.motivoRetencion, referenciaOrigen: data.referenciaOrigen }) })
+         const conformResult = await conformResponse.json()
+         if (!conformResponse.ok) throw new Error(conformResult.error || "La factura se guardó, pero no pudo conformarse")
+       }
       setSuccess(result.alertas?.length ? `Factura guardada con ${result.alertas.length} alerta(s)` : "Factura guardada")
       setView("list")
       await loadFacturas()

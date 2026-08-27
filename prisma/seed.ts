@@ -663,6 +663,46 @@ async function main() {
   }
 
   console.log(`  ${asociaciones.length} asociaciones producto-proveedor insertadas`)
+
+  const categoriasPago = [
+    ["PER", "Personal", "Nómina, finiquitos y anticipos a empleados"],
+    ["PER-SS", "Seguridad social y retenciones", "Cuotas y retenciones practicadas"],
+    ["SUM", "Suministros", "Luz, agua, gas, teléfono e internet"],
+    ["MAN", "Mantenimiento y reparaciones", "Reparaciones y partes de servicio"],
+    ["ALQ", "Alquileres y cánones", "Locales y maquinaria"],
+    ["SEG", "Seguros", "Pólizas del negocio"],
+    ["SERV", "Servicios profesionales", "Asesoría y servicios externos"],
+    ["LIM", "Limpieza e higiene", "Productos y servicios de limpieza"],
+    ["TRIB", "Tributos y tasas", "Tasas y licencias"],
+    ["FIN", "Gastos financieros", "Comisiones e intereses"],
+    ["MEN", "Compras menores", "Compras menores acotadas a caja chica"],
+    ["OTR", "Otros", "Requiere autorización de dirección"],
+  ] as const
+  for (const [codigo, nombre, descripcion] of categoriasPago) {
+    await prisma.categoriaGasto.upsert({ where: { codigo }, update: { nombre, descripcion }, create: { codigo, nombre, descripcion } })
+  }
+
+  const mediosPago = [
+    { id: "MP-TRANSF", tipo: "TRANSFERENCIA" as const, requiereCuenta: true, conciliableBanco: true },
+    { id: "MP-DOMIC", tipo: "DOMICILIACION" as const, requiereCuenta: true, conciliableBanco: true },
+    { id: "MP-TARJ", tipo: "TARJETA" as const, requiereCuenta: true, conciliableBanco: true },
+    { id: "MP-EFECT", tipo: "EFECTIVO" as const, requiereCuenta: true, conciliableBanco: false },
+    { id: "MP-CHEQUE", tipo: "CHEQUE" as const, requiereCuenta: true, conciliableBanco: true },
+    { id: "MP-MOVIL", tipo: "PAGO_MOVIL" as const, requiereCuenta: true, conciliableBanco: true },
+  ]
+  for (const medio of mediosPago) {
+    await prisma.medioPago.upsert({ where: { id: medio.id }, update: medio, create: medio })
+  }
+
+  for (const proveedor of await prisma.proveedor.findMany({ select: { id: true, razonSocial: true, cifNif: true } })) {
+    await prisma.acreedor.upsert({
+      where: { proveedorId: proveedor.id },
+      update: { nombre: proveedor.razonSocial, nif: proveedor.cifNif },
+      create: { codigo: `PRV-${proveedor.id.slice(-8).toUpperCase()}`, tipo: "PROVEEDOR_MERCANCIA", nombre: proveedor.razonSocial, nif: proveedor.cifNif, proveedorId: proveedor.id },
+    })
+  }
+
+  console.log(`  ${categoriasPago.length} categorías, ${mediosPago.length} medios y acreedores de proveedores preparados`)
   console.log("Seed completado.")
 }
 

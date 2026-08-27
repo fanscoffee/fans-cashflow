@@ -10,6 +10,7 @@ const updateShiftSchema = z.object({
   santander: z.number().min(0).optional(),
   fondoInicial: z.number().min(0).optional(),
   status: z.enum(["ABIERTO", "CERRADO"]).optional(),
+  sinInformacion: z.boolean().optional().default(false),
 })
 
 const moneyInput = z
@@ -90,6 +91,10 @@ export const PATCH = withAuth(async (req, session, context) => {
   }
   const data = parsedData.data
 
+  if (data.sinInformacion && data.status !== "CERRADO") {
+    return NextResponse.json({ error: "El cierre sin información debe cerrar el turno" }, { status: 400 })
+  }
+
   if (data.status === "ABIERTO" && session.user.role !== "SOCIO") {
     return NextResponse.json(
       { error: "Solo los socios pueden reabrir un turno" },
@@ -98,7 +103,7 @@ export const PATCH = withAuth(async (req, session, context) => {
   }
 
   let cierre: z.infer<typeof cierreTurnoSchema> | null = null
-  if (data.status === "CERRADO") {
+  if (data.status === "CERRADO" && !data.sinInformacion) {
     if (!body.cierre) {
       return NextResponse.json(
         { error: "El cierre de caja confirmado es obligatorio para cerrar el turno" },

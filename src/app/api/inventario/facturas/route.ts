@@ -2,6 +2,7 @@ import { NextResponse } from "next/server"
 import { prisma } from "@/lib/prisma"
 import { withAuth } from "@/lib/with-auth"
 import { buildInvoiceAlerts, facturaSchema, normalizeNif } from "@/lib/facturas"
+import { ensureAcreedorForProveedor } from "@/lib/pagos"
 
 const allowedRoles = ["ADMIN", "SOCIO"]
 
@@ -119,9 +120,18 @@ export const POST = withAuth(async (req, session) => {
     const alertas = validation.alerts
 
     const factura = await prisma.$transaction(async (tx) => {
+      const acreedor = await ensureAcreedorForProveedor(tx, proveedor, session.user.id)
       const created = await tx.factura.create({
         data: {
           proveedorId: data.proveedorId,
+          acreedorId: acreedor.id,
+          entidad: data.entidad,
+          tipoDocumento: data.tipoDocumento,
+          estadoCircuito: "BORRADOR",
+          importeConformado: null,
+          importeRetenido: 0,
+          motivoRetencion: null,
+          referenciaOrigen: null,
           serie,
           numero: data.numero,
           fechaExpedicion: new Date(data.fechaExpedicion),

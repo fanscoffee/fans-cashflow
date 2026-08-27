@@ -16,7 +16,7 @@ Aplicación de gestión de caja y turnos para el local de Fans. Permite controla
 |---|---|
 | **ADMIN** | Total. Gestión de usuarios, todos los dashboards, Face ID |
 | **SOCIO** | Dashboard con gráficos, fondo, turnos, efectivo, encargos, Face ID |
-| **EMPLEADO** | Abrir/cerrar turnos, añadir gastos. Auto-logout por inactividad (2 min) |
+| **EMPLEADO** | Abrir/cerrar turnos y solicitar gastos cuando tenga función asignada. Auto-logout por inactividad (2 min) |
 
 ## Pantallas y Funcionalidades
 
@@ -78,6 +78,14 @@ Aplicación de gestión de caja y turnos para el local de Fans. Permite controla
 - Firefox no soporta biométrico WebAuthn
 - Requiere HTTPS para funcionar en móvil
 
+### Pagos (`/socio/pagos`, `/admin/pagos`)
+- Lista facturas conformadas y gastos autorizados pendientes.
+- Registra pagos con aplicación explícita, medio y cuenta de origen.
+- Controla autorización previa, segregación, libro de movimientos, conciliación y caja chica.
+- Los umbrales y funciones se configuran mediante `/api/pagos/parametros` y `/api/pagos/asignaciones`.
+- Los gastos nuevos ya no se registran desde el turno histórico; el endpoint antiguo responde `410`.
+- Los adjuntos usan el bucket privado de Supabase Storage `payment-documents`; créalo antes de activar `/api/pagos/adjuntos`.
+
 ## Variables de Entorno (`.env`)
 
 | Variable | Descripción |
@@ -85,6 +93,7 @@ Aplicación de gestión de caja y turnos para el local de Fans. Permite controla
 | `DATABASE_URL` | URL de conexión PostgreSQL (Supabase pooler) |
 | `NEXT_PUBLIC_SUPABASE_URL` | URL del proyecto Supabase |
 | `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY` | API key de Supabase |
+| `SUPABASE_SERVICE_ROLE_KEY` | Clave solo servidor para adjuntos privados; nunca exponerla al cliente |
 | `NEXTAUTH_SECRET` | Secreto para firmar JWT |
 
 > **Nota**: `NEXTAUTH_URL` no debe estar en `.env`. Se usa `trustHost: true` en su lugar.
@@ -100,6 +109,12 @@ npx prisma generate
 
 # Ejecutar migraciones
 npx prisma migrate dev
+
+# Preparar acreedores y facturas históricas para revisión, sin conformarlas automáticamente
+npm run db:migrate-payments-legacy
+
+# Crear facturas y cuentas claramente marcadas como DEMO para probar Pagos
+npm run db:seed-pagos-demo
 
 # Iniciar servidor de desarrollo
 npm run dev
@@ -127,6 +142,11 @@ Abre [http://localhost:3000](http://localhost:3000).
 | **CashTracking** | Destino del efectivo por turno (Depósito/Ingreso en fondo/Guardado) |
 | **Order** | Encargos con cliente, teléfono, fecha de entrega, comentario |
 | **Passkey** | Credenciales WebAuthn para Face ID / biométrico |
+| **Acreedor / CuentaFondos** | Catálogo de destinatarios y cuentas de origen por entidad |
+| **Factura / GastoCorriente** | Documentos pagables con circuito de conformidad/autorización |
+| **Pago / PagoAplicacion** | Salida de dinero y reparto entre documentos |
+| **MovimientoFondos / MovimientoExtracto** | Libro de fondos y conciliación bancaria |
+| **ArqueoCaja / CierreMensual** | Control de caja chica e indicadores de cierre |
 
 ### Enums
 

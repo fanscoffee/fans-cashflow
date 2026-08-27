@@ -36,6 +36,7 @@ export default function CatalogoManager() {
   const [newValor, setNewValor] = useState("")
   const [newDescripcion, setNewDescripcion] = useState("")
   const [error, setError] = useState<string | null>(null)
+  const [success, setSuccess] = useState<string | null>(null)
 
   const loadItems = useCallback(async () => {
     setLoading(true)
@@ -57,6 +58,7 @@ export default function CatalogoManager() {
     setNewValor("")
     setNewDescripcion("")
     setError(null)
+    setSuccess(null)
   }, [selectedTipo])
 
   useEffect(() => {
@@ -110,6 +112,27 @@ export default function CatalogoManager() {
     }
   }
 
+  async function handleDeleteCatalogo(id: string, valor: string) {
+    const catalogoLabel = CATALOGO_TYPES.find((catalogo) => catalogo.tipo === selectedTipo)?.label || selectedTipo
+    if (!confirm(`¿Eliminar "${valor}" del catálogo "${catalogoLabel}"? Esta acción no se puede deshacer.`)) return
+
+    setError(null)
+    setSuccess(null)
+    try {
+      const res = await fetch(`/api/inventario/catalogos/${id}?permanente=true`, { method: "DELETE" })
+      if (!res.ok) {
+        const result = await res.json()
+        setError(result.error || "Error al eliminar el valor del catálogo")
+        return
+      }
+
+      setSuccess(`"${valor}" eliminado del catálogo "${catalogoLabel}"`)
+      await loadItems()
+    } catch {
+      setError("Error al conectar con el servidor")
+    }
+  }
+
   return (
     <div className="space-y-4">
       <div className="flex flex-wrap gap-2">
@@ -130,6 +153,9 @@ export default function CatalogoManager() {
 
       {error && (
         <div className="rounded-md bg-red-50 p-2 text-xs text-red-600">{error}</div>
+      )}
+      {success && (
+        <div className="rounded-md bg-green-50 p-2 text-xs text-green-600">{success}</div>
       )}
 
       <div className="flex items-center justify-between">
@@ -197,12 +223,20 @@ export default function CatalogoManager() {
                     </span>
                   </td>
                   <td className="px-3 py-2 text-right">
-                    <button
-                      onClick={() => handleToggleActive(item.id, item.activo)}
-                      className={`text-xs font-medium ${item.activo ? "text-red-600 hover:text-red-800" : "text-green-600 hover:text-green-800"}`}
-                    >
-                      {item.activo ? "Desactivar" : "Reactivar"}
-                    </button>
+                    <div className="flex justify-end gap-3">
+                      <button
+                        onClick={() => handleToggleActive(item.id, item.activo)}
+                        className={`text-xs font-medium ${item.activo ? "text-red-600 hover:text-red-800" : "text-green-600 hover:text-green-800"}`}
+                      >
+                        {item.activo ? "Desactivar" : "Reactivar"}
+                      </button>
+                      <button
+                        onClick={() => handleDeleteCatalogo(item.id, item.valor)}
+                        className="text-xs font-medium text-red-800 hover:text-red-950"
+                      >
+                        Eliminar
+                      </button>
+                    </div>
                   </td>
                 </tr>
               ))}
