@@ -324,11 +324,13 @@ model Catalogo {
   tipo        String
   valor       String
   descripcion String?
+  prefijoCodigo String?
   activo      Boolean  @default(true)
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
 
   @@unique([tipo, valor])
+  @@unique([prefijoCodigo])
   @@index([tipo])
 }
 
