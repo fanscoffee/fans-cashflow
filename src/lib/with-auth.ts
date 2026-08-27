@@ -6,6 +6,8 @@ type AuthenticatedSession = Session & {
   user: NonNullable<Session["user"]> & { id: string; role: string }
 }
 
+type RouteContext = { params: Promise<unknown> }
+
 type AuthenticatedHandler = (
   req: NextRequest,
   session: AuthenticatedSession,
@@ -13,11 +15,11 @@ type AuthenticatedHandler = (
 ) => Promise<NextResponse>
 
 export function withAuth(handler: AuthenticatedHandler) {
-  return async (req: NextRequest, context?: { params: Promise<Record<string, string>> }) => {
+  return async (req: NextRequest, context?: RouteContext) => {
     const session = await auth()
     if (!session?.user?.id) {
       return NextResponse.json({ error: "No autorizado" }, { status: 401 })
     }
-    return handler(req, session as AuthenticatedSession, context!)
+    return handler(req, session as AuthenticatedSession, context as { params: Promise<Record<string, string>> })
   }
 }

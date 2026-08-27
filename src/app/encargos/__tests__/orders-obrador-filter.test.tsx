@@ -2,7 +2,7 @@ import { render, screen, waitFor } from "@testing-library/react"
 import { http, HttpResponse } from "msw"
 import { setupServer } from "msw/node"
 import { afterAll, afterEach, beforeAll, describe, expect, it, vi } from "vitest"
-import OrdersPage from "../page"
+import OrdersPage from "../orders-client"
 
 vi.mock("next-auth/react", () => ({
   useSession: () => ({

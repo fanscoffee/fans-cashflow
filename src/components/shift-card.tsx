@@ -5,12 +5,13 @@ import { useForm } from "react-hook-form"
 import { zodResolver } from "@hookform/resolvers/zod"
 import { type Shift, type ExpenseFormData, expenseSchema } from "@/types/shift"
 import { toN } from "@/lib/money"
+import CierreTurnoModal, { type CierreTurnoFormData } from "@/components/cierre-turno-modal"
 
 interface ShiftCardProps {
   shift: Shift
   userRole?: string
   onSave: (shiftId: string, values: { efectivo: number; caixa: number; santander: number; fondoFinal: number }) => Promise<void>
-  onClose: (shiftId: string, fondoFinal: number) => Promise<void>
+  onClose: (shiftId: string, data: CierreTurnoFormData) => Promise<boolean>
   onReopen: (shiftId: string) => Promise<void>
   closingShift: string | null
   onRefresh: () => Promise<void>
@@ -20,6 +21,7 @@ export function ShiftCard({ shift, userRole, onSave, onClose, onReopen, closingS
   const isOpen = shift.status === "ABIERTO"
   const canManageExpenses = userRole === "ADMIN" || userRole === "SOCIO"
   const canEditShift = canManageExpenses || isOpen
+  const paymentsPath = userRole === "ADMIN" ? "/admin/pagos" : "/socio/pagos"
 
   const [isEditing, setIsEditing] = useState(false)
   const [editValues, setEditValues] = useState({ efectivo: "0", caixa: "0", santander: "0" })
@@ -27,6 +29,7 @@ export function ShiftCard({ shift, userRole, onSave, onClose, onReopen, closingS
   const [editingExpense, setEditingExpense] = useState<string | null>(null)
   const [editExpenseValues, setEditExpenseValues] = useState<{ proveedor: string; importe: number }>({ proveedor: "", importe: 0 })
   const [openMobileMenu, setOpenMobileMenu] = useState(false)
+  const [showCloseModal, setShowCloseModal] = useState(false)
 
   const efectivo = isEditing ? Number(editValues.efectivo) || 0 : toN(shift.efectivo)
   const caixa = isEditing ? Number(editValues.caixa) || 0 : toN(shift.caixa)
@@ -61,6 +64,11 @@ export function ShiftCard({ shift, userRole, onSave, onClose, onReopen, closingS
       fondoFinal: fondoInicial - totalExpenses,
     })
     setIsEditing(false)
+  }
+
+  async function submitClose(data: CierreTurnoFormData) {
+    const saved = await onClose(shift.id, data)
+    if (saved) setShowCloseModal(false)
   }
 
   async function handleEditExpense(expenseId: string) {
@@ -112,15 +120,13 @@ export function ShiftCard({ shift, userRole, onSave, onClose, onReopen, closingS
               )}
               {isOpen && (
                 <>
-                  <button onClick={() => setAddingExpense(!addingExpense)} className="rounded-md bg-gray-100 px-3 py-1.5 text-xs font-medium text-gray-700 hover:bg-gray-200">
-                    {addingExpense ? "Cancelar" : "+ Gasto"}
-                  </button>
-                  <button onClick={() => onClose(shift.id, fondoFinal)} disabled={closingShift === shift.id} className="rounded-md bg-red-600 px-3 py-1.5 text-xs font-medium text-white hover:bg-red-700 disabled:opacity-50">
+                  {canManageExpenses && <a href={paymentsPath} className="rounded-md bg-gray-100 px-3 py-1.5 text-xs font-medium text-gray-700 hover:bg-gray-200">+ Gasto controlado</a>}
+                  <button onClick={() => setShowCloseModal(true)} disabled={closingShift === shift.id} className="rounded-md bg-red-600 px-3 py-1.5 text-xs font-medium text-white hover:bg-red-700 disabled:opacity-50">
                     {closingShift === shift.id ? "Cerrando..." : "Cerrar Turno"}
                   </button>
                 </>
               )}
-              {!isOpen && canManageExpenses && (
+              {!isOpen && userRole === "SOCIO" && (
                 <button onClick={() => onReopen(shift.id)} className="rounded-md bg-amber-500 px-3 py-1.5 text-xs font-medium text-white hover:bg-amber-600">Reabrir</button>
               )}
             </div>
@@ -149,15 +155,13 @@ export function ShiftCard({ shift, userRole, onSave, onClose, onReopen, closingS
                   )}
                   {isOpen && (
                     <>
-                      <button onClick={() => { setAddingExpense(!addingExpense); setOpenMobileMenu(false) }} className="block w-full px-4 py-2 text-left text-sm text-gray-700 hover:bg-gray-50">
-                        {addingExpense ? "Cancelar" : "+ Gasto"}
-                      </button>
-                      <button onClick={() => { onClose(shift.id, fondoFinal); setOpenMobileMenu(false) }} disabled={closingShift === shift.id} className="block w-full px-4 py-2 text-left text-sm text-red-700 hover:bg-red-50 disabled:opacity-50">
+                       {canManageExpenses && <a href={paymentsPath} onClick={() => setOpenMobileMenu(false)} className="block w-full px-4 py-2 text-left text-sm text-gray-700 hover:bg-gray-50">+ Gasto controlado</a>}
+                       <button onClick={() => { setShowCloseModal(true); setOpenMobileMenu(false) }} disabled={closingShift === shift.id} className="block w-full px-4 py-2 text-left text-sm text-red-700 hover:bg-red-50 disabled:opacity-50">
                         {closingShift === shift.id ? "Cerrando..." : "Cerrar Turno"}
                       </button>
                     </>
                   )}
-                  {!isOpen && canManageExpenses && (
+                   {!isOpen && userRole === "SOCIO" && (
                     <button onClick={() => { onReopen(shift.id); setOpenMobileMenu(false) }} className="block w-full px-4 py-2 text-left text-sm text-amber-700 hover:bg-amber-50">Reabrir</button>
                   )}
                 </div>
@@ -229,6 +233,16 @@ export function ShiftCard({ shift, userRole, onSave, onClose, onReopen, closingS
           <span className={`font-bold ${fondoFinal >= 0 ? "text-green-700" : "text-red-700"}`}>{fondoFinal.toFixed(2)}</span>
         </div>
       </div>
+
+      {shift.cierreTurno ? (
+        <div className="mt-3 rounded-md border border-green-100 bg-green-50 p-2 text-xs text-green-800">
+          Ticket {shift.cierreTurno.tpv} · cierre {shift.cierreTurno.numeroCierreCaja} · ventas netas {toN(shift.cierreTurno.ventasNetas).toFixed(2)} €
+        </div>
+      ) : !isOpen ? (
+        <div className="mt-3 rounded-md border border-amber-100 bg-amber-50 p-2 text-xs text-amber-800">
+          Turno histórico sin ticket de cierre registrado.
+        </div>
+      ) : null}
 
       {shift.expenses.length > 0 && (
         <div className="mt-3 border-t pt-3">
@@ -326,6 +340,16 @@ export function ShiftCard({ shift, userRole, onSave, onClose, onReopen, closingS
             </p>
           )}
         </form>
+      )}
+      {showCloseModal && (
+        <CierreTurnoModal
+          shift={shift}
+          initialCierre={shift.cierreTurno}
+          requirePhoto={!shift.cierreTurno}
+          onCancel={() => setShowCloseModal(false)}
+          onSubmit={submitClose}
+          saving={closingShift === shift.id}
+        />
       )}
     </div>
   )
