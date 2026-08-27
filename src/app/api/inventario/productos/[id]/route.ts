@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server"
 import { prisma } from "@/lib/prisma"
 import { withAuth } from "@/lib/with-auth"
+import { getProductTypeBehavior } from "@/lib/product-types"
 
 export const GET = withAuth(async (req, _session, context) => {
   const { id } = await context.params
@@ -23,21 +24,32 @@ export const PATCH = withAuth(async (req, session, context) => {
   try {
     const body = await req.json()
 
-    if (body.codigo) {
-      const conflict = await prisma.producto.findFirst({
-        where: { codigo: body.codigo, id: { not: id } },
-      })
-      if (conflict) {
-        return NextResponse.json(
-          { error: `Ya existe otro producto con el código ${body.codigo}` },
-          { status: 400 }
-        )
-      }
+    const current = await prisma.producto.findUnique({
+      where: { id },
+      select: { codigo: true, tipoArticulo: true, familia: true },
+    })
+    if (!current) {
+      return NextResponse.json({ error: "Producto no encontrado" }, { status: 404 })
     }
+
+    if (body.codigo !== undefined && body.codigo !== current.codigo) {
+      return NextResponse.json({ error: "El código de producto es inmutable" }, { status: 400 })
+    }
+    if (body.tipoArticulo !== undefined && body.tipoArticulo !== current.tipoArticulo) {
+      return NextResponse.json({ error: "El tipo de artículo es inmutable" }, { status: 400 })
+    }
+    if (body.familia !== undefined && body.familia !== current.familia) {
+      return NextResponse.json({ error: "La familia es inmutable porque forma parte del código" }, { status: 400 })
+    }
+
+    const productData = { ...body }
+    delete productData.confirmarDuplicado
+    const behavior = getProductTypeBehavior(current.tipoArticulo)
+    if (behavior) Object.assign(productData, behavior)
 
     const producto = await prisma.producto.update({
       where: { id },
-      data: body,
+      data: productData,
     })
 
     return NextResponse.json(producto)

@@ -7,6 +7,7 @@ interface CatalogoItem {
   tipo: string
   valor: string
   descripcion: string | null
+  prefijoCodigo: string | null
   activo: boolean
 }
 
@@ -35,6 +36,7 @@ export default function CatalogoManager() {
   const [showAdd, setShowAdd] = useState(false)
   const [newValor, setNewValor] = useState("")
   const [newDescripcion, setNewDescripcion] = useState("")
+  const [newPrefijoCodigo, setNewPrefijoCodigo] = useState("")
   const [error, setError] = useState<string | null>(null)
   const [success, setSuccess] = useState<string | null>(null)
 
@@ -57,6 +59,7 @@ export default function CatalogoManager() {
     setShowAdd(false)
     setNewValor("")
     setNewDescripcion("")
+    setNewPrefijoCodigo("")
     setError(null)
     setSuccess(null)
   }, [selectedTipo])
@@ -71,12 +74,22 @@ export default function CatalogoManager() {
       setError("El valor es obligatorio")
       return
     }
+    const prefijoCodigo = newPrefijoCodigo.trim().toUpperCase()
+    if (selectedTipo === "FAMILIA" && !/^[A-Z]{3}$/.test(prefijoCodigo)) {
+      setError("El prefijo de familia debe tener 3 letras mayúsculas")
+      return
+    }
     setError(null)
     try {
       const res = await fetch("/api/inventario/catalogos", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ tipo: selectedTipo, valor: newValor.trim(), descripcion: newDescripcion.trim() || null }),
+        body: JSON.stringify({
+          tipo: selectedTipo,
+          valor: newValor.trim(),
+          descripcion: newDescripcion.trim() || null,
+          ...(selectedTipo === "FAMILIA" ? { prefijoCodigo } : {}),
+        }),
       })
       if (!res.ok) {
         const result = await res.json()
@@ -85,6 +98,7 @@ export default function CatalogoManager() {
       }
       setNewValor("")
       setNewDescripcion("")
+      setNewPrefijoCodigo("")
       setShowAdd(false)
       loadItems()
     } catch {
@@ -179,6 +193,16 @@ export default function CatalogoManager() {
             placeholder="Valor (ej: NuevoTipo)"
             className="flex-1 rounded-md border border-gray-300 px-3 py-1.5 text-sm text-gray-900 focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
           />
+          {selectedTipo === "FAMILIA" && (
+            <input
+              type="text"
+              value={newPrefijoCodigo}
+              onChange={(e) => setNewPrefijoCodigo(e.target.value.toUpperCase())}
+              placeholder="Prefijo (HAR)"
+              maxLength={3}
+              className="w-32 rounded-md border border-gray-300 px-3 py-1.5 text-sm uppercase text-gray-900 focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
+            />
+          )}
           <input
             type="text"
             value={newDescripcion}
@@ -205,6 +229,7 @@ export default function CatalogoManager() {
             <thead>
               <tr className="border-b bg-gray-50 text-xs font-medium text-gray-500">
                 <th className="px-3 py-2">Valor</th>
+                {selectedTipo === "FAMILIA" && <th className="px-3 py-2">Prefijo</th>}
                 <th className="px-3 py-2">Descripción</th>
                 <th className="px-3 py-2">Estado</th>
                 <th className="px-3 py-2 text-right">Acciones</th>
@@ -214,6 +239,7 @@ export default function CatalogoManager() {
               {items.map((item) => (
                 <tr key={item.id} className={!item.activo ? "opacity-50" : ""}>
                   <td className="px-3 py-2 font-mono text-xs text-gray-900">{item.valor}</td>
+                  {selectedTipo === "FAMILIA" && <td className="px-3 py-2 font-mono text-xs text-gray-900">{item.prefijoCodigo || "—"}</td>}
                   <td className="px-3 py-2 text-gray-600">{item.descripcion || "—"}</td>
                   <td className="px-3 py-2">
                     <span className={`inline-block rounded-full px-2 py-0.5 text-xs font-medium ${

@@ -170,11 +170,13 @@ export default function InventarioPage() {
     setSaving(true)
     setError(null)
     setSuccess(null)
+    const productData = { ...data }
+    delete productData.confirmarDuplicado
     try {
       const res = await fetch(`/api/inventario/productos/${editing.id}`, {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(data),
+        body: JSON.stringify(productData),
       })
       if (!res.ok) {
         const result = await res.json()
