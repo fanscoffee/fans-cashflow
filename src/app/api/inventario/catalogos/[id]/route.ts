@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server"
+import { Prisma } from "@/generated/prisma/client"
 import { prisma } from "@/lib/prisma"
 import { withAuth } from "@/lib/with-auth"
 
@@ -44,6 +45,33 @@ export const PATCH = withAuth(async (req, session, context) => {
 
   try {
     const body = await req.json()
+    const current = await prisma.catalogo.findUnique({
+      where: { id },
+      select: { tipo: true, valor: true, prefijoCodigo: true },
+    })
+    if (!current) {
+      return NextResponse.json({ error: "Catálogo no encontrado" }, { status: 404 })
+    }
+
+    const data = { ...body }
+    if (body.prefijoCodigo !== undefined) {
+      if (current.tipo !== "FAMILIA") {
+        return NextResponse.json({ error: "El prefijo solo aplica a familias" }, { status: 400 })
+      }
+      const prefijoCodigo = typeof body.prefijoCodigo === "string"
+        ? body.prefijoCodigo.trim().toUpperCase()
+        : ""
+      if (!/^[A-Z]{3}$/.test(prefijoCodigo)) {
+        return NextResponse.json({ error: "El prefijo de familia debe tener 3 letras mayúsculas" }, { status: 400 })
+      }
+      if (prefijoCodigo !== current.prefijoCodigo) {
+        const productosAsignados = await prisma.producto.count({ where: { familia: current.valor } })
+        if (productosAsignados > 0) {
+          return NextResponse.json({ error: "No se puede cambiar el prefijo de una familia con productos" }, { status: 409 })
+        }
+      }
+      data.prefijoCodigo = prefijoCodigo
+    }
 
     if (body.valor) {
       const existing = await prisma.catalogo.findFirst({
@@ -63,11 +91,14 @@ export const PATCH = withAuth(async (req, session, context) => {
 
     const catalogo = await prisma.catalogo.update({
       where: { id },
-      data: body,
+      data,
     })
 
     return NextResponse.json(catalogo)
   } catch (error) {
+    if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === "P2002") {
+      return NextResponse.json({ error: "Ya existe ese prefijo de familia" }, { status: 400 })
+    }
     const message = error instanceof Error ? error.message : "Error al actualizar el catálogo"
     return NextResponse.json({ error: message }, { status: 500 })
   }

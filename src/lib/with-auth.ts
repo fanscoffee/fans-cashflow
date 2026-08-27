@@ -14,12 +14,19 @@ type AuthenticatedHandler = (
   context: { params: Promise<Record<string, string>> }
 ) => Promise<NextResponse>
 
+type AuthenticatedRoute = {
+  (req: NextRequest): Promise<NextResponse>
+  (req: NextRequest, context: RouteContext): Promise<NextResponse>
+}
+
 export function withAuth(handler: AuthenticatedHandler) {
-  return async (req: NextRequest, context?: RouteContext) => {
+  const routeHandler = async (req: NextRequest, context?: RouteContext) => {
     const session = await auth()
     if (!session?.user?.id) {
       return NextResponse.json({ error: "No autorizado" }, { status: 401 })
     }
     return handler(req, session as AuthenticatedSession, context as { params: Promise<Record<string, string>> })
   }
+
+  return routeHandler as AuthenticatedRoute
 }

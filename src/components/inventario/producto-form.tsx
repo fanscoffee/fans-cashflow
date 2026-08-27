@@ -1,10 +1,11 @@
 "use client"
 
 import { useState, useEffect, useCallback } from "react"
-import { useForm, type UseFormRegister } from "react-hook-form"
+import { useForm, useWatch, type UseFormRegister } from "react-hook-form"
 import type { Resolver } from "react-hook-form"
 import { zodResolver } from "@hookform/resolvers/zod"
 import { z } from "zod"
+import { getProductTypeBehavior } from "@/lib/product-types"
 
 const productoSchema = z.object({
   codigo: z.string().min(1, "El código es obligatorio"),
@@ -114,11 +115,25 @@ interface CatalogoItem {
   tipo: string
   valor: string
   descripcion: string | null
+  prefijoCodigo?: string | null
 }
+
+interface PotentialDuplicate {
+  id: string
+  codigo: string
+  codBarrasEan: string | null
+  descripcionTpv: string
+  descripcionCompleta: string
+  tipoArticulo: string
+  familia: string
+  estado: string
+}
+
+type ProductoSubmitData = ProductoFormValues & { confirmarDuplicado: boolean }
 
 interface ProductoFormProps {
   initialValues?: Producto
-  onSubmit: (data: ProductoFormValues) => Promise<boolean>
+  onSubmit: (data: ProductoSubmitData) => Promise<boolean>
   onCancel: () => void
   saving: boolean
 }
@@ -193,6 +208,8 @@ function CatalogSelect({
   options,
   placeholder,
   error,
+  locked = false,
+  lockedValue,
 }: {
   label: string
   name: keyof ProductoFormValues
@@ -200,18 +217,22 @@ function CatalogSelect({
   options: CatalogoItem[]
   placeholder: string
   error?: string
+  locked?: boolean
+  lockedValue?: string
 }) {
   return (
     <div>
       <label className="block text-sm font-medium text-gray-700">{label}</label>
+      {locked && <input type="hidden" {...register(name)} value={lockedValue || ""} />}
       <select
-        {...register(name)}
-        className="mt-1 block w-full rounded-md border border-gray-300 px-3 py-2 text-sm text-gray-900 shadow-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
+        {...(locked ? {} : register(name))}
+        disabled={locked}
+        className={`mt-1 block w-full rounded-md border border-gray-300 px-3 py-2 text-sm text-gray-900 shadow-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500 ${locked ? "bg-gray-100" : ""}`}
       >
         <option value="">{placeholder}</option>
         {options.map((opt) => (
           <option key={opt.id} value={opt.valor}>
-            {opt.descripcion || opt.valor}
+            {opt.descripcion || opt.valor}{opt.prefijoCodigo ? ` (${opt.prefijoCodigo})` : ""}
           </option>
         ))}
       </select>
@@ -227,6 +248,7 @@ function TextField({
   placeholder,
   error,
   type = "text",
+  readOnly = false,
 }: {
   label: string
   name: keyof ProductoFormValues
@@ -234,6 +256,7 @@ function TextField({
   placeholder: string
   error?: string
   type?: string
+  readOnly?: boolean
 }) {
   return (
     <div>
@@ -241,8 +264,9 @@ function TextField({
       <input
         type={type}
         {...register(name)}
+        readOnly={readOnly}
         placeholder={placeholder}
-        className="mt-1 block w-full rounded-md border border-gray-300 px-3 py-2 text-sm text-gray-900 shadow-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
+        className={`mt-1 block w-full rounded-md border border-gray-300 px-3 py-2 text-sm text-gray-900 shadow-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500 ${readOnly ? "bg-gray-100 font-mono" : ""}`}
       />
       {error && <p className="mt-1 text-xs text-red-500">{error}</p>}
     </div>
@@ -283,16 +307,26 @@ function CheckboxField({
   label,
   name,
   register,
+  checked,
+  derived = false,
 }: {
   label: string
   name: keyof ProductoFormValues
   register: UseFormRegister<ProductoFormValues>
+  checked?: boolean
+  derived?: boolean
 }) {
   return (
     <label className="flex items-center gap-2">
       <input
         type="checkbox"
         {...register(name)}
+        checked={derived ? checked : undefined}
+        readOnly={derived}
+        tabIndex={derived ? -1 : undefined}
+        onChange={derived ? () => undefined : undefined}
+        onClick={derived ? (event) => event.preventDefault() : undefined}
+        onKeyDown={derived ? (event) => event.preventDefault() : undefined}
         className="h-4 w-4 rounded border-gray-300 text-blue-600 focus:ring-blue-500"
       />
       <span className="text-sm text-gray-700">{label}</span>
@@ -342,9 +376,11 @@ export default function ProductoForm({
   const isEditing = !!initialValues
 
   const {
+    control,
     register,
     handleSubmit,
     reset,
+    setValue,
     formState: { errors },
   } = useForm<ProductoFormValues>({
     resolver: zodResolver(productoSchema) as Resolver<ProductoFormValues>,
@@ -354,6 +390,110 @@ export default function ProductoForm({
   useEffect(() => {
     reset(initialValues ? toFormValues(initialValues) : defaultValues())
   }, [initialValues, reset])
+
+  const selectedTipo = useWatch({ control, name: "tipoArticulo" })
+  const selectedFamilia = useWatch({ control, name: "familia" })
+  const descripcionTpv = useWatch({ control, name: "descripcionTpv" })
+  const descripcionCompleta = useWatch({ control, name: "descripcionCompleta" })
+  const codBarrasEan = useWatch({ control, name: "codBarrasEan" })
+  const esComprable = useWatch({ control, name: "esComprable" })
+  const esElaborado = useWatch({ control, name: "esElaborado" })
+  const esVendible = useWatch({ control, name: "esVendible" })
+  const llevaReceta = useWatch({ control, name: "llevaReceta" })
+  const [codigoLoading, setCodigoLoading] = useState(false)
+  const [codigoError, setCodigoError] = useState("")
+  const [duplicates, setDuplicates] = useState<PotentialDuplicate[]>([])
+  const [duplicatesLoading, setDuplicatesLoading] = useState(false)
+  const [duplicateConfirmed, setDuplicateConfirmed] = useState(false)
+  const [duplicateError, setDuplicateError] = useState("")
+
+  useEffect(() => {
+    if (isEditing) return
+    const behavior = getProductTypeBehavior(selectedTipo) || {
+      esComprable: false,
+      esElaborado: false,
+      esVendible: false,
+      llevaReceta: false,
+    }
+    setValue("esComprable", behavior.esComprable)
+    setValue("esElaborado", behavior.esElaborado)
+    setValue("esVendible", behavior.esVendible)
+    setValue("llevaReceta", behavior.llevaReceta)
+  }, [isEditing, selectedTipo, setValue])
+
+  useEffect(() => {
+    if (isEditing || !selectedTipo || !selectedFamilia) {
+      if (!isEditing) setValue("codigo", "")
+      return
+    }
+
+    const controller = new AbortController()
+    const request = setTimeout(() => {
+      setCodigoLoading(true)
+      setCodigoError("")
+      setValue("codigo", "")
+
+      fetch(`/api/inventario/productos/codigo?tipo=${encodeURIComponent(selectedTipo)}&familia=${encodeURIComponent(selectedFamilia)}`, {
+        signal: controller.signal,
+      })
+        .then(async (res) => {
+          const result = await res.json()
+          if (!res.ok) throw new Error(result.error || "No se pudo generar el código")
+          setValue("codigo", result.codigo, { shouldValidate: true })
+        })
+        .catch((error: unknown) => {
+          if (!controller.signal.aborted) {
+            setCodigoError(error instanceof Error ? error.message : "No se pudo generar el código")
+          }
+        })
+        .finally(() => {
+          if (!controller.signal.aborted) setCodigoLoading(false)
+        })
+    }, 0)
+
+    return () => {
+      clearTimeout(request)
+      controller.abort()
+    }
+  }, [isEditing, selectedFamilia, selectedTipo, setValue])
+
+  useEffect(() => {
+    if (isEditing) return
+
+    const params = new URLSearchParams()
+    if (descripcionTpv?.trim()) params.set("descripcionTpv", descripcionTpv)
+    if (descripcionCompleta?.trim()) params.set("descripcionCompleta", descripcionCompleta)
+    if (codBarrasEan?.trim()) params.set("codBarrasEan", codBarrasEan)
+
+    const controller = new AbortController()
+    const timeout = setTimeout(() => {
+      setDuplicates([])
+      setDuplicateConfirmed(false)
+      setDuplicateError("")
+      if (!params.toString()) {
+        setDuplicatesLoading(false)
+        return
+      }
+      setDuplicatesLoading(true)
+      fetch(`/api/inventario/productos/duplicados?${params}`, { signal: controller.signal })
+        .then(async (res) => {
+          const result = await res.json()
+          if (!res.ok) throw new Error(result.error || "No se pudieron buscar duplicados")
+          setDuplicates(result.productos || [])
+        })
+        .catch(() => {
+          if (!controller.signal.aborted) setDuplicates([])
+        })
+        .finally(() => {
+          if (!controller.signal.aborted) setDuplicatesLoading(false)
+        })
+    }, params.toString() ? 350 : 0)
+
+    return () => {
+      clearTimeout(timeout)
+      controller.abort()
+    }
+  }, [codBarrasEan, descripcionCompleta, descripcionTpv, isEditing])
 
   const [catalogos, setCatalogos] = useState<Record<string, CatalogoItem[]>>({})
 
@@ -378,7 +518,13 @@ export default function ProductoForm({
   }, [loadCatalogo])
 
   async function handleFormSubmit(data: ProductoFormValues) {
-    const ok = await onSubmit(data)
+    if (!isEditing && duplicates.length > 0 && !duplicateConfirmed) {
+      setDuplicateError("Revisa los productos encontrados y confirma para continuar")
+      return
+    }
+
+    setDuplicateError("")
+    const ok = await onSubmit({ ...data, confirmarDuplicado: duplicateConfirmed })
     if (ok && !isEditing) reset(defaultValues())
   }
 
@@ -388,26 +534,77 @@ export default function ProductoForm({
     <form onSubmit={handleSubmit(handleFormSubmit)} className="space-y-4">
       <Section title="Identificación" defaultOpen>
         <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-          <TextField label="Código *" name="codigo" register={register} placeholder="MP-HAR-001" error={errors.codigo?.message} />
+          <TextField
+            label="Código generado *"
+            name="codigo"
+            register={register}
+            placeholder={codigoLoading && selectedTipo && selectedFamilia ? "Generando..." : "Selecciona tipo y familia"}
+            error={errors.codigo?.message || codigoError}
+            readOnly
+          />
           <TextField label="Código de barras EAN" name="codBarrasEan" register={register} placeholder="8412345678901" error={errors.codBarrasEan?.message} />
           <TextField label="Descripción TPV *" name="descripcionTpv" register={register} placeholder="Harina trigo W180" error={errors.descripcionTpv?.message} />
           <div className="sm:col-span-2">
             <TextField label="Descripción completa *" name="descripcionCompleta" register={register} placeholder="Harina trigo W180 saco 25 kg" error={errors.descripcionCompleta?.message} />
           </div>
         </div>
+        {!isEditing && duplicatesLoading && <p className="mt-3 text-xs text-gray-500">Buscando productos parecidos...</p>}
+        {!isEditing && duplicates.length > 0 && (
+          <div role="alert" className="mt-3 rounded-md border border-amber-200 bg-amber-50 p-3 text-sm text-amber-900">
+            <p className="font-medium">Posibles productos duplicados:</p>
+            <ul className="mt-1 list-disc pl-5">
+              {duplicates.map((producto) => (
+                <li key={producto.id}>
+                  <span className="font-mono">{producto.codigo}</span> - {producto.descripcionCompleta} ({producto.estado})
+                </li>
+              ))}
+            </ul>
+            <label className="mt-3 flex items-start gap-2">
+              <input
+                type="checkbox"
+                checked={duplicateConfirmed}
+                onChange={(event) => {
+                  setDuplicateConfirmed(event.target.checked)
+                  setDuplicateError("")
+                }}
+                className="mt-0.5 h-4 w-4 rounded border-gray-300 text-blue-600 focus:ring-blue-500"
+              />
+              <span>He revisado los productos y confirmo que este artículo es distinto.</span>
+            </label>
+            {duplicateError && <p className="mt-2 text-xs text-red-700">{duplicateError}</p>}
+          </div>
+        )}
       </Section>
 
       <Section title="Clasificación">
         <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-          <CatalogSelect label="Tipo de artículo *" name="tipoArticulo" register={register} options={cat("TIPO_ARTICULO")} placeholder="Seleccionar tipo..." error={errors.tipoArticulo?.message} />
-          <CatalogSelect label="Familia *" name="familia" register={register} options={cat("FAMILIA")} placeholder="Seleccionar familia..." error={errors.familia?.message} />
+          <CatalogSelect
+            label="Tipo de artículo *"
+            name="tipoArticulo"
+            register={register}
+            options={cat("TIPO_ARTICULO")}
+            placeholder="Seleccionar tipo..."
+            error={errors.tipoArticulo?.message}
+            locked={isEditing}
+            lockedValue={initialValues?.tipoArticulo}
+          />
+          <CatalogSelect
+            label="Familia *"
+            name="familia"
+            register={register}
+            options={cat("FAMILIA")}
+            placeholder="Seleccionar familia..."
+            error={errors.familia?.message}
+            locked={isEditing}
+            lockedValue={initialValues?.familia}
+          />
           <CatalogSelect label="Subfamilia" name="subfamilia" register={register} options={cat("SUBFAMILIA")} placeholder="Seleccionar subfamilia..." error={errors.subfamilia?.message} />
           <CatalogSelect label="Sección *" name="seccion" register={register} options={cat("SECCION")} placeholder="Seleccionar sección..." error={errors.seccion?.message} />
           <div className="flex flex-wrap gap-6 pt-2">
-            <CheckboxField label="Es comprable" name="esComprable" register={register} />
-            <CheckboxField label="Es elaborado" name="esElaborado" register={register} />
-            <CheckboxField label="Es vendible" name="esVendible" register={register} />
-            <CheckboxField label="Lleva receta" name="llevaReceta" register={register} />
+            <CheckboxField label="Es comprable" name="esComprable" register={register} checked={esComprable} derived />
+            <CheckboxField label="Es elaborado" name="esElaborado" register={register} checked={esElaborado} derived />
+            <CheckboxField label="Es vendible" name="esVendible" register={register} checked={esVendible} derived />
+            <CheckboxField label="Lleva receta" name="llevaReceta" register={register} checked={llevaReceta} derived />
           </div>
         </div>
       </Section>

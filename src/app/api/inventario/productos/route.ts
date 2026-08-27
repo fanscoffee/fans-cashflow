@@ -1,6 +1,13 @@
 import { NextResponse } from "next/server"
+import { Prisma } from "@/generated/prisma/client"
 import { prisma } from "@/lib/prisma"
 import { withAuth } from "@/lib/with-auth"
+import {
+  findPotentialProductDuplicates,
+  getNextProductCode,
+  ProductCodeError,
+} from "@/lib/product-code"
+import { getProductTypeBehavior } from "@/lib/product-types"
 
 export const GET = withAuth(async (req) => {
   const { searchParams } = new URL(req.url)
@@ -57,26 +64,63 @@ export const POST = withAuth(async (req, session) => {
 
   try {
     const body = await req.json()
+    const tipoArticulo = String(body.tipoArticulo || "").trim().toUpperCase()
+    const behavior = getProductTypeBehavior(tipoArticulo)
+    if (!behavior) {
+      return NextResponse.json({ error: "Tipo de artículo no soportado" }, { status: 400 })
+    }
 
-    const existing = await prisma.producto.findUnique({
-      where: { codigo: body.codigo },
+    const duplicados = await findPotentialProductDuplicates(prisma, {
+      descripcionTpv: body.descripcionTpv,
+      descripcionCompleta: body.descripcionCompleta,
+      codBarrasEan: body.codBarrasEan,
     })
-    if (existing) {
+
+    if (duplicados.length > 0 && body.confirmarDuplicado !== true) {
       return NextResponse.json(
-        { error: `Ya existe un producto con el código ${body.codigo}` },
-        { status: 400 }
+        {
+          error: "Hay productos que podrían ser duplicados. Revísalos antes de continuar.",
+          duplicados,
+        },
+        { status: 409 },
       )
     }
 
-    const producto = await prisma.producto.create({
-      data: {
-        ...body,
-        createdById: session.user.id,
-      },
-    })
+    const productData = { ...body }
+    delete productData.confirmarDuplicado
+    Object.assign(productData, { tipoArticulo, ...behavior })
 
-    return NextResponse.json(producto, { status: 201 })
+    for (let attempt = 0; attempt < 3; attempt++) {
+      try {
+        const codigo = await getNextProductCode(
+          prisma,
+          tipoArticulo,
+          String(body.familia || ""),
+        )
+        const producto = await prisma.producto.create({
+          data: {
+            ...productData,
+            codigo,
+            createdById: session.user.id,
+          },
+        })
+
+        return NextResponse.json(producto, { status: 201 })
+      } catch (error) {
+        if (!(error instanceof Prisma.PrismaClientKnownRequestError) || error.code !== "P2002" || attempt === 2) {
+          throw error
+        }
+      }
+    }
+
+    return NextResponse.json({ error: "No se pudo reservar un código" }, { status: 409 })
   } catch (error) {
+    if (error instanceof ProductCodeError) {
+      return NextResponse.json({ error: error.message }, { status: error.status })
+    }
+    if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === "P2002") {
+      return NextResponse.json({ error: "No se pudo reservar un código único" }, { status: 409 })
+    }
     const message = error instanceof Error ? error.message : "Error al crear el producto"
     return NextResponse.json({ error: message }, { status: 500 })
   }
