@@ -1,6 +1,6 @@
 import { describe, expect, it, vi, beforeEach, afterEach } from "vitest"
 import { render, screen, fireEvent, waitFor } from "@testing-library/react"
-import OrdersPage from "../page"
+import OrdersPage from "../orders-client"
 
 vi.mock("next-auth/react", () => ({
   useSession: vi.fn(),

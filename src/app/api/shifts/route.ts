@@ -19,19 +19,19 @@ export const GET = withAuth(async (req, session) => {
 
   if (isAdminOrSocio) {
     shifts = await prisma.shift.findMany({
-      include: { expenses: true, createdBy: { select: { name: true, email: true } } },
+      include: { expenses: true, cierreTurno: true, createdBy: { select: { name: true, email: true } } },
       orderBy,
     })
   } else {
     const openShift = await prisma.shift.findFirst({
       where: { createdById: session.user.id, status: "ABIERTO" },
-      include: { expenses: true, createdBy: { select: { name: true, email: true } } },
+      include: { expenses: true, cierreTurno: true, createdBy: { select: { name: true, email: true } } },
       orderBy,
     })
 
     const lastClosed = await prisma.shift.findFirst({
       where: { createdById: session.user.id, status: "CERRADO" },
-      include: { expenses: true, createdBy: { select: { name: true, email: true } } },
+      include: { expenses: true, cierreTurno: true, createdBy: { select: { name: true, email: true } } },
       orderBy,
     })
 

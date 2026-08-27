@@ -58,6 +58,7 @@ interface DashboardData {
 import { downloadCSV } from "@/lib/csv"
 import { MONTH_NAMES } from "@/lib/constants"
 import { toN } from "@/lib/money"
+import VentaInventarioDashboard from "@/components/venta-inventario-dashboard"
 
 const COLORS = ["#3b82f6", "#f59e0b", "#10b981", "#ef4444", "#8b5cf6"]
 
@@ -161,6 +162,10 @@ export default function Dashboard() {
         <Card label="Gastos" value={`${resumen.totalGastos.toFixed(2)} €`} color="text-red-600" />
         <Card label="Beneficio Neto" value={`${resumen.beneficioNeto.toFixed(2)} €`} color={resumen.beneficioNeto >= 0 ? "text-green-600" : "text-red-600"} />
       </div>
+
+      {(session?.user?.role === "ADMIN" || session?.user?.role === "SOCIO") && (
+        <VentaInventarioDashboard month={selectedMonth} year={selectedYear} />
+      )}
 
       <div className="rounded-lg border bg-white p-6 shadow-sm">
         <h3 className="mb-4 text-sm font-semibold text-gray-900">Ingresos vs Gastos por día</h3>

@@ -21,8 +21,29 @@ const mockDashboardData = {
   exportExpenses: [{ fecha: "22/07", turno: "mañana", proveedor: "Frutas", importe: 50, creadoPor: "Juan" }],
 }
 
+const mockVentaInventarioData = {
+  estado: "OK",
+  conteos: {
+    actual: { id: "actual", fechaConteo: "2026-07-31T00:00:00.000Z" },
+    anterior: { id: "anterior", fechaConteo: "2026-06-30T00:00:00.000Z" },
+  },
+  resumen: {
+    ventaTeorica: 1200,
+    ventaReal: 1300,
+    diferencia: 100,
+    diferenciaPct: 8.33,
+    turnosConCierre: 5,
+    turnosSinCierre: 0,
+    productosValorizados: 3,
+    productosPendientes: 0,
+    ajustesInventario: 0,
+  },
+  advertencias: [],
+}
+
 const server = setupServer(
   http.get("/api/dashboard", () => HttpResponse.json(mockDashboardData)),
+  http.get("/api/dashboard/venta-inventario", () => HttpResponse.json(mockVentaInventarioData)),
 )
 
 beforeAll(() => server.listen())
