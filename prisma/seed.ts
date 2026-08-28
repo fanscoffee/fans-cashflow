@@ -1,6 +1,7 @@
 import "dotenv/config"
 import { PrismaClient } from "../src/generated/prisma/client"
 import { PrismaPg } from "@prisma/adapter-pg"
+import { calculateProductPricing } from "../src/lib/product-pricing"
 
 const url = process.env.DIRECT_URL || process.env.DATABASE_URL!
 const adapter = new PrismaPg({ connectionString: url })
@@ -504,11 +505,22 @@ async function main() {
   ]
 
   for (const prod of productos) {
+    const pricing = calculateProductPricing({
+      costeSinIva: prod.costeUmBase,
+      ivaPct: prod.ivaPct,
+      pvpVentaConIva: prod.pvpAplicadoConIva,
+    })
     await prisma.producto.upsert({
       where: { codigo: prod.codigo },
       update: {},
       create: {
         ...prod,
+        ivaCompraPct: pricing.ivaCompraPct,
+        ivaVentaPct: pricing.ivaVentaPct,
+        costeConIva: pricing.costeConIva,
+        pvpAplicadoSinIva: pricing.pvpVentaSinIva,
+        gananciaEurUd: pricing.gananciaEurUd,
+        margenRealPct: pricing.margenRealPct,
         createdById: null,
       },
     })

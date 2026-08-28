@@ -37,15 +37,19 @@ interface Producto {
   pesoNetoUdG: number | null
   formatoPresentacion: string | null
   costeUmBase: number | null
+  costeConIva: number | null
   mermaEstandarPct: number | null
   codIva: string
   ivaPct: number | null
+  ivaCompraPct: number | null
+  ivaVentaPct: number | null
   metodoPrecio: string
   margenObjetivoPct: number | null
   pvpObjetivoConIva: number | null
   pvpFijoConIva: number | null
   pvpAplicadoConIva: number | null
   pvpAplicadoSinIva: number | null
+  gananciaEurUd: number | null
   margenRealPct: number | null
   desviacionPp: number | null
   diferenciaEurUd: number | null
@@ -116,11 +120,11 @@ export default function InventarioPage() {
       params.set("pageSize", String(pageSize))
 
       const res = await fetch(`/api/inventario/productos?${params}`)
-      if (res.ok) {
-        const data = await res.json()
-        setProductos(data.productos)
-        setTotal(data.total)
-      }
+      const data = await res.json()
+      if (!res.ok) throw new Error(data.error || "Error al cargar los productos")
+      setProductos(data.productos)
+      setTotal(data.total)
+      setError(null)
     } catch {
       setError("Error al cargar los productos")
     } finally {

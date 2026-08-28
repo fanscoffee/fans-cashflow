@@ -8,6 +8,7 @@ import {
   ProductCodeError,
 } from "@/lib/product-code"
 import { getProductTypeBehavior } from "@/lib/product-types"
+import { calculateProductPricing } from "@/lib/product-pricing"
 
 export const GET = withAuth(async (req) => {
   const { searchParams } = new URL(req.url)
@@ -88,7 +89,24 @@ export const POST = withAuth(async (req, session) => {
 
     const productData = { ...body }
     delete productData.confirmarDuplicado
-    Object.assign(productData, { tipoArticulo, ...behavior })
+    const pricing = calculateProductPricing({
+      costeSinIva: body.costeUmBase,
+      ivaCompraPct: body.ivaCompraPct,
+      ivaVentaPct: body.ivaVentaPct,
+      ivaPct: body.ivaPct,
+      pvpVentaConIva: body.pvpAplicadoConIva,
+    })
+    Object.assign(productData, {
+      tipoArticulo,
+      ...behavior,
+      ivaCompraPct: pricing.ivaCompraPct,
+      ivaVentaPct: pricing.ivaVentaPct,
+      ivaPct: pricing.ivaPct,
+      costeConIva: pricing.costeConIva,
+      pvpAplicadoSinIva: pricing.pvpVentaSinIva,
+      gananciaEurUd: pricing.gananciaEurUd,
+      margenRealPct: pricing.margenRealPct,
+    })
 
     for (let attempt = 0; attempt < 3; attempt++) {
       try {

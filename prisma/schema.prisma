@@ -600,16 +600,20 @@ model Producto {
   formatoPresentacion String?
 
   costeUmBase      Decimal? @db.Decimal(10, 4)
+  costeConIva      Decimal? @db.Decimal(10, 4)
   mermaEstandarPct Decimal? @db.Decimal(5, 2)
 
   codIva            String
   ivaPct            Decimal? @db.Decimal(5, 2)
+  ivaCompraPct      Decimal? @db.Decimal(5, 2)
+  ivaVentaPct       Decimal? @db.Decimal(5, 2)
   metodoPrecio      String
   margenObjetivoPct Decimal? @db.Decimal(5, 2)
   pvpObjetivoConIva Decimal? @db.Decimal(10, 4)
   pvpFijoConIva     Decimal? @db.Decimal(10, 4)
   pvpAplicadoConIva Decimal? @db.Decimal(10, 4)
   pvpAplicadoSinIva Decimal? @db.Decimal(10, 4)
+  gananciaEurUd     Decimal? @db.Decimal(10, 4)
   margenRealPct     Decimal? @db.Decimal(5, 2)
   desviacionPp      Decimal? @db.Decimal(5, 2)
   diferenciaEurUd   Decimal? @db.Decimal(10, 4)
