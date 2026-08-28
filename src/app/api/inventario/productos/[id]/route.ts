@@ -2,6 +2,7 @@ import { NextResponse } from "next/server"
 import { prisma } from "@/lib/prisma"
 import { withAuth } from "@/lib/with-auth"
 import { getProductTypeBehavior } from "@/lib/product-types"
+import { calculateProductPricing } from "@/lib/product-pricing"
 
 export const GET = withAuth(async (req, _session, context) => {
   const { id } = await context.params
@@ -26,7 +27,16 @@ export const PATCH = withAuth(async (req, session, context) => {
 
     const current = await prisma.producto.findUnique({
       where: { id },
-      select: { codigo: true, tipoArticulo: true, familia: true },
+      select: {
+        codigo: true,
+        tipoArticulo: true,
+        familia: true,
+        costeUmBase: true,
+        ivaPct: true,
+        ivaCompraPct: true,
+        ivaVentaPct: true,
+        pvpAplicadoConIva: true,
+      },
     })
     if (!current) {
       return NextResponse.json({ error: "Producto no encontrado" }, { status: 404 })
@@ -46,6 +56,22 @@ export const PATCH = withAuth(async (req, session, context) => {
     delete productData.confirmarDuplicado
     const behavior = getProductTypeBehavior(current.tipoArticulo)
     if (behavior) Object.assign(productData, behavior)
+    const pricing = calculateProductPricing({
+      costeSinIva: Object.prototype.hasOwnProperty.call(body, "costeUmBase") ? body.costeUmBase : current.costeUmBase,
+      ivaCompraPct: Object.prototype.hasOwnProperty.call(body, "ivaCompraPct") ? body.ivaCompraPct : current.ivaCompraPct,
+      ivaVentaPct: Object.prototype.hasOwnProperty.call(body, "ivaVentaPct") ? body.ivaVentaPct : current.ivaVentaPct,
+      ivaPct: Object.prototype.hasOwnProperty.call(body, "ivaPct") ? body.ivaPct : current.ivaPct,
+      pvpVentaConIva: Object.prototype.hasOwnProperty.call(body, "pvpAplicadoConIva") ? body.pvpAplicadoConIva : current.pvpAplicadoConIva,
+    })
+    Object.assign(productData, {
+      ivaCompraPct: pricing.ivaCompraPct,
+      ivaVentaPct: pricing.ivaVentaPct,
+      ivaPct: pricing.ivaPct,
+      costeConIva: pricing.costeConIva,
+      pvpAplicadoSinIva: pricing.pvpVentaSinIva,
+      gananciaEurUd: pricing.gananciaEurUd,
+      margenRealPct: pricing.margenRealPct,
+    })
 
     const producto = await prisma.producto.update({
       where: { id },

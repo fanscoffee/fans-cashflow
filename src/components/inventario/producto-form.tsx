@@ -6,6 +6,7 @@ import type { Resolver } from "react-hook-form"
 import { zodResolver } from "@hookform/resolvers/zod"
 import { z } from "zod"
 import { getProductTypeBehavior } from "@/lib/product-types"
+import { calculateProductPricing } from "@/lib/product-pricing"
 
 const productoSchema = z.object({
   codigo: z.string().min(1, "El código es obligatorio"),
@@ -28,15 +29,19 @@ const productoSchema = z.object({
   pesoNetoUdG: z.coerce.number().optional(),
   formatoPresentacion: z.string().optional(),
   costeUmBase: z.coerce.number().optional(),
+  costeConIva: z.coerce.number().optional(),
   mermaEstandarPct: z.coerce.number().optional(),
   codIva: z.string().min(1, "El código IVA es obligatorio"),
   ivaPct: z.coerce.number().optional(),
+  ivaCompraPct: z.coerce.number().optional(),
+  ivaVentaPct: z.coerce.number().optional(),
   metodoPrecio: z.string().min(1, "El método de precio es obligatorio"),
   margenObjetivoPct: z.coerce.number().optional(),
   pvpObjetivoConIva: z.coerce.number().optional(),
   pvpFijoConIva: z.coerce.number().optional(),
   pvpAplicadoConIva: z.coerce.number().optional(),
   pvpAplicadoSinIva: z.coerce.number().optional(),
+  gananciaEurUd: z.coerce.number().optional(),
   margenRealPct: z.coerce.number().optional(),
   desviacionPp: z.coerce.number().optional(),
   diferenciaEurUd: z.coerce.number().optional(),
@@ -80,15 +85,19 @@ interface Producto {
   pesoNetoUdG: number | null
   formatoPresentacion: string | null
   costeUmBase: number | null
+  costeConIva: number | null
   mermaEstandarPct: number | null
   codIva: string
   ivaPct: number | null
+  ivaCompraPct: number | null
+  ivaVentaPct: number | null
   metodoPrecio: string
   margenObjetivoPct: number | null
   pvpObjetivoConIva: number | null
   pvpFijoConIva: number | null
   pvpAplicadoConIva: number | null
   pvpAplicadoSinIva: number | null
+  gananciaEurUd: number | null
   margenRealPct: number | null
   desviacionPp: number | null
   diferenciaEurUd: number | null
@@ -160,15 +169,19 @@ function defaultValues(): ProductoFormValues {
     pesoNetoUdG: undefined,
     formatoPresentacion: "",
     costeUmBase: undefined,
+    costeConIva: undefined,
     mermaEstandarPct: undefined,
     codIva: "",
     ivaPct: undefined,
+    ivaCompraPct: undefined,
+    ivaVentaPct: undefined,
     metodoPrecio: "",
     margenObjetivoPct: undefined,
     pvpObjetivoConIva: undefined,
     pvpFijoConIva: undefined,
     pvpAplicadoConIva: undefined,
     pvpAplicadoSinIva: undefined,
+    gananciaEurUd: undefined,
     margenRealPct: undefined,
     desviacionPp: undefined,
     diferenciaEurUd: undefined,
@@ -303,6 +316,32 @@ function NumberField({
   )
 }
 
+function CalculatedField({
+  label,
+  value,
+  decimals = 2,
+}: {
+  label: string
+  value: number | null
+  decimals?: number
+}) {
+  const displayValue = value === null || !Number.isFinite(value) ? "" : value.toFixed(decimals)
+
+  return (
+    <div>
+      <label className="block text-sm font-medium text-gray-700">{label}</label>
+      <input
+        type="text"
+        value={displayValue}
+        readOnly
+        placeholder="Se calcula automáticamente"
+        aria-readonly="true"
+        className="mt-1 block w-full rounded-md border border-gray-300 bg-gray-100 px-3 py-2 text-sm font-mono text-gray-900 shadow-sm"
+      />
+    </div>
+  )
+}
+
 function CheckboxField({
   label,
   name,
@@ -400,6 +439,18 @@ export default function ProductoForm({
   const esElaborado = useWatch({ control, name: "esElaborado" })
   const esVendible = useWatch({ control, name: "esVendible" })
   const llevaReceta = useWatch({ control, name: "llevaReceta" })
+  const costeSinIva = useWatch({ control, name: "costeUmBase" })
+  const legacyIvaPct = useWatch({ control, name: "ivaPct" })
+  const ivaCompraPct = useWatch({ control, name: "ivaCompraPct" })
+  const ivaVentaPct = useWatch({ control, name: "ivaVentaPct" })
+  const pvpVentaConIva = useWatch({ control, name: "pvpAplicadoConIva" })
+  const pricing = calculateProductPricing({
+    costeSinIva,
+    ivaCompraPct,
+    ivaVentaPct,
+    ivaPct: legacyIvaPct,
+    pvpVentaConIva,
+  })
   const [codigoLoading, setCodigoLoading] = useState(false)
   const [codigoError, setCodigoError] = useState("")
   const [duplicates, setDuplicates] = useState<PotentialDuplicate[]>([])
@@ -524,7 +575,17 @@ export default function ProductoForm({
     }
 
     setDuplicateError("")
-    const ok = await onSubmit({ ...data, confirmarDuplicado: duplicateConfirmed })
+    const ok = await onSubmit({
+      ...data,
+      ivaCompraPct: pricing.ivaCompraPct ?? undefined,
+      ivaVentaPct: pricing.ivaVentaPct ?? undefined,
+      ivaPct: pricing.ivaPct ?? undefined,
+      costeConIva: pricing.costeConIva ?? undefined,
+      pvpAplicadoSinIva: pricing.pvpVentaSinIva ?? undefined,
+      gananciaEurUd: pricing.gananciaEurUd ?? undefined,
+      margenRealPct: pricing.margenRealPct ?? undefined,
+      confirmarDuplicado: duplicateConfirmed,
+    })
     if (ok && !isEditing) reset(defaultValues())
   }
 
@@ -625,7 +686,8 @@ export default function ProductoForm({
 
       <Section title="Costes">
         <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-          <NumberField label="Coste UM base (€)" name="costeUmBase" register={register} placeholder="0.74" error={errors.costeUmBase?.message} />
+          <NumberField label="Coste Sin IVA (€)" name="costeUmBase" register={register} placeholder="0.74" error={errors.costeUmBase?.message} />
+          <CalculatedField label="Coste Con IVA (€)" value={pricing.costeConIva} />
           <NumberField label="Merma estándar (%)" name="mermaEstandarPct" register={register} placeholder="1.0" error={errors.mermaEstandarPct?.message} />
         </div>
       </Section>
@@ -633,14 +695,16 @@ export default function ProductoForm({
       <Section title="Fiscal y precios">
         <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
           <CatalogSelect label="Código IVA *" name="codIva" register={register} options={cat("CODIGO_IVA")} placeholder="Seleccionar código..." error={errors.codIva?.message} />
-          <NumberField label="IVA %" name="ivaPct" register={register} placeholder="4" error={errors.ivaPct?.message} />
+          <NumberField label="IVA Compra (%)" name="ivaCompraPct" register={register} placeholder="4" error={errors.ivaCompraPct?.message} />
+          <NumberField label="IVA Venta (%)" name="ivaVentaPct" register={register} placeholder="10" error={errors.ivaVentaPct?.message} />
           <CatalogSelect label="Método precio *" name="metodoPrecio" register={register} options={cat("METODO_PRECIO")} placeholder="Seleccionar método..." error={errors.metodoPrecio?.message} />
           <NumberField label="Margen objetivo %" name="margenObjetivoPct" register={register} placeholder="70" error={errors.margenObjetivoPct?.message} />
           <NumberField label="PVP objetivo con IVA (€)" name="pvpObjetivoConIva" register={register} placeholder="1.19" error={errors.pvpObjetivoConIva?.message} />
           <NumberField label="PVP fijo con IVA (€)" name="pvpFijoConIva" register={register} placeholder="1.20" error={errors.pvpFijoConIva?.message} />
-          <NumberField label="PVP aplicado con IVA (€)" name="pvpAplicadoConIva" register={register} placeholder="1.20" error={errors.pvpAplicadoConIva?.message} />
-          <NumberField label="PVP aplicado sin IVA (€)" name="pvpAplicadoSinIva" register={register} placeholder="1.15" error={errors.pvpAplicadoSinIva?.message} />
-          <NumberField label="Margen real %" name="margenRealPct" register={register} placeholder="69.65" error={errors.margenRealPct?.message} />
+          <NumberField label="PVP Venta Con IVA (€)" name="pvpAplicadoConIva" register={register} placeholder="1.20" error={errors.pvpAplicadoConIva?.message} />
+          <CalculatedField label="PVP Venta Sin IVA (€)" value={pricing.pvpVentaSinIva} />
+          <CalculatedField label="Ganancia (€/ud)" value={pricing.gananciaEurUd} />
+          <CalculatedField label="Margen Real (%)" value={pricing.margenRealPct} />
           <NumberField label="Desviación (pp)" name="desviacionPp" register={register} placeholder="-0.35" error={errors.desviacionPp?.message} />
           <NumberField label="Diferencia EUR/ud" name="diferenciaEurUd" register={register} placeholder="0.01" error={errors.diferenciaEurUd?.message} />
           <TextField label="Diagnóstico precio" name="diagnosticoPrecio" register={register} placeholder="EN OBJETIVO" error={errors.diagnosticoPrecio?.message} />
