@@ -52,10 +52,19 @@ describe("PATCH /api/inventario/productos/[id]", () => {
       codigo: "MP-HAR-001",
       tipoArticulo: "MP",
       familia: "Harinas y sémolas",
+      costeUmBase: 10,
+      ivaPct: 10,
+      ivaCompraPct: 21,
+      ivaVentaPct: 10,
+      pvpAplicadoConIva: 20,
     } as any)
     vi.mocked(prisma.producto.update).mockResolvedValue({ id: "product-1" } as any)
 
     const response = await PATCH(mockRequest({
+      costeUmBase: 10,
+      ivaCompraPct: 21,
+      ivaVentaPct: 10,
+      pvpAplicadoConIva: 20,
       esComprable: false,
       esElaborado: true,
       esVendible: true,
@@ -67,10 +76,19 @@ describe("PATCH /api/inventario/productos/[id]", () => {
     expect(prisma.producto.update).toHaveBeenCalledWith({
       where: { id: "product-1" },
       data: {
+        costeUmBase: 10,
+        ivaCompraPct: 21,
+        ivaVentaPct: 10,
+        pvpAplicadoConIva: 20,
         esComprable: true,
         esElaborado: false,
         esVendible: false,
         llevaReceta: false,
+        ivaPct: 10,
+        costeConIva: 12.1,
+        pvpAplicadoSinIva: 18.1818,
+        gananciaEurUd: 8.1818,
+        margenRealPct: 45,
         observaciones: "Actualizado",
       },
     })
