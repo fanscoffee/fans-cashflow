@@ -116,7 +116,6 @@ interface Producto {
   estado: string
   fechaAlta: string
   observaciones: string | null
-  esEjemplo: boolean
 }
 
 interface CatalogoItem {

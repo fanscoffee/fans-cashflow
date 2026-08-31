@@ -18,7 +18,6 @@ export const GET = withAuth(async (req) => {
   const seccion = searchParams.get("seccion") || ""
   const estado = searchParams.get("estado") || ""
   const claseAbc = searchParams.get("claseAbc") || ""
-  const esEjemplo = searchParams.get("esEjemplo")
   const page = parseInt(searchParams.get("page") || "1", 10)
   const pageSize = parseInt(searchParams.get("pageSize") || "50", 10)
 
@@ -36,8 +35,6 @@ export const GET = withAuth(async (req) => {
   if (seccion) where.seccion = seccion
   if (estado) where.estado = estado
   if (claseAbc) where.claseAbc = claseAbc
-  if (esEjemplo !== null) where.esEjemplo = esEjemplo === "true"
-
   const [productos, total] = await Promise.all([
     prisma.producto.findMany({
       where,
