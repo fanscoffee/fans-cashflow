@@ -38,6 +38,7 @@ const mockShifts = [
     fondoInicial: 200,
     fondoFinal: 280,
     expenses: [{ id: "e1", proveedor: "Frutas", importe: 25 }],
+    gastosCorrientes: [{ id: "current-1", entidad: "CAFETERIA", concepto: "Horas extras empleado", fechaDevengo: "2026-07-22", importe: 125.5, justificante: "SIN_JUSTIFICANTE", estado: "PENDIENTE_AUTORIZACION", categoria: { codigo: "PER", nombre: "Personal" }, solicitante: { name: "Juan", email: "juan@test.com" } }],
     createdAt: "2026-07-22T08:00:00.000Z",
     createdBy: { name: "Juan", email: "juan@test.com" },
   },
@@ -65,7 +66,7 @@ describe("TurnosPage", () => {
       status: "authenticated",
       update: vi.fn(),
     } as any)
-    vi.mocked(usePathname).mockReturnValue("/socio/turnos")
+    vi.mocked(usePathname).mockReturnValue("/socio/historial-turnos")
     vi.spyOn(global, "fetch").mockResolvedValue({
       ok: true,
       json: () => Promise.resolve(mockShifts),
@@ -180,6 +181,14 @@ describe("TurnosPage", () => {
     await waitFor(() => {
       expect(screen.getByText("180.00 €")).toBeInTheDocument()
       expect(screen.getByText("140.00 €")).toBeInTheDocument()
+    })
+  })
+
+  it("renders current expenses linked to the shift", async () => {
+    render(<TurnosPage />)
+
+    await waitFor(() => {
+      expect(screen.getByText(/Horas extras empleado · PER · Pendiente de autorización/)).toBeInTheDocument()
     })
   })
 

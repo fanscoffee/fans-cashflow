@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest"
-import { calculateFondo } from "../fondo"
+import { calculateFondo, calculateFondoFinal } from "../fondo"
 
 describe("calculateFondo", () => {
   it("returns 0 when there is no last shift and no additions", () => {
@@ -32,5 +32,12 @@ describe("calculateFondo", () => {
   it("handles additions with zero amounts", () => {
     const additions = [{ amount: 0 }, { amount: 0 }]
     expect(calculateFondo({ fondoFinal: 100 }, additions)).toBe(100)
+  })
+
+  it("subtracts legacy and current shift expenses, ignoring annulled ones", () => {
+    expect(calculateFondoFinal(500, [{ importe: 20 }], [
+      { importe: 30, estado: "PENDIENTE_AUTORIZACION" },
+      { importe: 100, estado: "ANULADO" },
+    ])).toBe(450)
   })
 })

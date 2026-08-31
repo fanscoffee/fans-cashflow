@@ -8,9 +8,9 @@ import { getPaymentStorage, paymentStorageBucket } from "@/lib/pagos-storage"
 export const GET = withAuth(async (_req, session, context) => {
   try {
     const { id } = await context.params
-    const attachment = await prisma.adjuntoPago.findUnique({ where: { id }, include: { factura: { select: { entidad: true } }, gasto: { select: { entidad: true } } } })
+    const attachment = await prisma.adjuntoPago.findUnique({ where: { id }, include: { factura: { select: { entidad: true } } } })
     if (!attachment) return NextResponse.json({ error: "Adjunto no encontrado" }, { status: 404 })
-    const entity = attachment.factura?.entidad || attachment.gasto?.entidad
+    const entity = attachment.factura?.entidad
     await requirePaymentFunction(session.user.id, "REGISTRAR", entity, session.user.role)
     const storage = getPaymentStorage()
     if (!storage) return NextResponse.json({ error: "El almacenamiento privado no está configurado" }, { status: 503 })

@@ -35,6 +35,9 @@ export const PATCH = withAuth(async (req, session, context) => {
         ivaPct: true,
         ivaCompraPct: true,
         ivaVentaPct: true,
+        metodoPrecio: true,
+        margenObjetivoPct: true,
+        pvpFijoConIva: true,
         pvpAplicadoConIva: true,
       },
     })
@@ -61,16 +64,24 @@ export const PATCH = withAuth(async (req, session, context) => {
       ivaCompraPct: Object.prototype.hasOwnProperty.call(body, "ivaCompraPct") ? body.ivaCompraPct : current.ivaCompraPct,
       ivaVentaPct: Object.prototype.hasOwnProperty.call(body, "ivaVentaPct") ? body.ivaVentaPct : current.ivaVentaPct,
       ivaPct: Object.prototype.hasOwnProperty.call(body, "ivaPct") ? body.ivaPct : current.ivaPct,
-      pvpVentaConIva: Object.prototype.hasOwnProperty.call(body, "pvpAplicadoConIva") ? body.pvpAplicadoConIva : current.pvpAplicadoConIva,
+      metodoPrecio: Object.prototype.hasOwnProperty.call(body, "metodoPrecio") ? body.metodoPrecio : current.metodoPrecio,
+      margenObjetivoPct: Object.prototype.hasOwnProperty.call(body, "margenObjetivoPct") ? body.margenObjetivoPct : current.margenObjetivoPct,
+      pvpVentaConIva: Object.prototype.hasOwnProperty.call(body, "pvpAplicadoConIva") ? body.pvpAplicadoConIva : current.pvpAplicadoConIva ?? current.pvpFijoConIva,
     })
     Object.assign(productData, {
       ivaCompraPct: pricing.ivaCompraPct,
       ivaVentaPct: pricing.ivaVentaPct,
       ivaPct: pricing.ivaPct,
       costeConIva: pricing.costeConIva,
+      pvpObjetivoConIva: pricing.pvpObjetivoConIva,
+      pvpFijoConIva: pricing.pvpFijoConIva,
+      pvpAplicadoConIva: pricing.pvpAplicadoConIva,
       pvpAplicadoSinIva: pricing.pvpVentaSinIva,
       gananciaEurUd: pricing.gananciaEurUd,
       margenRealPct: pricing.margenRealPct,
+      desviacionPp: pricing.desviacionPp,
+      diferenciaEurUd: pricing.diferenciaEurUd,
+      diagnosticoPrecio: pricing.diagnosticoPrecio,
     })
 
     const producto = await prisma.producto.update({

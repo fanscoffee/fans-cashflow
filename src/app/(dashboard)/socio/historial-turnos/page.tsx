@@ -4,6 +4,7 @@ import { useState, useEffect, useMemo } from "react"
 import { useSession } from "next-auth/react"
 import AppHeader from "@/components/app-header"
 import { toN } from "@/lib/money"
+import type { CurrentExpense } from "@/types/shift"
 
 interface Expense {
   id: string
@@ -22,13 +23,14 @@ interface Shift {
   fondoInicial: number
   fondoFinal: number
   expenses: Expense[]
+  gastosCorrientes?: CurrentExpense[]
   createdAt: string
   createdBy?: { name: string | null; email: string }
 }
 
 const PAGE_SIZE = 10
 
-export default function TurnosPage() {
+export default function HistorialTurnosPage() {
   const { status } = useSession()
   const [shifts, setShifts] = useState<Shift[]>([])
   const [loading, setLoading] = useState(true)
@@ -91,8 +93,8 @@ export default function TurnosPage() {
   return (
     <div className="min-h-screen bg-gray-50">
       <AppHeader
-        title="Fans Cashflow"
-        subtitle="Historial de Turnos"
+        title="Historial de Turnos"
+        subtitle="Fans Cashflow"
       />
 
       <main className="mx-auto max-w-5xl px-4 py-6">
@@ -199,6 +201,8 @@ export default function TurnosPage() {
                         <div className="space-y-3">
                           {dayShifts.map((shift) => {
                             const totalExpenses = shift.expenses.reduce((sum, e) => sum + toN(e.importe), 0)
+                            const currentExpenses = shift.gastosCorrientes || []
+                            const totalCurrentExpenses = currentExpenses.reduce((sum, expense) => sum + toN(expense.importe), 0)
                             const totalPorTurno = toN(shift.efectivo) + toN(shift.caixa) + toN(shift.santander)
                             return (
                               <div key={shift.id} className="rounded-md border border-gray-100 bg-white p-4">
@@ -245,6 +249,10 @@ export default function TurnosPage() {
                                     <span className="text-gray-500">Gastos:</span>{" "}
                                     <span className="font-medium text-gray-900">{totalExpenses.toFixed(2)}</span>
                                   </div>
+                                  <div>
+                                    <span className="text-gray-500">Gastos corrientes:</span>{" "}
+                                    <span className="font-medium text-gray-900">{totalCurrentExpenses.toFixed(2)}</span>
+                                  </div>
                                 </div>
                                 {shift.expenses.length > 0 && (
                                   <div className="mt-2 border-t pt-2">
@@ -253,6 +261,19 @@ export default function TurnosPage() {
                                         <div key={expense.id} className="flex justify-between text-xs">
                                           <span className="text-gray-600">{expense.proveedor}</span>
                                           <span className="font-medium text-gray-900">{toN(expense.importe).toFixed(2)}</span>
+                                        </div>
+                                      ))}
+                                    </div>
+                                  </div>
+                                )}
+                                {currentExpenses.length > 0 && (
+                                  <div className="mt-2 border-t border-blue-100 pt-2">
+                                    <p className="mb-1 text-xs font-medium text-blue-800">Gastos corrientes · seguimiento</p>
+                                    <div className="space-y-1">
+                                      {currentExpenses.map((expense) => (
+                                        <div key={expense.id} className="flex justify-between gap-3 text-xs">
+                                          <span className="text-gray-700">{expense.concepto} · {expense.categoria.codigo} · {expense.estado === "PENDIENTE_AUTORIZACION" ? "Pendiente de autorización" : expense.estado} · {expense.solicitante.name || expense.solicitante.email}</span>
+                                          <span className="whitespace-nowrap font-medium text-gray-900">{toN(expense.importe).toFixed(2)}</span>
                                         </div>
                                       ))}
                                     </div>

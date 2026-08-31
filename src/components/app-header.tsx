@@ -17,7 +17,7 @@ function getNavLinks(role?: string): HeaderLink[] {
     return [
       { href: "/socio", label: "Dashboard" },
       { href: "/socio/fondo", label: "Fondo" },
-      { href: "/socio/turnos", label: "Turnos" },
+      { href: "/socio/historial-turnos", label: "Historial de Turnos" },
       { href: "/socio/efectivo", label: "Efectivo" },
       { href: "/socio/inventario", label: "Inventario" },
       { href: "/admin/facturas", label: "Facturas" },
@@ -31,7 +31,7 @@ function getNavLinks(role?: string): HeaderLink[] {
     return [
       { href: "/socio", label: "Dashboard" },
       { href: "/socio/fondo", label: "Fondo" },
-      { href: "/socio/turnos", label: "Turnos" },
+      { href: "/socio/historial-turnos", label: "Historial de Turnos" },
       { href: "/socio/efectivo", label: "Efectivo" },
       { href: "/socio/inventario", label: "Inventario" },
       { href: "/socio/facturas", label: "Facturas" },
