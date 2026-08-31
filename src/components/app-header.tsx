@@ -43,6 +43,7 @@ function getNavLinks(role?: string): HeaderLink[] {
   if (role === "EMPLEADO") {
     return [
       { href: "/empleado", label: "Turno" },
+      { href: "/empleado/recepciones", label: "Recepciones" },
       { href: "/encargos", label: "Encargos" },
     ]
   }
@@ -71,7 +72,7 @@ export default function AppHeader({
   const navLinks = links && links.length > 0 ? links : roleLinks
 
   function isActive(href: string) {
-    if (href === "/socio") return pathname === "/socio"
+    if (href === "/socio" || href === "/empleado") return pathname === href
     return pathname.startsWith(href)
   }
 
@@ -82,9 +83,9 @@ export default function AppHeader({
           <Image
             src="/fans-logo-oscuro.png"
             alt="Fans"
-            width={80}
-            height={80}
-            className="h-14 w-14 shrink-0 rounded object-cover sm:h-20 sm:w-20"
+            width={160}
+            height={84}
+            className="h-auto w-14 shrink-0 rounded object-contain sm:w-20"
           />
           <div className="min-w-0">
             <h1 className="truncate text-base font-bold text-gray-900 sm:text-lg">{title}</h1>
