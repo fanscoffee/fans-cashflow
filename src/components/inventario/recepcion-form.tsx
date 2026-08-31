@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useEffect, useCallback, useRef } from "react"
+import { useState, useEffect, useRef } from "react"
 import { useForm, useFieldArray } from "react-hook-form"
 import type { Resolver } from "react-hook-form"
 import { zodResolver } from "@hookform/resolvers/zod"
@@ -47,10 +47,16 @@ function ProductoCombobox({
   productos,
   value,
   onSelect,
+  id,
+  disabled = false,
+  placeholder = "Buscar producto...",
 }: {
   productos: Producto[]
   value: string
   onSelect: (productoId: string) => void
+  id?: string
+  disabled?: boolean
+  placeholder?: string
 }) {
   const [open, setOpen] = useState(false)
   const [search, setSearch] = useState("")
@@ -94,13 +100,15 @@ function ProductoCombobox({
   return (
     <div ref={containerRef} className="relative w-full">
       <input
+        id={id}
         type="text"
         readOnly
         value={selected ? `${selected.codigo} - ${selected.descripcionTpv}` : ""}
-        placeholder="Buscar producto..."
-        onFocus={() => setOpen(true)}
-        onClick={() => setOpen(true)}
-        className="w-full min-w-0 cursor-pointer overflow-hidden text-ellipsis whitespace-nowrap rounded-md border border-gray-300 px-2 py-2 text-xs text-gray-900 focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
+        placeholder={placeholder}
+        onFocus={() => { if (!disabled) setOpen(true) }}
+        onClick={() => { if (!disabled) setOpen(true) }}
+        disabled={disabled}
+        className={`w-full min-w-0 overflow-hidden text-ellipsis whitespace-nowrap rounded-md border border-gray-300 px-2 py-2 text-xs text-gray-900 focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500 ${disabled ? "cursor-not-allowed bg-gray-100" : "cursor-pointer"}`}
       />
       {open && (
         <div className="absolute z-50 mt-1 max-h-60 w-full overflow-auto rounded-md border border-gray-200 bg-white shadow-lg">
@@ -155,6 +163,7 @@ export default function RecepcionForm({
     register,
     handleSubmit,
     control,
+    getValues,
     watch,
     setValue,
     formState: { errors },
@@ -174,7 +183,10 @@ export default function RecepcionForm({
     name: "lineas",
   })
 
+  const proveedorId = watch("proveedorId")
   const lineas = watch("lineas")
+  const [productosLoading, setProductosLoading] = useState(false)
+  const previousProveedorId = useRef("")
 
   useEffect(() => {
     fetch("/api/inventario/proveedores?pageSize=200")
@@ -183,19 +195,48 @@ export default function RecepcionForm({
       .catch(() => {})
   }, [])
 
-  const loadProductos = useCallback(async () => {
-    try {
-      const r = await fetch("/api/inventario/recepciones/productos")
-      const d = await r.json()
-      setProductos(d.productos || [])
-    } catch {
-      setProductos([])
-    }
-  }, [])
-
   useEffect(() => {
-    loadProductos()
-  }, [loadProductos])
+    const previousId = previousProveedorId.current
+    previousProveedorId.current = proveedorId
+
+    if (previousId && previousId !== proveedorId) {
+      getValues("lineas").forEach((_, index) => {
+        setValue(`lineas.${index}.productoId`, "")
+        setValue(`lineas.${index}.precioUnitario`, 0)
+        setValue(`lineas.${index}.lote`, "")
+        setValue(`lineas.${index}.fechaVencimiento`, "")
+      })
+    }
+
+    if (!proveedorId) {
+      setProductos([])
+      setProductosLoading(false)
+      return
+    }
+
+    const controller = new AbortController()
+    const params = new URLSearchParams({ proveedorId })
+    setProductos([])
+    setProductosLoading(true)
+
+    fetch(`/api/inventario/recepciones/productos?${params}`, { signal: controller.signal })
+      .then(async (response) => {
+        if (!response.ok) throw new Error("Error al cargar productos")
+        return response.json()
+      })
+      .then((data) => {
+        if (!controller.signal.aborted) setProductos(data.productos || [])
+      })
+      .catch((error) => {
+        if (error instanceof Error && error.name === "AbortError") return
+        if (!controller.signal.aborted) setProductos([])
+      })
+      .finally(() => {
+        if (!controller.signal.aborted) setProductosLoading(false)
+      })
+
+    return () => controller.abort()
+  }, [getValues, proveedorId, setValue])
 
   const handleAddLinea = () => {
     append({ productoId: "", cantidadRecibida: 1, precioUnitario: 0, lote: "", fechaVencimiento: "" })
@@ -216,15 +257,21 @@ export default function RecepcionForm({
   const totalRecepcion = (lineas || []).reduce((sum, l) => {
     return sum + (l.cantidadRecibida || 0) * (l.precioUnitario || 0)
   }, 0)
+  const productoPlaceholder = !proveedorId
+    ? "Selecciona primero un proveedor..."
+    : productosLoading
+      ? "Cargando productos..."
+      : "Buscar producto..."
 
   return (
     <form onSubmit={handleSubmit(onSubmit)} className="space-y-6">
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
         <div>
-          <label className="mb-1 block text-sm font-medium text-gray-700">
+          <label htmlFor="recepcion-proveedor" className="mb-1 block text-sm font-medium text-gray-700">
             Proveedor *
           </label>
           <select
+            id="recepcion-proveedor"
             {...register("proveedorId")}
             className="w-full rounded-md border border-gray-300 px-3 py-2 text-sm text-gray-900 shadow-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
           >
@@ -283,103 +330,142 @@ export default function RecepcionForm({
       </div>
 
       <div>
-        <h3 className="mb-3 text-sm font-semibold text-gray-900">Líneas de Producto *</h3>
+        <h3 className="mb-1 text-sm font-semibold text-gray-900">Líneas de Producto *</h3>
+        <p className="mb-3 text-xs text-gray-500">Añade una tarjeta por cada producto que figure en el albarán.</p>
 
         {errors.lineas && (
           <p className="mb-2 text-xs text-red-600">{errors.lineas.message || errors.lineas.root?.message}</p>
         )}
 
-        <div className="overflow-x-auto rounded-md border bg-white">
-          <table className="w-full min-w-max text-left text-sm sm:min-w-0">
-            <thead>
-              <tr className="border-b bg-gray-50 text-xs font-medium text-gray-500">
-                <th className="px-3 py-2">Producto</th>
-                <th className="px-3 py-2 w-20">UoM</th>
-                <th className="px-3 py-2 w-24">Cantidad</th>
-                <th className="px-3 py-2 w-28">Precio Unit.</th>
-                <th className="px-3 py-2 w-28">Subtotal</th>
-                <th className="px-3 py-2 w-28">Lote</th>
-                <th className="px-3 py-2 w-32">Vencimiento</th>
-                <th className="px-3 py-2 w-10"></th>
-              </tr>
-            </thead>
-            <tbody className="divide-y">
-              {fields.map((field, index) => {
-                const prod = getProductoInfo(lineas?.[index]?.productoId || "")
-                const subtotal = (lineas?.[index]?.cantidadRecibida || 0) * (lineas?.[index]?.precioUnitario || 0)
-                return (
-                  <tr key={field.id} className="hover:bg-gray-50">
-                    <td className="px-3 py-2">
-                      <ProductoCombobox
-                        productos={productos}
-                        value={lineas?.[index]?.productoId || ""}
-                        onSelect={(id) => handleProductoChange(index, id)}
-                      />
-                    </td>
-                    <td className="px-3 py-2 text-xs text-gray-600">
-                      {prod?.umCompra || "\u2014"}
-                    </td>
-                    <td className="px-3 py-2">
+        <div className="space-y-3">
+          {fields.map((field, index) => {
+            const prod = getProductoInfo(lineas?.[index]?.productoId || "")
+            const subtotal = (lineas?.[index]?.cantidadRecibida || 0) * (lineas?.[index]?.precioUnitario || 0)
+            const productoId = `recepcion-producto-${field.id}`
+            const cantidadId = `recepcion-cantidad-${field.id}`
+            const precioId = `recepcion-precio-${field.id}`
+            const loteId = `recepcion-lote-${field.id}`
+            const vencimientoId = `recepcion-vencimiento-${field.id}`
+
+            return (
+              <fieldset key={field.id} className="rounded-lg border border-gray-200 bg-gray-50 p-3 sm:p-4">
+                <div className="mb-3 flex items-center justify-between gap-3">
+                  <h4 className="text-sm font-semibold text-gray-900">Producto {index + 1}</h4>
+                  {fields.length > 1 && (
+                    <button
+                      type="button"
+                      onClick={() => remove(index)}
+                      aria-label={`Eliminar producto ${index + 1}`}
+                      className="min-h-11 shrink-0 rounded-md px-3 text-xs font-medium text-red-600 hover:bg-red-50 hover:text-red-800 sm:min-h-0"
+                    >
+                      Eliminar
+                    </button>
+                  )}
+                </div>
+
+                <div className="space-y-3">
+                  <div>
+                    <label htmlFor={productoId} className="mb-1 block text-xs font-medium text-gray-600">
+                      Producto *
+                    </label>
+                    <ProductoCombobox
+                      id={productoId}
+                      productos={productos}
+                      value={lineas?.[index]?.productoId || ""}
+                      onSelect={(id) => handleProductoChange(index, id)}
+                      disabled={!proveedorId || productosLoading}
+                      placeholder={productoPlaceholder}
+                    />
+                  </div>
+
+                  <div className="grid grid-cols-2 gap-3">
+                    <div>
+                      <span className="mb-1 block text-xs font-medium text-gray-600">UoM</span>
+                      <div className="flex min-h-11 items-center rounded-md border border-gray-200 bg-white px-3 py-2 text-sm text-gray-700">
+                        {prod?.umCompra || "\u2014"}
+                      </div>
+                    </div>
+                    <div>
+                      <label htmlFor={cantidadId} className="mb-1 block text-xs font-medium text-gray-600">
+                        Cantidad recibida *
+                      </label>
                       <input
+                        id={cantidadId}
                         type="number"
                         step="0.01"
                         {...register(`lineas.${index}.cantidadRecibida`)}
-                        className="w-full rounded-md border border-gray-300 px-2 py-1 text-xs text-gray-900 focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
+                        className="min-h-11 w-full rounded-md border border-gray-300 px-3 py-2 text-sm text-gray-900 focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
                       />
-                    </td>
-                    <td className="px-3 py-2">
+                    </div>
+                  </div>
+
+                  <div className="grid grid-cols-2 gap-3">
+                    <div>
+                      <label htmlFor={precioId} className="mb-1 block text-xs font-medium text-gray-600">
+                        Precio unitario
+                      </label>
                       <input
+                        id={precioId}
                         type="number"
                         step="0.0001"
                         {...register(`lineas.${index}.precioUnitario`)}
-                        className="w-full rounded-md border border-gray-300 px-2 py-1 text-xs text-gray-900 focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
+                        className="min-h-11 w-full rounded-md border border-gray-300 px-3 py-2 text-sm text-gray-900 focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
                       />
-                    </td>
-                    <td className="px-3 py-2 text-xs font-medium text-gray-900">
-                      {subtotal.toFixed(2)} EUR
-                    </td>
-                    <td className="px-3 py-2">
+                    </div>
+                    <div>
+                      <span className="mb-1 block text-xs font-medium text-gray-600">Subtotal</span>
+                      <div className="flex min-h-11 items-center rounded-md border border-gray-200 bg-white px-3 py-2 text-sm font-medium text-gray-900">
+                        {subtotal.toFixed(2)} EUR
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className="grid grid-cols-1 gap-3 min-[420px]:grid-cols-2">
+                    <div>
+                      <label htmlFor={loteId} className="mb-1 block text-xs font-medium text-gray-600">
+                        Lote
+                      </label>
                       <input
+                        id={loteId}
                         type="text"
                         {...register(`lineas.${index}.lote`)}
                         placeholder="Opcional"
-                        className="w-full rounded-md border border-gray-300 px-2 py-1 text-xs text-gray-900 focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
+                        className="min-h-11 w-full rounded-md border border-gray-300 px-3 py-2 text-sm text-gray-900 focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
                       />
-                    </td>
-                    <td className="px-3 py-2">
+                    </div>
+                    <div>
+                      <label htmlFor={vencimientoId} className="mb-1 block text-xs font-medium text-gray-600">
+                        Vencimiento
+                      </label>
                       <input
+                        id={vencimientoId}
                         type="date"
                         {...register(`lineas.${index}.fechaVencimiento`)}
-                        className="w-full rounded-md border border-gray-300 px-2 py-1 text-xs text-gray-900 focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
+                        className="min-h-11 w-full rounded-md border border-gray-300 px-3 py-2 text-sm text-gray-900 focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
                       />
-                    </td>
-                    <td className="px-3 py-2">
-                      {fields.length > 1 && (
-                        <button
-                          type="button"
-                          onClick={() => remove(index)}
-                          className="min-h-11 min-w-11 text-red-500 hover:text-red-700 text-xs sm:min-h-0 sm:min-w-0"
-                        >
-                          X
-                        </button>
-                      )}
-                    </td>
-                  </tr>
-                )
-              })}
-            </tbody>
-          </table>
+                    </div>
+                  </div>
+                </div>
+              </fieldset>
+            )
+          })}
         </div>
 
-        <div className="mt-2 flex items-center justify-between">
+        {proveedorId && !productosLoading && productos.length === 0 && (
+          <p className="mt-2 text-xs text-amber-700">
+            Este proveedor no tiene productos comprables activos asociados.
+          </p>
+        )}
+
+        <div className="mt-3 flex flex-col gap-3 min-[420px]:flex-row min-[420px]:items-center min-[420px]:justify-between">
           <button
             type="button"
             onClick={handleAddLinea}
-            className="rounded-md border border-dashed border-gray-300 px-3 py-1 text-xs font-medium text-gray-600 hover:bg-gray-50"
+            className="min-h-11 rounded-md border border-dashed border-gray-300 px-3 py-2 text-xs font-medium text-gray-600 hover:bg-gray-50"
           >
-            + Agregar linea
+            + Agregar línea
           </button>
-          <div className="text-sm font-semibold text-gray-900">
+          <div className="text-right text-sm font-semibold text-gray-900">
             Total: {totalRecepcion.toFixed(2)} EUR
           </div>
         </div>

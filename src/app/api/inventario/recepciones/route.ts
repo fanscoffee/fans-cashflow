@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server"
 import { prisma } from "@/lib/prisma"
 import { withAuth } from "@/lib/with-auth"
+import { canRegisterInventoryReception } from "@/lib/inventory-permissions"
 
 export const GET = withAuth(async (req) => {
   const { searchParams } = new URL(req.url)
@@ -45,7 +46,7 @@ export const GET = withAuth(async (req) => {
 })
 
 export const POST = withAuth(async (req, session) => {
-  if (session.user.role !== "ADMIN" && session.user.role !== "SOCIO") {
+  if (!canRegisterInventoryReception(session.user)) {
     return NextResponse.json({ error: "No autorizado" }, { status: 403 })
   }
 
@@ -72,14 +73,18 @@ export const POST = withAuth(async (req, session) => {
 
     const productoIds = lineas.map((l: { productoId: string }) => l.productoId)
     const productos = await prisma.producto.findMany({
-      where: { id: { in: productoIds }, esComprable: true },
+      where: {
+        id: { in: productoIds },
+        esComprable: true,
+        proveedores: { some: { proveedorId } },
+      },
       select: { id: true },
     })
     const validIds = new Set(productos.map((p) => p.id))
     const invalidIds = productoIds.filter((id: string) => !validIds.has(id))
     if (invalidIds.length > 0) {
       return NextResponse.json(
-        { error: `Productos no válidos o no comprables: ${invalidIds.join(", ")}` },
+        { error: `Productos no válidos, no comprables o no asociados al proveedor: ${invalidIds.join(", ")}` },
         { status: 400 }
       )
     }

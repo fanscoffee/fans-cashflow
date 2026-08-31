@@ -42,6 +42,14 @@ describe("AppHeader", () => {
     expect(screen.getByText("My Subtitle")).toBeInTheDocument()
   })
 
+  it("keeps the full logo aspect ratio", () => {
+    render(<AppHeader title="Fans Cashflow" />)
+    const logo = screen.getByAltText("Fans")
+    expect(logo).toHaveClass("object-contain")
+    expect(logo).toHaveAttribute("width", "160")
+    expect(logo).toHaveAttribute("height", "84")
+  })
+
   it("renders nav links for ADMIN role", () => {
     render(<AppHeader title="Fans Cashflow" />)
     expect(screen.getByRole("link", { name: "Dashboard" })).toBeInTheDocument()
@@ -61,6 +69,7 @@ describe("AppHeader", () => {
     } as any)
     render(<AppHeader title="Fans Cashflow" />)
     expect(screen.getByRole("link", { name: "Turno" })).toBeInTheDocument()
+    expect(screen.getByRole("link", { name: "Recepciones" })).toBeInTheDocument()
     expect(screen.getByRole("link", { name: "Encargos" })).toBeInTheDocument()
     expect(screen.queryByRole("link", { name: "Dashboard" })).not.toBeInTheDocument()
   })
