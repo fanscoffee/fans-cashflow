@@ -70,8 +70,18 @@ describe("DELETE /api/inventario/proveedores/[id]", () => {
     expect(prisma.proveedor.delete).toHaveBeenCalledWith({ where: { id: "provider-1" } })
   })
 
-  it("allows SOCIO to delete a provider with no links", async () => {
+  it("blocks a regular SOCIO from deleting a provider", async () => {
     vi.mocked(auth).mockResolvedValue({ user: { id: "partner-1", role: "SOCIO" } } as any)
+
+    const response = await DELETE(request, context)
+
+    expect(response.status).toBe(403)
+    await expect(response.json()).resolves.toMatchObject({ error: expect.stringContaining("Yomi") })
+    expect(prisma.proveedor.delete).not.toHaveBeenCalled()
+  })
+
+  it("allows Yomi to delete a provider with no links", async () => {
+    vi.mocked(auth).mockResolvedValue({ user: { id: "partner-1", role: "SOCIO", name: "Yomi" } } as any)
     vi.mocked(prisma.proveedor.delete).mockResolvedValue({ id: "provider-1" } as any)
 
     const response = await DELETE(request, context)

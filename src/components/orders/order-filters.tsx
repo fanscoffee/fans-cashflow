@@ -43,7 +43,7 @@ export default function OrderFilters({
       <select
         value={selectedMonth}
         onChange={(e) => onMonthChange(parseInt(e.target.value))}
-        className="rounded-md border border-gray-300 px-3 py-1.5 text-sm text-gray-900 focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
+        className="w-full rounded-md border border-gray-300 px-3 py-2 text-sm text-gray-900 focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500 sm:w-auto sm:py-1.5"
       >
         {MONTH_NAMES.map((name, i) => (
           <option key={i + 1} value={i + 1}>
@@ -54,7 +54,7 @@ export default function OrderFilters({
       <select
         value={selectedYear}
         onChange={(e) => onYearChange(parseInt(e.target.value))}
-        className="rounded-md border border-gray-300 px-3 py-1.5 text-sm text-gray-900 focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
+        className="w-full rounded-md border border-gray-300 px-3 py-2 text-sm text-gray-900 focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500 sm:w-auto sm:py-1.5"
       >
         {[
           new Date().getFullYear(),
@@ -69,7 +69,7 @@ export default function OrderFilters({
       <button
         onClick={handleExport}
         disabled={orders.length === 0}
-        className="rounded-md bg-green-600 px-4 py-1.5 text-sm font-medium text-white hover:bg-green-700 disabled:opacity-50"
+        className="w-full rounded-md bg-green-600 px-4 py-2 text-sm font-medium text-white hover:bg-green-700 disabled:opacity-50 sm:w-auto sm:py-1.5"
       >
         Exportar
       </button>

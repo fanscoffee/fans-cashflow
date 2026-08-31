@@ -77,18 +77,18 @@ export default function AppHeader({
 
   return (
     <header className="border-b bg-white shadow-sm">
-      <div className="mx-auto flex max-w-6xl items-center justify-between px-4 py-3">
-        <div className="flex items-center gap-3">
+      <div className="mx-auto flex max-w-6xl items-center justify-between gap-3 px-3 py-2 sm:px-4 sm:py-3">
+        <div className="flex min-w-0 flex-1 items-center gap-2 sm:gap-3">
           <Image
             src="/fans-logo-oscuro.png"
             alt="Fans"
             width={80}
             height={80}
-            className="rounded"
+            className="h-14 w-14 shrink-0 rounded object-cover sm:h-20 sm:w-20"
           />
-          <div>
-            <h1 className="text-lg font-bold text-gray-900">{title}</h1>
-            {subtitle && <p className="text-xs text-gray-500">{subtitle}</p>}
+          <div className="min-w-0">
+            <h1 className="truncate text-base font-bold text-gray-900 sm:text-lg">{title}</h1>
+            {subtitle && <p className="break-words text-xs text-gray-500 [overflow-wrap:anywhere]">{subtitle}</p>}
           </div>
         </div>
 
@@ -120,8 +120,9 @@ export default function AppHeader({
         {/* Mobile hamburger */}
         <button
           onClick={() => setMenuOpen(!menuOpen)}
-          className="rounded-md p-2 text-gray-600 hover:bg-gray-100 sm:hidden"
+          className="min-h-11 min-w-11 shrink-0 rounded-md p-2 text-gray-600 hover:bg-gray-100 sm:hidden"
           aria-label="Menú"
+          aria-expanded={menuOpen}
         >
           <svg className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
             {menuOpen ? (
@@ -136,13 +137,13 @@ export default function AppHeader({
       {/* Mobile menu */}
       {menuOpen && (
         <div className="border-t bg-white px-4 py-3 sm:hidden">
-          <div className="flex flex-wrap gap-2">
+          <div className="grid grid-cols-2 gap-2">
             {navLinks.map((link) => (
               <Link
                 key={link.href}
                 href={link.href}
                 onClick={() => setMenuOpen(false)}
-                className={`rounded-md px-3 py-1.5 text-sm font-medium ${
+                className={`flex min-h-11 items-center justify-center rounded-md px-2 py-2 text-center text-sm font-medium ${
                   isActive(link.href)
                     ? "bg-gray-900 text-white"
                     : "bg-gray-100 text-gray-700 hover:bg-gray-200"
@@ -154,7 +155,7 @@ export default function AppHeader({
           </div>
           <button
             onClick={() => signOut({ callbackUrl: "/login" })}
-            className="mt-3 w-full rounded-md border border-gray-200 py-2 text-sm font-medium text-gray-500 hover:bg-gray-50 hover:text-gray-900"
+            className="mt-3 min-h-11 w-full rounded-md border border-gray-200 py-2 text-sm font-medium text-gray-500 hover:bg-gray-50 hover:text-gray-900"
           >
             Cerrar sesión
           </button>

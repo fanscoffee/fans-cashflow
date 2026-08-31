@@ -162,11 +162,11 @@ export default function ProveedorProductoPanel({ productoId, productoCodigo, onC
 
   return (
     <div className="space-y-4">
-      <div className="flex items-center justify-between">
+      <div className="flex flex-col items-stretch gap-2 sm:flex-row sm:items-center sm:justify-between">
         <h3 className="text-sm font-semibold text-gray-900">
           Proveedores de <span className="font-mono">{productoCodigo}</span>
         </h3>
-        <button onClick={onClose} className="text-xs text-gray-500 hover:text-gray-700">
+        <button onClick={onClose} className="min-h-11 w-full rounded-md border border-gray-200 px-3 py-2 text-xs text-gray-700 hover:bg-gray-50 sm:min-h-0 sm:w-auto sm:border-0 sm:px-0 sm:py-0">
           Cerrar
         </button>
       </div>
@@ -174,23 +174,23 @@ export default function ProveedorProductoPanel({ productoId, productoCodigo, onC
       {error && <div className="rounded-md bg-red-50 p-2 text-xs text-red-600">{error}</div>}
       {success && <div className="rounded-md bg-green-50 p-2 text-xs text-green-600">{success}</div>}
 
-      <div className="flex items-center justify-between">
+      <div className="flex flex-col items-stretch gap-2 sm:flex-row sm:items-center sm:justify-between">
         <p className="text-sm text-gray-500">
           {relaciones.length} proveedor{relaciones.length !== 1 ? "es" : ""} asignado{relaciones.length !== 1 ? "s" : ""}
         </p>
-        <div className="flex items-center gap-2">
+        <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
           {relaciones.length > 0 && (
             <input
               type="text"
               value={searchAssigned}
               onChange={(e) => setSearchAssigned(e.target.value)}
               placeholder="Buscar proveedor..."
-              className="rounded-md border border-gray-300 px-2 py-1 text-xs text-gray-900 w-40"
+              className="w-full rounded-md border border-gray-300 px-2 py-2 text-xs text-gray-900 sm:w-40 sm:py-1"
             />
           )}
           <button
             onClick={() => setShowAssign(!showAssign)}
-            className="rounded-md bg-blue-600 px-3 py-1.5 text-xs font-medium text-white hover:bg-blue-700"
+            className="w-full rounded-md bg-blue-600 px-3 py-2 text-xs font-medium text-white hover:bg-blue-700 sm:w-auto sm:py-1.5"
           >
             {showAssign ? "Cancelar" : "+ Asignar proveedor"}
           </button>
@@ -261,7 +261,7 @@ export default function ProveedorProductoPanel({ productoId, productoCodigo, onC
           </div>
           <button
             onClick={handleAssign}
-            className="rounded-md bg-green-600 px-3 py-1.5 text-xs font-medium text-white hover:bg-green-700"
+            className="w-full rounded-md bg-green-600 px-3 py-2 text-xs font-medium text-white hover:bg-green-700 sm:w-auto sm:py-1.5"
           >
             Asignar
           </button>
@@ -274,7 +274,7 @@ export default function ProveedorProductoPanel({ productoId, productoCodigo, onC
         <p className="text-sm text-gray-500">No hay proveedores asignados a este producto.</p>
       ) : (
         <div className="overflow-x-auto rounded-md border bg-white">
-          <table className="w-full text-left text-sm">
+          <table className="w-full min-w-max text-left text-sm sm:min-w-0">
             <thead>
               <tr className="border-b bg-gray-50 text-xs font-medium text-gray-500">
                 <th className="px-3 py-2">Proveedor</th>

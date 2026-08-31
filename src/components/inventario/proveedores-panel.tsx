@@ -32,7 +32,7 @@ interface Proveedor {
 
 type ViewMode = "list" | "create" | "edit"
 
-export default function ProveedoresPanel() {
+export default function ProveedoresPanel({ canDelete = false }: { canDelete?: boolean }) {
   const [view, setView] = useState<ViewMode>("list")
   const [proveedores, setProveedores] = useState<Proveedor[]>([])
   const [total, setTotal] = useState(0)
@@ -138,6 +138,7 @@ export default function ProveedoresPanel() {
   }
 
   async function handleDelete(id: string) {
+    if (!canDelete) return
     if (!confirm("¿Estás seguro de que quieres eliminar este proveedor?")) return
     setError(null)
     setSuccess(null)
@@ -173,27 +174,27 @@ export default function ProveedoresPanel() {
 
       {view === "list" && (
         <>
-          <div className="flex flex-wrap items-center gap-2">
+          <div className="flex flex-col items-stretch gap-2 sm:flex-row sm:flex-wrap sm:items-center">
             <button
               onClick={() => { setView("create"); setEditing(null) }}
-              className="rounded-md bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-700"
+              className="w-full rounded-md bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-700 sm:w-auto"
             >
               + Nuevo proveedor
             </button>
-            <span className="ml-auto text-sm text-gray-500">
+            <span className="text-center text-sm text-gray-500 sm:ml-auto">
               {total} proveedor{total !== 1 ? "es" : ""}
             </span>
           </div>
 
-          <div className="flex flex-wrap gap-2">
+          <div className="grid grid-cols-1 gap-2 sm:flex sm:flex-wrap">
             <input
               type="text"
               value={search}
               onChange={(e) => setSearch(e.target.value)}
               placeholder="Buscar por razón social, CIF o contacto..."
-              className="flex-1 min-w-[200px] rounded-md border border-gray-300 px-3 py-2 text-sm text-gray-900 shadow-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
+              className="w-full min-w-0 rounded-md border border-gray-300 px-3 py-2 text-sm text-gray-900 shadow-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500 sm:min-w-[200px] sm:flex-1"
             />
-            <select value={filtroEstado} onChange={(e) => setFiltroEstado(e.target.value)} className="rounded-md border border-gray-300 px-3 py-2 text-sm text-gray-900">
+            <select value={filtroEstado} onChange={(e) => setFiltroEstado(e.target.value)} className="w-full rounded-md border border-gray-300 px-3 py-2 text-sm text-gray-900 sm:w-auto">
               <option value="">Todos los estados</option>
               <option value="Activo">Activo</option>
               <option value="Inactivo">Inactivo</option>
@@ -203,7 +204,7 @@ export default function ProveedoresPanel() {
               value={filtroCategoria}
               onChange={(e) => setFiltroCategoria(e.target.value)}
               placeholder="Filtrar por categoría..."
-              className="min-w-[150px] rounded-md border border-gray-300 px-3 py-2 text-sm text-gray-900 shadow-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
+              className="w-full min-w-0 rounded-md border border-gray-300 px-3 py-2 text-sm text-gray-900 shadow-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500 sm:min-w-[150px] sm:w-auto"
             />
           </div>
 
@@ -214,7 +215,7 @@ export default function ProveedoresPanel() {
           ) : (
             <>
               <div className="overflow-x-auto rounded-md border bg-white">
-                <table className="w-full text-left text-sm">
+                <table className="w-full min-w-max text-left text-sm sm:min-w-0">
                   <thead>
                     <tr className="border-b bg-gray-50 text-xs font-medium text-gray-500">
                       <th className="px-3 py-2">Razón social</th>
@@ -252,12 +253,14 @@ export default function ProveedoresPanel() {
                           >
                             Editar
                           </button>
-                          <button
-                            onClick={() => handleDelete(p.id)}
-                            className="text-xs font-medium text-red-600 hover:text-red-800"
-                          >
-                            Eliminar
-                          </button>
+                           {canDelete && (
+                             <button
+                               onClick={() => handleDelete(p.id)}
+                               className="text-xs font-medium text-red-600 hover:text-red-800"
+                             >
+                               Eliminar
+                             </button>
+                           )}
                         </td>
                       </tr>
                     ))}
@@ -292,14 +295,14 @@ export default function ProveedoresPanel() {
       )}
 
       {view === "create" && (
-        <div className="rounded-lg border bg-white p-6 shadow-sm">
+        <div className="rounded-lg border bg-white p-4 shadow-sm sm:p-6">
           <h2 className="mb-4 text-lg font-semibold text-gray-900">Nuevo proveedor</h2>
           <ProveedorForm onSubmit={handleCreate} onCancel={() => setView("list")} saving={saving} />
         </div>
       )}
 
       {view === "edit" && editing && (
-        <div className="rounded-lg border bg-white p-6 shadow-sm">
+        <div className="rounded-lg border bg-white p-4 shadow-sm sm:p-6">
           <h2 className="mb-4 text-lg font-semibold text-gray-900">
             Editar: {editing.razonSocial}
           </h2>

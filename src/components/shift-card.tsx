@@ -159,9 +159,9 @@ export function ShiftCard({ shift, userRole, onSave, onClose, onReopen, closingS
   }
 
   return (
-    <div className={`rounded-md border p-4 ${isOpen ? "border-amber-300 bg-amber-50" : "border-gray-200"}`}>
-      <div className="flex items-center justify-between">
-        <div className="flex items-center gap-2">
+    <div className={`rounded-md border p-3 sm:p-4 ${isOpen ? "border-amber-300 bg-amber-50" : "border-gray-200"}`}>
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+        <div className="flex min-w-0 flex-wrap items-center gap-2">
           <p className="font-medium text-gray-900">
             {new Date(shift.date).toLocaleDateString("es-ES")} — {shift.turno}
           </p>
@@ -169,12 +169,12 @@ export function ShiftCard({ shift, userRole, onSave, onClose, onReopen, closingS
             {isOpen ? "Abierto" : "Cerrado"}
           </span>
           {shift.createdBy && (
-            <span className="text-xs text-gray-500">
+            <span className="break-words text-xs text-gray-500 [overflow-wrap:anywhere]">
               — {shift.createdBy.name || shift.createdBy.email}
             </span>
           )}
         </div>
-        <div className="relative flex gap-2">
+        <div className="relative flex w-full justify-end gap-2 sm:w-auto">
             {/* Desktop buttons */}
             <div className="hidden gap-2 sm:flex">
               {canEditShift && !isEditing && (
@@ -202,7 +202,9 @@ export function ShiftCard({ shift, userRole, onSave, onClose, onReopen, closingS
             {/* Mobile hamburger */}
             <button
               onClick={() => setOpenMobileMenu(!openMobileMenu)}
-              className="rounded-md bg-gray-100 px-3 py-1.5 text-xs font-medium text-gray-700 hover:bg-gray-200 sm:hidden"
+              className="min-h-11 min-w-11 rounded-md bg-gray-100 px-3 py-1.5 text-xs font-medium text-gray-700 hover:bg-gray-200 sm:hidden"
+              aria-label="Acciones del turno"
+              aria-expanded={openMobileMenu}
             >
               ☰
             </button>
@@ -211,7 +213,7 @@ export function ShiftCard({ shift, userRole, onSave, onClose, onReopen, closingS
             {openMobileMenu && (
               <>
                 <div className="fixed inset-0 z-40 sm:hidden" onClick={() => setOpenMobileMenu(false)} />
-                <div className="absolute right-0 top-full z-50 mt-1 w-48 rounded-md border border-gray-200 bg-white py-1 shadow-lg sm:hidden">
+                <div className="absolute right-0 top-full z-50 mt-1 max-h-[calc(100dvh-5rem)] w-48 max-w-[calc(100vw-2rem)] overflow-y-auto rounded-md border border-gray-200 bg-white py-1 shadow-lg sm:hidden">
                   {canEditShift && !isEditing && (
                     <button onClick={() => { startEditing(); setOpenMobileMenu(false) }} className="block w-full px-4 py-2 text-left text-sm text-gray-700 hover:bg-gray-50">Editar</button>
                   )}
@@ -244,7 +246,7 @@ export function ShiftCard({ shift, userRole, onSave, onClose, onReopen, closingS
         </div>
       )}
 
-       <div className="mt-3 grid grid-cols-2 gap-2 text-sm md:grid-cols-3">
+       <div className="mt-3 grid grid-cols-1 gap-2 text-sm min-[360px]:grid-cols-2 md:grid-cols-3">
         <div>
           <span className="text-gray-500">F. Inicial:</span>{" "}
           <span className="font-medium text-gray-900">{fondoInicial.toFixed(2)}</span>
@@ -309,7 +311,7 @@ export function ShiftCard({ shift, userRole, onSave, onClose, onReopen, closingS
       </div>
 
       {shift.cierreTurno ? (
-        <div className="mt-3 rounded-md border border-green-100 bg-green-50 p-2 text-xs text-green-800">
+        <div className="mt-3 break-words rounded-md border border-green-100 bg-green-50 p-2 text-xs text-green-800 [overflow-wrap:anywhere]">
           Ticket {shift.cierreTurno.tpv} · cierre {shift.cierreTurno.numeroCierreCaja} · ventas netas {toN(shift.cierreTurno.ventasNetas).toFixed(2)} €
         </div>
       ) : !isOpen ? (
@@ -323,9 +325,9 @@ export function ShiftCard({ shift, userRole, onSave, onClose, onReopen, closingS
           <p className="mb-2 text-xs font-medium text-gray-700">Gastos:</p>
           <div className="space-y-1">
             {shift.expenses.map((expense) => (
-              <div key={expense.id} className="flex items-center justify-between text-xs">
+              <div key={expense.id} className="flex flex-col gap-2 text-xs sm:flex-row sm:items-center sm:justify-between">
                 {editingExpense === expense.id ? (
-                  <div className="flex flex-1 items-center gap-2">
+                  <div className="flex min-w-0 flex-1 flex-col gap-2 sm:flex-row sm:items-center">
                     <input
                       type="text"
                       value={editExpenseValues.proveedor}
@@ -337,15 +339,15 @@ export function ShiftCard({ shift, userRole, onSave, onClose, onReopen, closingS
                       step="0.01"
                       value={editExpenseValues.importe}
                       onChange={(e) => setEditExpenseValues({ ...editExpenseValues, importe: parseFloat(e.target.value) || 0 })}
-                      className="w-20 rounded-md border border-gray-300 px-2 py-1 text-xs text-gray-900"
+                      className="w-full rounded-md border border-gray-300 px-2 py-1 text-xs text-gray-900 sm:w-20"
                     />
                     <button onClick={() => handleEditExpense(expense.id)} className="rounded bg-green-600 px-2 py-1 text-xs text-white hover:bg-green-700">OK</button>
                     <button onClick={() => setEditingExpense(null)} className="rounded bg-gray-200 px-2 py-1 text-xs text-gray-700 hover:bg-gray-300">X</button>
                   </div>
                 ) : (
                   <>
-                    <span className="text-gray-600">{expense.proveedor}</span>
-                    <div className="flex items-center gap-2">
+                     <span className="min-w-0 break-words text-gray-600 [overflow-wrap:anywhere]">{expense.proveedor}</span>
+                     <div className="flex shrink-0 items-center gap-2">
                       <span className="font-medium text-gray-900">{toN(expense.importe).toFixed(2)}</span>
                       {canManageExpenses && (
                         <div className="flex gap-1">
@@ -374,18 +376,18 @@ export function ShiftCard({ shift, userRole, onSave, onClose, onReopen, closingS
 
       {currentExpenses.length > 0 && (
         <div className="mt-3 border-t pt-3">
-          <div className="mb-2 flex items-center justify-between">
+          <div className="mb-2 flex flex-col gap-1 sm:flex-row sm:items-center sm:justify-between">
             <p className="text-xs font-medium text-gray-700">Gastos corrientes</p>
             <span className="text-xs text-gray-500">Incluidos en el fondo del turno</span>
           </div>
           <div className="space-y-1">
             {currentExpenses.map((expense) => (
-              <div key={expense.id} className="flex items-start justify-between gap-3 text-xs">
-                <div>
-                  <p className="font-medium text-gray-900">{expense.concepto}</p>
-                  <p className="text-gray-500">{expense.categoria.codigo} · {expense.estado === "PENDIENTE_AUTORIZACION" ? "Pendiente de autorización" : expense.estado} · {expense.solicitante.name || expense.solicitante.email}</p>
+              <div key={expense.id} className="flex flex-col gap-1 text-xs sm:flex-row sm:items-start sm:justify-between sm:gap-3">
+                <div className="min-w-0">
+                  <p className="break-words font-medium text-gray-900 [overflow-wrap:anywhere]">{expense.concepto}</p>
+                  <p className="break-words text-gray-500 [overflow-wrap:anywhere]">{expense.categoria.codigo} · {expense.estado === "PENDIENTE_AUTORIZACION" ? "Pendiente de autorización" : expense.estado} · {expense.solicitante.name || expense.solicitante.email}</p>
                 </div>
-                <span className="whitespace-nowrap font-medium text-gray-900">{toN(expense.importe).toFixed(2)}</span>
+                <span className="shrink-0 self-end whitespace-nowrap font-medium text-gray-900 sm:self-auto">{toN(expense.importe).toFixed(2)}</span>
               </div>
             ))}
           </div>
@@ -444,11 +446,11 @@ export function ShiftCard({ shift, userRole, onSave, onClose, onReopen, closingS
                   required
                 />
               </label>
-              <div className="flex items-end gap-2">
-                <button type="submit" disabled={savingCurrentExpense} className="rounded-md bg-green-600 px-3 py-1.5 text-xs font-medium text-white hover:bg-green-700 disabled:opacity-50">
+              <div className="flex flex-col gap-2 sm:flex-row sm:items-end">
+                <button type="submit" disabled={savingCurrentExpense} className="w-full rounded-md bg-green-600 px-3 py-2 text-xs font-medium text-white hover:bg-green-700 disabled:opacity-50 sm:w-auto sm:py-1.5">
                   {savingCurrentExpense ? "Guardando..." : "Guardar gasto"}
                 </button>
-                <button type="button" onClick={closeCurrentExpenseForm} className="rounded-md bg-gray-100 px-3 py-1.5 text-xs font-medium text-gray-700 hover:bg-gray-200">
+                <button type="button" onClick={closeCurrentExpenseForm} className="w-full rounded-md bg-gray-100 px-3 py-2 text-xs font-medium text-gray-700 hover:bg-gray-200 sm:w-auto sm:py-1.5">
                   Cancelar
                 </button>
               </div>

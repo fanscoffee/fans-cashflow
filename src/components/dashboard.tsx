@@ -115,12 +115,12 @@ export default function Dashboard() {
 
   return (
     <div className="space-y-6">
-      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-        <div className="flex items-center gap-2">
+      <div className="flex min-w-0 flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+        <div className="grid grid-cols-2 gap-2 sm:flex">
           <select
             value={selectedMonth}
             onChange={(e) => setSelectedMonth(parseInt(e.target.value))}
-            className="rounded-md border border-gray-300 px-3 py-1.5 text-sm text-gray-900 focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
+            className="w-full rounded-md border border-gray-300 px-3 py-2 text-sm text-gray-900 focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500 sm:w-auto sm:py-1.5"
           >
             {MONTH_NAMES.map((name, i) => (
               <option key={i + 1} value={i + 1}>{name}</option>
@@ -129,7 +129,7 @@ export default function Dashboard() {
           <select
             value={selectedYear}
             onChange={(e) => setSelectedYear(parseInt(e.target.value))}
-            className="rounded-md border border-gray-300 px-3 py-1.5 text-sm text-gray-900 focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
+            className="w-full rounded-md border border-gray-300 px-3 py-2 text-sm text-gray-900 focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500 sm:w-auto sm:py-1.5"
           >
             {[now.getFullYear(), now.getFullYear() - 1, now.getFullYear() - 2].map((y) => (
               <option key={y} value={y}>{y}</option>
@@ -137,18 +137,18 @@ export default function Dashboard() {
           </select>
         </div>
         {canExport && (
-          <div className="flex gap-2">
+          <div className="grid w-full grid-cols-1 gap-2 min-[360px]:grid-cols-2 sm:w-auto">
             <button
               onClick={handleExport}
               disabled={!data.exportData || data.exportData.length === 0}
-              className="rounded-md bg-green-600 px-4 py-1.5 text-sm font-medium text-white hover:bg-green-700 disabled:opacity-50"
+              className="w-full rounded-md bg-green-600 px-4 py-2 text-sm font-medium text-white hover:bg-green-700 disabled:opacity-50 sm:w-auto sm:py-1.5"
             >
               Exportar Turnos
             </button>
             <button
               onClick={handleExportExpenses}
               disabled={!data.exportExpenses || data.exportExpenses.length === 0}
-              className="rounded-md bg-green-700 px-4 py-1.5 text-sm font-medium text-white hover:bg-green-800 disabled:opacity-50"
+              className="w-full rounded-md bg-green-700 px-4 py-2 text-sm font-medium text-white hover:bg-green-800 disabled:opacity-50 sm:w-auto sm:py-1.5"
             >
               Exportar Gastos
             </button>
@@ -156,7 +156,7 @@ export default function Dashboard() {
         )}
       </div>
 
-      <div className="grid grid-cols-2 gap-4 md:grid-cols-4">
+      <div className="grid grid-cols-1 gap-3 min-[360px]:grid-cols-2 md:grid-cols-4">
         <Card label="Turnos" value={resumen.totalTurnos.toString()} />
         <Card label="Ingresos" value={`${resumen.totalIngresos.toFixed(2)} €`} color="text-green-600" />
         <Card label="Gastos" value={`${resumen.totalGastos.toFixed(2)} €`} color="text-red-600" />
@@ -167,7 +167,7 @@ export default function Dashboard() {
         <VentaInventarioDashboard month={selectedMonth} year={selectedYear} />
       )}
 
-      <div className="rounded-lg border bg-white p-6 shadow-sm">
+      <div className="min-w-0 overflow-hidden rounded-lg border bg-white p-4 shadow-sm sm:p-6">
         <h3 className="mb-4 text-sm font-semibold text-gray-900">Ingresos vs Gastos por día</h3>
         <ResponsiveContainer width="100%" height={300}>
           <BarChart data={dailyData}>
@@ -183,7 +183,7 @@ export default function Dashboard() {
       </div>
 
       <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
-        <div className="rounded-lg border bg-white p-6 shadow-sm">
+        <div className="min-w-0 overflow-hidden rounded-lg border bg-white p-4 shadow-sm sm:p-6">
           <h3 className="mb-4 text-sm font-semibold text-gray-900">Ingresos por turno</h3>
           <ResponsiveContainer width="100%" height={250}>
             <PieChart>
@@ -204,7 +204,7 @@ export default function Dashboard() {
           </ResponsiveContainer>
         </div>
 
-        <div className="rounded-lg border bg-white p-6 shadow-sm">
+        <div className="min-w-0 overflow-hidden rounded-lg border bg-white p-4 shadow-sm sm:p-6">
           <h3 className="mb-4 text-sm font-semibold text-gray-900">Ingresos mañana vs tarde</h3>
           <ResponsiveContainer width="100%" height={250}>
             <BarChart data={dailyData}>
@@ -221,10 +221,10 @@ export default function Dashboard() {
       </div>
 
       {expenseData.length > 0 && (
-        <div className="rounded-lg border bg-white p-6 shadow-sm">
+        <div className="min-w-0 overflow-hidden rounded-lg border bg-white p-4 shadow-sm sm:p-6">
           <h3 className="mb-4 text-sm font-semibold text-gray-900">Gastos por proveedor</h3>
           <div className="overflow-x-auto">
-            <table className="w-full text-left text-sm">
+            <table className="w-full min-w-max text-left text-sm sm:min-w-0">
               <thead>
                 <tr className="border-b text-xs font-medium text-gray-500">
                   <th className="pb-2">Proveedor</th>
@@ -234,7 +234,7 @@ export default function Dashboard() {
               <tbody className="divide-y">
                 {expenseData.map((e) => (
                   <tr key={e.proveedor}>
-                    <td className="py-2 text-gray-900">{e.proveedor}</td>
+                    <td className="break-words py-2 text-gray-900 [overflow-wrap:anywhere]">{e.proveedor}</td>
                     <td className="py-2 text-right font-medium text-red-600">{e.total.toFixed(2)} €</td>
                   </tr>
                 ))}
@@ -249,9 +249,11 @@ export default function Dashboard() {
 
 function Card({ label, value, color }: { label: string; value: string; color?: string }) {
   return (
-    <div className="rounded-lg border bg-white p-4 shadow-sm">
+    <div className="min-w-0 rounded-lg border bg-white p-3 shadow-sm sm:p-4">
       <p className="text-xs font-medium text-gray-500">{label}</p>
-      <p className={`mt-1 text-xl font-bold ${color || "text-gray-900"}`}>{value}</p>
+      <p className={`mt-1 break-words text-lg font-bold sm:text-xl ${color || "text-gray-900"}`}>
+        {value}
+      </p>
     </div>
   )
 }

@@ -148,7 +148,7 @@ export default function AdminPage() {
         subtitle={`Admin — ${session?.user?.name || session?.user?.email}`}
       />
 
-      <main className="mx-auto max-w-4xl px-4 py-6 space-y-6">
+      <main className="mx-auto max-w-4xl space-y-6 px-4 py-6 pb-24 sm:pb-6">
         {error && (
           <div className="rounded-md bg-red-50 p-3 text-sm text-red-600">{error}</div>
         )}
@@ -156,12 +156,12 @@ export default function AdminPage() {
           <div className="rounded-md bg-green-50 p-3 text-sm text-green-600">{success}</div>
         )}
 
-        <section className="rounded-lg border bg-white p-6 shadow-sm">
-          <div className="mb-4 flex items-center justify-between">
+        <section className="rounded-lg border bg-white p-4 shadow-sm sm:p-6">
+          <div className="mb-4 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
             <h2 className="text-lg font-semibold text-gray-900">Empleados</h2>
             <button
               onClick={() => setShowForm(!showForm)}
-              className="rounded-md bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-700"
+              className="w-full rounded-md bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-700 sm:w-auto"
             >
               {showForm ? "Cancelar" : "+ Nuevo empleado"}
             </button>
@@ -169,7 +169,7 @@ export default function AdminPage() {
 
           {showForm && (
             <form onSubmit={handleSubmit(onSubmit)} className="mb-6 rounded-md border border-gray-200 p-4">
-              <div className="grid grid-cols-2 gap-4">
+              <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
                 <div>
                   <label className="block text-sm font-medium text-gray-700">Nombre</label>
                   <input
@@ -245,9 +245,9 @@ export default function AdminPage() {
                 {users.map((user) => (
                   <div key={user.id} className="rounded-md border border-gray-200 bg-gray-50 p-4">
                     <div className="flex items-start justify-between">
-                      <div>
+                      <div className="min-w-0">
                         <p className="font-medium text-gray-900">{user.name || "—"}</p>
-                        <p className="text-sm text-gray-600">{user.email}</p>
+                        <p className="break-words text-sm text-gray-600 [overflow-wrap:anywhere]">{user.email}</p>
                       </div>
                       <span className={`inline-block rounded-full px-2 py-0.5 text-xs font-medium ${ROLE_COLORS[user.role] || ""}`}>
                         {ROLE_LABELS[user.role] || user.role}
@@ -263,17 +263,17 @@ export default function AdminPage() {
                             placeholder="Nueva contraseña"
                             className="w-full rounded-md border border-gray-300 px-2 py-1.5 text-sm text-gray-900 shadow-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
                           />
-                          <div className="flex gap-2">
+                          <div className="flex flex-col gap-2 min-[360px]:flex-row">
                             <button
                               onClick={() => handleChangePassword(user.id)}
                               disabled={savingPassword}
-                              className="rounded-md bg-green-600 px-3 py-1.5 text-xs font-medium text-white hover:bg-green-700 disabled:opacity-50"
+                                className="min-h-11 flex-1 rounded-md bg-green-600 px-3 py-1.5 text-xs font-medium text-white hover:bg-green-700 disabled:opacity-50 min-[360px]:min-h-0"
                             >
                               {savingPassword ? "..." : "Guardar"}
                             </button>
                             <button
                               onClick={() => { setEditingPasswordFor(null); setNewPassword("") }}
-                              className="rounded-md bg-gray-100 px-3 py-1.5 text-xs font-medium text-gray-700 hover:bg-gray-200"
+                                className="min-h-11 flex-1 rounded-md bg-gray-100 px-3 py-1.5 text-xs font-medium text-gray-700 hover:bg-gray-200 min-[360px]:min-h-0"
                             >
                               Cancelar
                             </button>

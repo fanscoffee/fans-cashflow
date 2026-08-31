@@ -280,12 +280,12 @@ export default function InventarioFisicoPanel() {
 
   if (view === "create") {
     return (
-      <div className="rounded-lg border bg-white p-6 shadow-sm">
-        <div className="mb-4 flex items-center justify-between">
+      <div className="rounded-lg border bg-white p-4 shadow-sm sm:p-6">
+        <div className="mb-4 flex flex-col items-stretch gap-2 sm:flex-row sm:items-center sm:justify-between">
           <h2 className="text-lg font-semibold text-gray-900">Nuevo conteo de inventario</h2>
           <button
             onClick={() => setView("list")}
-            className="rounded-md border border-gray-300 px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50"
+            className="w-full rounded-md border border-gray-300 px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50 sm:w-auto"
           >
             Volver
           </button>
@@ -306,7 +306,7 @@ export default function InventarioFisicoPanel() {
         </div>
 
         <div className="overflow-x-auto rounded-md border bg-white">
-          <table className="w-full text-left text-sm">
+          <table className="w-full min-w-max text-left text-sm sm:min-w-0">
             <thead>
               <tr className="border-b bg-gray-50 text-xs font-medium text-gray-500">
                 <th className="px-3 py-2">Producto</th>
@@ -364,17 +364,17 @@ export default function InventarioFisicoPanel() {
           </table>
         </div>
 
-        <div className="mt-4 flex gap-2">
+        <div className="mt-4 flex flex-col gap-2 sm:flex-row">
           <button
             onClick={handleCreate}
             disabled={saving}
-            className="rounded-md bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-700 disabled:opacity-50"
+            className="w-full rounded-md bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-700 disabled:opacity-50 sm:w-auto"
           >
             {saving ? "Guardando..." : "Guardar conteo"}
           </button>
           <button
             onClick={() => setView("list")}
-            className="rounded-md border border-gray-300 px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50"
+            className="w-full rounded-md border border-gray-300 px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50 sm:w-auto"
           >
             Cancelar
           </button>
@@ -385,20 +385,20 @@ export default function InventarioFisicoPanel() {
 
   if (view === "detail" && selectedInventario) {
     return (
-      <div className="rounded-lg border bg-white p-6 shadow-sm">
-        <div className="mb-4 flex items-center justify-between">
+      <div className="rounded-lg border bg-white p-4 shadow-sm sm:p-6">
+        <div className="mb-4 flex flex-col items-stretch gap-2 sm:flex-row sm:items-center sm:justify-between">
           <h2 className="text-lg font-semibold text-gray-900">
             Conteo: {new Date(selectedInventario.fechaConteo).toLocaleDateString("es-ES")}
           </h2>
           <button
             onClick={() => { setView("list"); setSelectedInventario(null); setComparacion(null) }}
-            className="rounded-md border border-gray-300 px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50"
+            className="w-full rounded-md border border-gray-300 px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50 sm:w-auto"
           >
             Volver
           </button>
         </div>
 
-        <div className="mb-4 grid grid-cols-2 gap-4 text-sm sm:grid-cols-3">
+        <div className="mb-4 grid grid-cols-1 gap-3 text-sm min-[420px]:grid-cols-2 sm:grid-cols-3">
           <div>
             <span className="text-gray-500">Fecha</span>
             <p className="font-medium text-gray-900">
@@ -425,7 +425,7 @@ export default function InventarioFisicoPanel() {
           <p className="text-sm text-gray-500">Cargando comparaci&oacute;n...</p>
         ) : comparacion && comparacion.length > 0 ? (
           <div className="overflow-x-auto rounded-md border bg-white">
-            <table className="w-full text-left text-sm">
+            <table className="w-full min-w-max text-left text-sm sm:min-w-0">
               <thead>
                 <tr className="border-b bg-gray-50 text-xs font-medium text-gray-500">
                   <th className="px-3 py-2">C&oacute;digo</th>
@@ -493,14 +493,14 @@ export default function InventarioFisicoPanel() {
         <div className="rounded-md bg-green-50 p-3 text-sm text-green-600">{success}</div>
       )}
 
-      <div className="flex flex-wrap items-center gap-2">
+      <div className="flex flex-col items-stretch gap-2 sm:flex-row sm:flex-wrap sm:items-center">
         <button
           onClick={handleStartCreate}
-          className="rounded-md bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-700"
+          className="w-full rounded-md bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-700 sm:w-auto"
         >
           + Nuevo conteo
         </button>
-        <span className="ml-auto text-sm text-gray-500">
+        <span className="text-center text-sm text-gray-500 sm:ml-auto">
           {total} conteo{total !== 1 ? "s" : ""}
         </span>
       </div>
@@ -512,7 +512,7 @@ export default function InventarioFisicoPanel() {
       ) : (
         <>
           <div className="overflow-x-auto rounded-md border bg-white">
-            <table className="w-full text-left text-sm">
+            <table className="w-full min-w-max text-left text-sm sm:min-w-0">
               <thead>
                 <tr className="border-b bg-gray-50 text-xs font-medium text-gray-500">
                   <th className="px-3 py-2">Fecha</th>

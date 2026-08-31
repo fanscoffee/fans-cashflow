@@ -123,7 +123,7 @@ export default function LoginPage() {
   }
 
   return (
-    <div className="rounded-lg border bg-white p-8 shadow-sm">
+    <div className="rounded-lg border bg-white p-6 shadow-sm sm:p-8">
       <div className="mb-6 flex flex-col items-center">
         <Image src="/fans-logo-oscuro.png" alt="Fans" width={96} height={96} className="mb-3 rounded-lg" />
         <h1 className="text-2xl font-bold text-gray-900">Fans Cashflow</h1>
