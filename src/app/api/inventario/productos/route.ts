@@ -94,6 +94,8 @@ export const POST = withAuth(async (req, session) => {
       ivaCompraPct: body.ivaCompraPct,
       ivaVentaPct: body.ivaVentaPct,
       ivaPct: body.ivaPct,
+      metodoPrecio: body.metodoPrecio,
+      margenObjetivoPct: body.margenObjetivoPct,
       pvpVentaConIva: body.pvpAplicadoConIva,
     })
     Object.assign(productData, {
@@ -103,9 +105,15 @@ export const POST = withAuth(async (req, session) => {
       ivaVentaPct: pricing.ivaVentaPct,
       ivaPct: pricing.ivaPct,
       costeConIva: pricing.costeConIva,
+      pvpObjetivoConIva: pricing.pvpObjetivoConIva,
+      pvpFijoConIva: pricing.pvpFijoConIva,
+      pvpAplicadoConIva: pricing.pvpAplicadoConIva,
       pvpAplicadoSinIva: pricing.pvpVentaSinIva,
       gananciaEurUd: pricing.gananciaEurUd,
       margenRealPct: pricing.margenRealPct,
+      desviacionPp: pricing.desviacionPp,
+      diferenciaEurUd: pricing.diferenciaEurUd,
+      diagnosticoPrecio: pricing.diagnosticoPrecio,
     })
 
     for (let attempt = 0; attempt < 3; attempt++) {

@@ -226,6 +226,7 @@ model Shift {
   fondoFinal    Decimal       @db.Decimal(10, 2)
   closedAt      DateTime?
   expenses      Expense[]
+  gastosCorrientes GastoCorriente[]
   cashTracking  CashTracking?
   cierreTurno   CierreTurno?
   createdAt     DateTime      @default(now())
@@ -814,6 +815,7 @@ model GastoCorriente {
   categoriaId   String
   acreedorId    String?
   contratoId    String?
+  shiftId       String?
   concepto      String
   fechaDevengo  DateTime             @db.Date
   importe       Decimal              @db.Decimal(12, 2)
@@ -829,13 +831,14 @@ model GastoCorriente {
   categoria    CategoriaGasto      @relation(fields: [categoriaId], references: [id])
   acreedor     Acreedor?           @relation(fields: [acreedorId], references: [id])
   contrato     ContratoRecurrente? @relation(fields: [contratoId], references: [id])
+  shift        Shift?              @relation(fields: [shiftId], references: [id], onDelete: SetNull)
   solicitante  User                @relation("GastoSolicitante", fields: [solicitanteId], references: [id])
   autorizador  User?               @relation("GastoAutorizador", fields: [autorizadorId], references: [id])
-  adjuntos     AdjuntoPago[]
   aplicaciones PagoAplicacion[]
 
   @@index([entidad, estado, fechaDevengo])
   @@index([acreedorId, categoriaId, fechaDevengo])
+  @@index([shiftId])
 }
 
 model Anticipo {
@@ -1069,16 +1072,13 @@ model AdjuntoPago {
   tamano        Int
   sha256        String?
   facturaId     String?
-  gastoId       String?
   subidoPorId   String
   createdAt     DateTime @default(now())
 
   factura   Factura?        @relation(fields: [facturaId], references: [id], onDelete: Cascade)
-  gasto     GastoCorriente? @relation(fields: [gastoId], references: [id], onDelete: Cascade)
   subidoPor User            @relation("AdjuntoUploader", fields: [subidoPorId], references: [id])
 
   @@index([facturaId])
-  @@index([gastoId])
 }
 
 model CierreMensual {

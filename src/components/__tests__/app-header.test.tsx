@@ -46,7 +46,7 @@ describe("AppHeader", () => {
     render(<AppHeader title="Fans Cashflow" />)
     expect(screen.getByRole("link", { name: "Dashboard" })).toBeInTheDocument()
     expect(screen.getByRole("link", { name: "Fondo" })).toBeInTheDocument()
-    expect(screen.getByRole("link", { name: "Turnos" })).toBeInTheDocument()
+    expect(screen.getByRole("link", { name: "Historial de Turnos" })).toBeInTheDocument()
     expect(screen.getByRole("link", { name: "Efectivo" })).toBeInTheDocument()
     expect(screen.getByRole("link", { name: "Encargos" })).toBeInTheDocument()
     expect(screen.getByRole("link", { name: "Turno" })).toBeInTheDocument()

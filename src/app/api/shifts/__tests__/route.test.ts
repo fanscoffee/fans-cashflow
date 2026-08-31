@@ -57,6 +57,25 @@ describe("Shifts API /api/shifts", () => {
       expect(prisma.shift.findMany).toHaveBeenCalled()
     })
 
+    it("includes current expenses linked to each shift", async () => {
+      vi.mocked(auth).mockResolvedValue({
+        user: { id: "1", role: "ADMIN" },
+      } as any)
+      vi.mocked(prisma.shift.findMany).mockResolvedValue([])
+
+      const res = await GET(mockRequest("http://localhost/api/shifts"))
+
+      expect(res.status).toBe(200)
+      expect(prisma.shift.findMany).toHaveBeenCalledWith(expect.objectContaining({
+        include: expect.objectContaining({
+          gastosCorrientes: expect.objectContaining({
+            where: { estado: { not: "ANULADO" } },
+            orderBy: { createdAt: "asc" },
+          }),
+        }),
+      }))
+    })
+
     it("returns open and last closed shift for EMPLEADO", async () => {
       vi.mocked(auth).mockResolvedValue({
         user: { id: "2", role: "EMPLEADO" },

@@ -17,6 +17,8 @@ function renderEdit() {
         codigo: "MP-HAR-001",
         tipoArticulo: "MP",
         familia: "Harinas y sémolas",
+        metodoPrecio: "FIJO",
+        margenObjetivoPct: 70,
         costeUmBase: 10,
         ivaPct: 10,
         ivaCompraPct: 21,
@@ -50,7 +52,18 @@ describe("ProductoForm pricing calculations", () => {
     await waitFor(() => {
       expect(screen.getByDisplayValue("16.67")).toBeInTheDocument()
       expect(screen.getByDisplayValue("6.67")).toBeInTheDocument()
-      expect(screen.getByDisplayValue("40.00")).toBeInTheDocument()
+      expect(screen.getAllByDisplayValue("40.00").length).toBeGreaterThan(0)
     })
+  })
+
+  it("leaves only the sale price as an editable PVP field", async () => {
+    const user = userEvent.setup()
+    renderEdit()
+
+    await user.click(screen.getByRole("button", { name: "Fiscal y precios" }))
+
+    expect(document.querySelector('input[name="pvpObjetivoConIva"]')).toBeNull()
+    expect(document.querySelector('input[name="pvpFijoConIva"]')).toBeNull()
+    expect(document.querySelector('input[name="pvpAplicadoConIva"]')).toBeInTheDocument()
   })
 })

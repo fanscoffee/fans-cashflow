@@ -6,6 +6,18 @@ export interface Expense {
   importe: number
 }
 
+export interface CurrentExpense {
+  id: string
+  entidad: "OBRADOR" | "CAFETERIA"
+  concepto: string
+  fechaDevengo: string
+  importe: number | string
+  justificante: string
+  estado: string
+  categoria: { codigo: string; nombre: string }
+  solicitante: { name: string | null; email: string }
+}
+
 export interface CierreTurno {
   id: string
   shiftId: string
@@ -47,6 +59,7 @@ export interface Shift {
   fondoInicial: number
   fondoFinal: number
   expenses: Expense[]
+  gastosCorrientes?: CurrentExpense[]
   cierreTurno?: CierreTurno | null
   createdAt: string
   createdBy?: { name: string | null; email: string }

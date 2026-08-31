@@ -1,10 +1,9 @@
 "use client"
 
-import { useState } from "react"
-import { useForm } from "react-hook-form"
-import { zodResolver } from "@hookform/resolvers/zod"
-import { type Shift, type ExpenseFormData, expenseSchema } from "@/types/shift"
+import { useState, type FormEvent } from "react"
+import type { Shift } from "@/types/shift"
 import { toN } from "@/lib/money"
+import { calculateFondoFinal } from "@/lib/fondo"
 import CierreTurnoModal, { type CierreTurnoFormData } from "@/components/cierre-turno-modal"
 
 interface ShiftCardProps {
@@ -17,17 +16,36 @@ interface ShiftCardProps {
   onRefresh: () => Promise<void>
 }
 
+interface ExpenseCategoryOption {
+  id: string
+  codigo: string
+  nombre: string
+}
+
+interface ExpenseCreditorOption {
+  id: string
+  codigo: string
+  nombre: string
+  tipo: string
+}
+
 export function ShiftCard({ shift, userRole, onSave, onClose, onReopen, closingShift, onRefresh }: ShiftCardProps) {
   const isOpen = shift.status === "ABIERTO"
   const canManageExpenses = userRole === "ADMIN" || userRole === "SOCIO"
   const canEditShift = canManageExpenses || isOpen
-  const paymentsPath = userRole === "ADMIN" ? "/admin/pagos" : "/socio/pagos"
 
   const [isEditing, setIsEditing] = useState(false)
   const [editValues, setEditValues] = useState({ efectivo: "0", caixa: "0", santander: "0" })
-  const [addingExpense, setAddingExpense] = useState(false)
   const [editingExpense, setEditingExpense] = useState<string | null>(null)
   const [editExpenseValues, setEditExpenseValues] = useState<{ proveedor: string; importe: number }>({ proveedor: "", importe: 0 })
+  const [addingCurrentExpense, setAddingCurrentExpense] = useState(false)
+  const [currentExpenseCategories, setCurrentExpenseCategories] = useState<ExpenseCategoryOption[]>([])
+  const [currentExpenseCreditors, setCurrentExpenseCreditors] = useState<ExpenseCreditorOption[]>([])
+  const [currentExpenseValues, setCurrentExpenseValues] = useState({ categoriaId: "", acreedorId: "", concepto: "", importe: "" })
+  const [loadingCurrentExpenseOptions, setLoadingCurrentExpenseOptions] = useState(false)
+  const [savingCurrentExpense, setSavingCurrentExpense] = useState(false)
+  const [currentExpenseError, setCurrentExpenseError] = useState("")
+  const [currentExpenseSuccess, setCurrentExpenseSuccess] = useState("")
   const [openMobileMenu, setOpenMobileMenu] = useState(false)
   const [showCloseModal, setShowCloseModal] = useState(false)
 
@@ -36,16 +54,8 @@ export function ShiftCard({ shift, userRole, onSave, onClose, onReopen, closingS
   const santander = isEditing ? Number(editValues.santander) || 0 : toN(shift.santander)
   const fondoInicial = toN(shift.fondoInicial)
   const totalExpenses = shift.expenses.reduce((sum, e) => sum + toN(e.importe), 0)
-  const fondoFinal = fondoInicial - totalExpenses
-
-  const {
-    register,
-    handleSubmit,
-    reset,
-    formState: { errors, isSubmitting },
-  } = useForm<ExpenseFormData>({
-    resolver: zodResolver(expenseSchema),
-  })
+  const currentExpenses = shift.gastosCorrientes || []
+  const fondoFinal = calculateFondoFinal(fondoInicial, shift.expenses, currentExpenses)
 
   function startEditing() {
     setIsEditing(true)
@@ -61,7 +71,7 @@ export function ShiftCard({ shift, userRole, onSave, onClose, onReopen, closingS
       efectivo: parseFloat(editValues.efectivo) || 0,
       caixa: parseFloat(editValues.caixa) || 0,
       santander: parseFloat(editValues.santander) || 0,
-      fondoFinal: fondoInicial - totalExpenses,
+      fondoFinal: calculateFondoFinal(fondoInicial, shift.expenses, currentExpenses),
     })
     setIsEditing(false)
   }
@@ -88,6 +98,64 @@ export function ShiftCard({ shift, userRole, onSave, onClose, onReopen, closingS
       body: JSON.stringify({ expenseId }),
     })
     await onRefresh()
+  }
+
+  async function openCurrentExpenseForm() {
+    setAddingCurrentExpense(true)
+    setCurrentExpenseError("")
+    setCurrentExpenseSuccess("")
+    if (currentExpenseCategories.length > 0) return
+
+    setLoadingCurrentExpenseOptions(true)
+    try {
+      const response = await fetch(`/api/shifts/${shift.id}/gastos`)
+      const result = await response.json()
+      if (!response.ok) throw new Error(result.error || "No se pudo cargar el formulario")
+      const personal = result.categorias?.find((category: ExpenseCategoryOption) => category.codigo === "PER")
+      setCurrentExpenseCategories(result.categorias || [])
+      setCurrentExpenseCreditors(result.acreedores || [])
+      setCurrentExpenseValues((current) => ({ ...current, categoriaId: current.categoriaId || personal?.id || result.categorias?.[0]?.id || "" }))
+    } catch (reason) {
+      setCurrentExpenseError(reason instanceof Error ? reason.message : "No se pudo cargar el formulario")
+    } finally {
+      setLoadingCurrentExpenseOptions(false)
+    }
+  }
+
+  function closeCurrentExpenseForm() {
+    setAddingCurrentExpense(false)
+    setCurrentExpenseError("")
+    setCurrentExpenseSuccess("")
+  }
+
+  async function submitCurrentExpense(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault()
+    setSavingCurrentExpense(true)
+    setCurrentExpenseError("")
+    setCurrentExpenseSuccess("")
+    try {
+      const response = await fetch(`/api/shifts/${shift.id}/gastos`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          categoriaId: currentExpenseValues.categoriaId,
+          acreedorId: currentExpenseValues.acreedorId || undefined,
+          concepto: currentExpenseValues.concepto,
+          fechaDevengo: new Date().toISOString().slice(0, 10),
+          importe: Number(currentExpenseValues.importe),
+        }),
+      })
+      const result = await response.json()
+      if (!response.ok) throw new Error(result.error || "No se pudo registrar el gasto")
+      setCurrentExpenseSuccess("Gasto guardado correctamente y enviado a autorización")
+      setAddingCurrentExpense(false)
+      setCurrentExpenseValues((current) => ({ ...current, concepto: "", importe: "" }))
+      await onRefresh()
+    } catch (reason) {
+      setCurrentExpenseError(reason instanceof Error ? reason.message : "No se pudo registrar el gasto")
+    } finally {
+      setSavingCurrentExpense(false)
+    }
   }
 
   return (
@@ -120,7 +188,7 @@ export function ShiftCard({ shift, userRole, onSave, onClose, onReopen, closingS
               )}
               {isOpen && (
                 <>
-                  {canManageExpenses && <a href={paymentsPath} className="rounded-md bg-gray-100 px-3 py-1.5 text-xs font-medium text-gray-700 hover:bg-gray-200">+ Gasto controlado</a>}
+                  <button type="button" onClick={() => void openCurrentExpenseForm()} className="rounded-md bg-gray-100 px-3 py-1.5 text-xs font-medium text-gray-700 hover:bg-gray-200">+ Gasto corriente</button>
                   <button onClick={() => setShowCloseModal(true)} disabled={closingShift === shift.id} className="rounded-md bg-red-600 px-3 py-1.5 text-xs font-medium text-white hover:bg-red-700 disabled:opacity-50">
                     {closingShift === shift.id ? "Cerrando..." : "Cerrar Turno"}
                   </button>
@@ -155,7 +223,7 @@ export function ShiftCard({ shift, userRole, onSave, onClose, onReopen, closingS
                   )}
                   {isOpen && (
                     <>
-                       {canManageExpenses && <a href={paymentsPath} onClick={() => setOpenMobileMenu(false)} className="block w-full px-4 py-2 text-left text-sm text-gray-700 hover:bg-gray-50">+ Gasto controlado</a>}
+                       <button type="button" onClick={() => { void openCurrentExpenseForm(); setOpenMobileMenu(false) }} className="block w-full px-4 py-2 text-left text-sm text-gray-700 hover:bg-gray-50">+ Gasto corriente</button>
                        <button onClick={() => { setShowCloseModal(true); setOpenMobileMenu(false) }} disabled={closingShift === shift.id} className="block w-full px-4 py-2 text-left text-sm text-red-700 hover:bg-red-50 disabled:opacity-50">
                         {closingShift === shift.id ? "Cerrando..." : "Cerrar Turno"}
                       </button>
@@ -168,9 +236,15 @@ export function ShiftCard({ shift, userRole, onSave, onClose, onReopen, closingS
               </>
             )}
           </div>
-      </div>
+       </div>
 
-      <div className="mt-3 grid grid-cols-2 gap-2 text-sm md:grid-cols-3">
+      {currentExpenseSuccess && (
+        <div role="status" aria-live="polite" className="mt-3 rounded-md border border-green-200 bg-green-50 p-3 text-sm font-medium text-green-800">
+          {currentExpenseSuccess}
+        </div>
+      )}
+
+       <div className="mt-3 grid grid-cols-2 gap-2 text-sm md:grid-cols-3">
         <div>
           <span className="text-gray-500">F. Inicial:</span>{" "}
           <span className="font-medium text-gray-900">{fondoInicial.toFixed(2)}</span>
@@ -298,47 +372,89 @@ export function ShiftCard({ shift, userRole, onSave, onClose, onReopen, closingS
         </div>
       )}
 
-      {isOpen && addingExpense && (
-        <form
-          onSubmit={handleSubmit(async (data) => {
-            await fetch(`/api/shifts/${shift.id}/expenses`, {
-              method: "POST",
-              headers: { "Content-Type": "application/json" },
-              body: JSON.stringify(data),
-            })
-            reset()
-            setAddingExpense(false)
-            await onRefresh()
-          })}
-          className="mt-3 border-t pt-3"
-        >
-          <div className="flex gap-2">
-            <input
-              type="text"
-              {...register("proveedor")}
-              placeholder="Proveedor"
-              className="flex-1 rounded-md border border-gray-300 px-3 py-1.5 text-xs text-gray-900 shadow-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
-            />
-            <input
-              type="number"
-              step="0.01"
-              {...register("importe", { valueAsNumber: true })}
-              placeholder="Importe"
-              className="w-24 rounded-md border border-gray-300 px-3 py-1.5 text-xs text-gray-900 shadow-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
-            />
-            <button
-              type="submit"
-              disabled={isSubmitting}
-              className="rounded-md bg-green-600 px-3 py-1.5 text-xs font-medium text-white hover:bg-green-700 disabled:opacity-50"
-            >
-              Guardar
-            </button>
+      {currentExpenses.length > 0 && (
+        <div className="mt-3 border-t pt-3">
+          <div className="mb-2 flex items-center justify-between">
+            <p className="text-xs font-medium text-gray-700">Gastos corrientes</p>
+            <span className="text-xs text-gray-500">Incluidos en el fondo del turno</span>
           </div>
-          {(errors.proveedor || errors.importe) && (
-            <p className="mt-1 text-xs text-red-500">
-              {errors.proveedor?.message || errors.importe?.message}
-            </p>
+          <div className="space-y-1">
+            {currentExpenses.map((expense) => (
+              <div key={expense.id} className="flex items-start justify-between gap-3 text-xs">
+                <div>
+                  <p className="font-medium text-gray-900">{expense.concepto}</p>
+                  <p className="text-gray-500">{expense.categoria.codigo} · {expense.estado === "PENDIENTE_AUTORIZACION" ? "Pendiente de autorización" : expense.estado} · {expense.solicitante.name || expense.solicitante.email}</p>
+                </div>
+                <span className="whitespace-nowrap font-medium text-gray-900">{toN(expense.importe).toFixed(2)}</span>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {isOpen && addingCurrentExpense && (
+        <form onSubmit={submitCurrentExpense} className="mt-3 border-t pt-3">
+          <p className="mb-2 text-xs text-gray-600">Se registra en CAFETERIA, sin archivo, y queda pendiente de autorización.</p>
+          {loadingCurrentExpenseOptions ? (
+            <p className="text-xs text-gray-500">Cargando categorías...</p>
+          ) : (
+            <div className="grid gap-2 sm:grid-cols-2">
+              <label className="text-xs text-gray-700">
+                Categoría
+                <select
+                  value={currentExpenseValues.categoriaId}
+                  onChange={(event) => setCurrentExpenseValues({ ...currentExpenseValues, categoriaId: event.target.value })}
+                  className="mt-1 w-full rounded-md border border-gray-300 px-2 py-1.5 text-xs text-gray-900"
+                  required
+                >
+                  <option value="">Seleccionar categoría...</option>
+                  {currentExpenseCategories.map((category) => <option key={category.id} value={category.id}>{category.codigo} · {category.nombre}</option>)}
+                </select>
+              </label>
+              <label className="text-xs text-gray-700">
+                Acreedor <span className="text-gray-400">(opcional para Personal/MEN)</span>
+                <select
+                  value={currentExpenseValues.acreedorId}
+                  onChange={(event) => setCurrentExpenseValues({ ...currentExpenseValues, acreedorId: event.target.value })}
+                  className="mt-1 w-full rounded-md border border-gray-300 px-2 py-1.5 text-xs text-gray-900"
+                >
+                  <option value="">Sin acreedor</option>
+                  {currentExpenseCreditors.map((creditor) => <option key={creditor.id} value={creditor.id}>{creditor.nombre} · {creditor.tipo}</option>)}
+                </select>
+              </label>
+              <label className="text-xs text-gray-700 sm:col-span-2">
+                Concepto
+                <input
+                  value={currentExpenseValues.concepto}
+                  onChange={(event) => setCurrentExpenseValues({ ...currentExpenseValues, concepto: event.target.value })}
+                  placeholder="Ej.: Horas extras de Juan"
+                  className="mt-1 w-full rounded-md border border-gray-300 px-2 py-1.5 text-xs text-gray-900"
+                  required
+                />
+              </label>
+              <label className="text-xs text-gray-700">
+                Importe
+                <input
+                  type="number"
+                  min="0.01"
+                  step="0.01"
+                  value={currentExpenseValues.importe}
+                  onChange={(event) => setCurrentExpenseValues({ ...currentExpenseValues, importe: event.target.value })}
+                  className="mt-1 w-full rounded-md border border-gray-300 px-2 py-1.5 text-xs text-gray-900"
+                  required
+                />
+              </label>
+              <div className="flex items-end gap-2">
+                <button type="submit" disabled={savingCurrentExpense} className="rounded-md bg-green-600 px-3 py-1.5 text-xs font-medium text-white hover:bg-green-700 disabled:opacity-50">
+                  {savingCurrentExpense ? "Guardando..." : "Guardar gasto"}
+                </button>
+                <button type="button" onClick={closeCurrentExpenseForm} className="rounded-md bg-gray-100 px-3 py-1.5 text-xs font-medium text-gray-700 hover:bg-gray-200">
+                  Cancelar
+                </button>
+              </div>
+            </div>
           )}
+          {currentExpenseError && <p className="mt-2 text-xs text-red-600">{currentExpenseError}</p>}
         </form>
       )}
       {showCloseModal && (

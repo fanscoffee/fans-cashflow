@@ -22,7 +22,14 @@ export const GET = withAuth(async (req) => {
         lte: endDate,
       },
     },
-    include: { expenses: true, createdBy: { select: { name: true } } },
+    include: {
+      expenses: true,
+      gastosCorrientes: {
+        where: { estado: { not: "ANULADO" } },
+        select: { concepto: true, importe: true, categoria: { select: { nombre: true } } },
+      },
+      createdBy: { select: { name: true } },
+    },
     orderBy: { date: "asc" },
   })
 
@@ -35,7 +42,11 @@ export const GET = withAuth(async (req) => {
     (acc, s) => acc + s.expenses.reduce((e, exp) => e + toN(exp.importe), 0),
     0
   )
-  const totalGastos = totalGastosShift + totalGastosExpense
+  const totalGastosCurrent = shifts.reduce(
+    (acc, s) => acc + (s.gastosCorrientes || []).reduce((e, expense) => e + toN(expense.importe), 0),
+    0
+  )
+  const totalGastos = totalGastosShift + totalGastosExpense + totalGastosCurrent
   const beneficioNeto = totalIngresos - totalGastos
 
   const porDia: Record<string, { ingresos: number; gastos: number; mañana: number; tarde: number }> = {}
@@ -43,7 +54,7 @@ export const GET = withAuth(async (req) => {
     const key = new Date(s.date).toLocaleDateString("es-ES", { day: "2-digit", month: "short" })
     if (!porDia[key]) porDia[key] = { ingresos: 0, gastos: 0, mañana: 0, tarde: 0 }
     const ingreso = sum(s.efectivo, s.caixa, s.santander)
-    const gasto = toN(s.efectivoGasto) + s.expenses.reduce((e, exp) => e + toN(exp.importe), 0)
+    const gasto = toN(s.efectivoGasto) + s.expenses.reduce((e, exp) => e + toN(exp.importe), 0) + (s.gastosCorrientes || []).reduce((e, expense) => e + toN(expense.importe), 0)
     porDia[key].ingresos += ingreso
     porDia[key].gastos += gasto
     if (s.turno === "mañana") porDia[key].mañana += ingreso
@@ -75,6 +86,10 @@ export const GET = withAuth(async (req) => {
     for (const e of s.expenses) {
       gastosPorProveedor[e.proveedor] = (gastosPorProveedor[e.proveedor] || 0) + toN(e.importe)
     }
+    for (const e of s.gastosCorrientes || []) {
+      const label = `Gasto corriente · ${e.categoria.nombre}`
+      gastosPorProveedor[label] = (gastosPorProveedor[label] || 0) + toN(e.importe)
+    }
   }
   const expenseData = Object.entries(gastosPorProveedor)
     .map(([proveedor, total]) => ({
@@ -94,18 +109,27 @@ export const GET = withAuth(async (req) => {
     santander: toJSON(s.santander),
     efectivoGasto: toJSON(s.efectivoGasto),
     fondoFinal: toJSON(s.fondoFinal),
-    totalGastos: s.expenses.reduce((e, exp) => e + toN(exp.importe), 0),
-    gastos: s.expenses.map((e) => `${e.proveedor}: ${toFixed(e.importe)}`).join("; "),
+    totalGastos: s.expenses.reduce((e, exp) => e + toN(exp.importe), 0) + (s.gastosCorrientes || []).reduce((e, expense) => e + toN(expense.importe), 0),
+    gastos: [...s.expenses.map((e) => `${e.proveedor}: ${toFixed(e.importe)}`), ...(s.gastosCorrientes || []).map((e) => `${e.concepto}: ${toFixed(e.importe)}`)].join("; "),
   }))
 
   const exportExpenses = shifts.flatMap((s) =>
-    s.expenses.map((e) => ({
-      fecha: new Date(s.date).toLocaleDateString("es-ES"),
-      turno: s.turno,
-      proveedor: e.proveedor,
-      importe: toN(e.importe),
-      creadoPor: s.createdBy?.name || "",
-    }))
+    [
+      ...s.expenses.map((e) => ({
+        fecha: new Date(s.date).toLocaleDateString("es-ES"),
+        turno: s.turno,
+        proveedor: e.proveedor,
+        importe: toN(e.importe),
+        creadoPor: s.createdBy?.name || "",
+      })),
+      ...(s.gastosCorrientes || []).map((e) => ({
+        fecha: new Date(s.date).toLocaleDateString("es-ES"),
+        turno: s.turno,
+        proveedor: `Gasto corriente · ${e.categoria.nombre}`,
+        importe: toN(e.importe),
+        creadoPor: s.createdBy?.name || "",
+      })),
+    ]
   )
 
   return NextResponse.json({
