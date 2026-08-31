@@ -17,7 +17,7 @@ export const GET = withAuth(async (req, session) => {
       }),
       prisma.gastoCorriente.findMany({
         where: { ...(entity ? { entidad: entity } : {}), estado: "AUTORIZADO" },
-        include: { categoria: true, acreedor: { select: { id: true, codigo: true, nombre: true } }, aplicaciones: { where: { pago: { estado: { not: "ANULADO" } } }, select: { importeAplicado: true } }, adjuntos: { select: { id: true, nombreArchivo: true, mimeType: true } } },
+        include: { categoria: true, acreedor: { select: { id: true, codigo: true, nombre: true } }, aplicaciones: { where: { pago: { estado: { not: "ANULADO" } } }, select: { importeAplicado: true } } },
         orderBy: { fechaDevengo: "asc" },
       }),
     ])

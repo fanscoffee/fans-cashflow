@@ -28,11 +28,13 @@ interface DocumentItem {
   estadoCircuito?: string
   aplicaciones: Array<{ importeAplicado: string | number }>
   categoria?: { codigo: string; nombre: string }
+  solicitante?: { id: string; name: string | null; email: string } | null
 }
 
 interface Dashboard {
   invoices: DocumentItem[]
   expenses: DocumentItem[]
+  pendingExpenses: DocumentItem[]
   payments: Array<{ id: string; numero: number; importeTotal: string | number; estado: string; acreedor: { nombre: string }; cuentaFondos: { descripcion: string }; medioPago: { tipo: string } }>
   cashAccounts: Config["cuentas"]
   methods: Config["medios"]
@@ -73,7 +75,6 @@ export default function PagosPanel() {
   const [error, setError] = useState("")
   const [success, setSuccess] = useState("")
   const [payment, setPayment] = useState({ methodId: "", accountId: "", date: new Date().toISOString().slice(0, 10), amount: "" })
-  const [expense, setExpense] = useState({ categoriaId: "", acreedorId: "", concepto: "", fechaDevengo: new Date().toISOString().slice(0, 10), importe: "", justificante: "FACTURA", file: null as File | null })
 
   async function load() {
     setLoading(true)
@@ -89,7 +90,6 @@ export default function PagosPanel() {
       setConfig(nextConfig)
       setDashboard(nextDashboard)
       setPayment((current) => ({ ...current, methodId: current.methodId || nextConfig.medios[0]?.id || "", accountId: current.accountId || nextConfig.cuentas[0]?.id || "" }))
-      setExpense((current) => ({ ...current, categoriaId: current.categoriaId || nextConfig.categorias[0]?.id || "" }))
     } catch (reason) {
       setError(reason instanceof Error ? reason.message : "Error al cargar el módulo")
     } finally {
@@ -127,29 +127,6 @@ export default function PagosPanel() {
     setSelected(document)
     setPayment((current) => ({ ...current, amount: document.pending.toFixed(2), accountId: availableAccounts[0]?.id || current.accountId }))
     setError("")
-  }
-
-  async function submitExpense(event: FormEvent<HTMLFormElement>) {
-    event.preventDefault()
-    setSaving(true); setError(""); setSuccess("")
-    try {
-      const response = await fetch("/api/pagos/gastos", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ entidad: entity, categoriaId: expense.categoriaId, acreedorId: expense.acreedorId || undefined, concepto: expense.concepto, fechaDevengo: expense.fechaDevengo, importe: Number(expense.importe), justificante: expense.justificante }) })
-      const result = await response.json()
-      if (!response.ok) throw new Error(result.error || "No se pudo registrar el gasto")
-      if (expense.file) {
-        const form = new FormData()
-        form.set("file", expense.file)
-        form.set("gastoId", result.id)
-        const attachmentResponse = await fetch("/api/pagos/adjuntos", { method: "POST", body: form })
-        const attachmentResult = await attachmentResponse.json()
-        if (!attachmentResponse.ok) throw new Error(attachmentResult.error || "El gasto se creó, pero no se pudo guardar el adjunto")
-      }
-      setSuccess("Gasto registrado y enviado a autorización")
-      setExpense((current) => ({ ...current, concepto: "", importe: "", file: null }))
-      await load()
-    } catch (reason) {
-      setError(reason instanceof Error ? reason.message : "No se pudo registrar el gasto")
-    } finally { setSaving(false) }
   }
 
   async function authorizeExpense(id: string, approve: boolean) {
@@ -211,9 +188,7 @@ export default function PagosPanel() {
 
       {selected && <section className="rounded-lg border border-blue-200 bg-blue-50 p-4 shadow-sm sm:p-6"><div className="mb-4 flex items-start justify-between gap-3"><div><h2 className="text-lg font-semibold text-blue-950">Registrar pago</h2><p className="text-sm text-blue-900">{selected.label} · {selected.acreedorNombre}</p><p className="text-xs text-blue-800">El importe total se calcula a partir de las aplicaciones.</p></div><button type="button" onClick={() => setSelected(null)} className="rounded-md border border-blue-200 bg-white px-3 py-1.5 text-xs text-gray-700">Cancelar</button></div><form onSubmit={submitPayment} className="grid gap-3 sm:grid-cols-4"><label className="text-xs text-gray-700">Fecha<input type="date" value={payment.date} onChange={(event) => setPayment({ ...payment, date: event.target.value })} className="mt-1 w-full rounded-md border px-2 py-2 text-sm text-gray-900" required /></label><label className="text-xs text-gray-700">Medio<select value={payment.methodId} onChange={(event) => setPayment({ ...payment, methodId: event.target.value })} className="mt-1 w-full rounded-md border px-2 py-2 text-sm text-gray-900" required><option value="">Seleccionar...</option>{(config?.medios || []).map((method) => <option key={method.id} value={method.id}>{method.tipo}{method.limiteOperacion ? ` · máx. ${euros(method.limiteOperacion)}` : ""}</option>)}</select></label><label className="text-xs text-gray-700">Cuenta de origen<select value={payment.accountId} onChange={(event) => setPayment({ ...payment, accountId: event.target.value })} className="mt-1 w-full rounded-md border px-2 py-2 text-sm text-gray-900" required><option value="">Seleccionar...</option>{availableAccounts.map((account) => <option key={account.id} value={account.id}>{account.descripcion} · saldo {euros(account.saldoTeorico)}</option>)}</select></label><label className="text-xs text-gray-700">Aplicar<input type="number" min="0.01" max={selected.pending} step="0.01" value={payment.amount} onChange={(event) => setPayment({ ...payment, amount: event.target.value })} className="mt-1 w-full rounded-md border px-2 py-2 text-sm text-gray-900" required /></label><div className="sm:col-span-4"><button type="submit" disabled={saving || !config?.cuentas.length || !config?.medios.length} className="rounded-md bg-blue-700 px-4 py-2 text-sm font-medium text-white hover:bg-blue-800 disabled:opacity-50">{saving ? "Registrando..." : "Confirmar salida"}</button></div></form></section>}
 
-      <section className="rounded-lg border bg-white p-4 shadow-sm sm:p-6"><h2 className="text-lg font-semibold text-gray-900">Registrar gasto corriente</h2><p className="mb-4 text-xs text-gray-500">El gasto queda pendiente de autorización; registrar no significa pagar.</p><form onSubmit={submitExpense} className="grid gap-3 sm:grid-cols-3"><label className="text-xs text-gray-700">Categoría<select value={expense.categoriaId} onChange={(event) => setExpense({ ...expense, categoriaId: event.target.value })} className="mt-1 w-full rounded-md border px-2 py-2 text-sm text-gray-900" required><option value="">Seleccionar...</option>{(config?.categorias || []).map((category) => <option key={category.id} value={category.id}>{category.codigo} · {category.nombre}</option>)}</select></label><label className="text-xs text-gray-700">Acreedor<select value={expense.acreedorId} onChange={(event) => setExpense({ ...expense, acreedorId: event.target.value })} className="mt-1 w-full rounded-md border px-2 py-2 text-sm text-gray-900"><option value="">Sin acreedor (compra menor)</option>{(config?.acreedores || []).map((creditor) => <option key={creditor.id} value={creditor.id}>{creditor.nombre}</option>)}</select></label><label className="text-xs text-gray-700">Importe<input type="number" min="0.01" step="0.01" value={expense.importe} onChange={(event) => setExpense({ ...expense, importe: event.target.value })} className="mt-1 w-full rounded-md border px-2 py-2 text-sm text-gray-900" required /></label><label className="text-xs text-gray-700 sm:col-span-2">Concepto<input value={expense.concepto} onChange={(event) => setExpense({ ...expense, concepto: event.target.value })} placeholder="Describe el gasto de forma concreta" className="mt-1 w-full rounded-md border px-2 py-2 text-sm text-gray-900" required /></label><label className="text-xs text-gray-700">Fecha de devengo<input type="date" value={expense.fechaDevengo} onChange={(event) => setExpense({ ...expense, fechaDevengo: event.target.value })} className="mt-1 w-full rounded-md border px-2 py-2 text-sm text-gray-900" required /></label><label className="text-xs text-gray-700">Justificante<select value={expense.justificante} onChange={(event) => setExpense({ ...expense, justificante: event.target.value })} className="mt-1 w-full rounded-md border px-2 py-2 text-sm text-gray-900" required><option value="FACTURA">Factura</option><option value="RECIBO">Recibo</option><option value="TICKET">Ticket</option><option value="CONTRATO">Contrato</option><option value="VALE_INTERNO">Vale interno</option><option value="SIN_JUSTIFICANTE">Sin justificante</option></select></label><label className="text-xs text-gray-700 sm:col-span-2">Adjunto<input type="file" accept="application/pdf,image/jpeg,image/png" onChange={(event) => setExpense({ ...expense, file: event.target.files?.[0] || null })} className="mt-1 w-full rounded-md border bg-white px-2 py-1.5 text-sm text-gray-900" /></label><div className="sm:col-span-3"><button type="submit" disabled={saving} className="rounded-md bg-gray-900 px-4 py-2 text-sm font-medium text-white hover:bg-gray-700 disabled:opacity-50">{saving ? "Guardando..." : "Registrar gasto"}</button></div></form></section>
-
-      {(dashboard?.expenses || []).some((expenseItem) => expenseItem.estado === "PENDIENTE_AUTORIZACION") && <section className="rounded-lg border bg-white p-4 shadow-sm sm:p-6"><h2 className="mb-3 text-lg font-semibold text-gray-900">Autorizaciones pendientes</h2><div className="space-y-2">{dashboard?.expenses.filter((expenseItem) => expenseItem.estado === "PENDIENTE_AUTORIZACION").map((expenseItem) => <div key={expenseItem.id} className="flex flex-wrap items-center justify-between gap-3 rounded-md border p-3 text-sm"><div><p className="font-medium">{expenseItem.concepto}</p><p className="text-xs text-gray-500">{expenseItem.categoria?.nombre} · {euros(expenseItem.importe)} · solicitante {expenseItem.id.slice(0, 8)}</p></div><div className="flex gap-2"><button type="button" disabled={saving} onClick={() => void authorizeExpense(expenseItem.id, true)} className="rounded-md bg-green-700 px-3 py-1.5 text-xs font-medium text-white disabled:opacity-50">Autorizar</button><button type="button" disabled={saving} onClick={() => void authorizeExpense(expenseItem.id, false)} className="rounded-md border border-red-200 px-3 py-1.5 text-xs font-medium text-red-700 disabled:opacity-50">Rechazar</button></div></div>)}</div></section>}
+      {(dashboard?.pendingExpenses || []).length > 0 && <section className="rounded-lg border bg-white p-4 shadow-sm sm:p-6"><h2 className="mb-3 text-lg font-semibold text-gray-900">Autorizaciones pendientes · gastos de turnos</h2><div className="space-y-2">{dashboard?.pendingExpenses.map((expenseItem) => <div key={expenseItem.id} className="flex flex-wrap items-center justify-between gap-3 rounded-md border p-3 text-sm"><div><p className="font-medium text-gray-900">{expenseItem.concepto}</p><p className="text-xs text-gray-500">{expenseItem.entidad} · {expenseItem.categoria?.nombre} · {euros(expenseItem.importe)} · solicitado por {expenseItem.solicitante?.name || expenseItem.solicitante?.email || "Usuario desconocido"}</p></div><div className="flex gap-2"><button type="button" disabled={saving} onClick={() => void authorizeExpense(expenseItem.id, true)} className="rounded-md bg-green-700 px-3 py-1.5 text-xs font-medium text-white disabled:opacity-50">Autorizar</button><button type="button" disabled={saving} onClick={() => void authorizeExpense(expenseItem.id, false)} className="rounded-md border border-red-200 px-3 py-1.5 text-xs font-medium text-red-700 disabled:opacity-50">Rechazar</button></div></div>)}</div></section>}
     </div>
   )
 }

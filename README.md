@@ -84,7 +84,9 @@ Aplicación de gestión de caja y turnos para el local de Fans. Permite controla
 - Controla autorización previa, segregación, libro de movimientos, conciliación y caja chica.
 - Los umbrales y funciones se configuran mediante `/api/pagos/parametros` y `/api/pagos/asignaciones`.
 - Los gastos nuevos ya no se registran desde el turno histórico; el endpoint antiguo responde `410`.
-- Los adjuntos usan el bucket privado de Supabase Storage `payment-documents`; créalo antes de activar `/api/pagos/adjuntos`.
+- Desde un turno abierto se pueden registrar gastos corrientes en `CAFETERIA`; quedan pendientes de autorización y trazados al turno y usuario solicitante.
+- El seguimiento de gastos corrientes está disponible en las pantallas de facturas para `ADMIN` y `SOCIO`.
+- Los adjuntos de facturas usan el bucket privado de Supabase Storage `payment-documents`; los gastos corrientes no admiten adjuntos.
 
 ## Variables de Entorno (`.env`)
 

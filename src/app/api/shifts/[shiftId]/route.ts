@@ -3,6 +3,7 @@ import { z } from "zod"
 import { prisma } from "@/lib/prisma"
 import { withAuth } from "@/lib/with-auth"
 import { toN } from "@/lib/money"
+import { calculateFondoFinal } from "@/lib/fondo"
 
 const updateShiftSchema = z.object({
   efectivo: z.number().min(0).optional(),
@@ -159,13 +160,22 @@ export const PATCH = withAuth(async (req, session, context) => {
     }
   }
 
-  const expensesAgg = await prisma.expense.aggregate({
-    _sum: { importe: true },
-    where: { shiftId },
-  })
-  const totalExpenses = toN(expensesAgg._sum.importe)
+  const [expensesAgg, currentExpensesAgg] = await Promise.all([
+    prisma.expense.aggregate({
+      _sum: { importe: true },
+      where: { shiftId },
+    }),
+    prisma.gastoCorriente.aggregate({
+      _sum: { importe: true },
+      where: { shiftId, estado: { not: "ANULADO" } },
+    }),
+  ])
   const newFondoInicial = data.fondoInicial !== undefined ? data.fondoInicial : toN(shift.fondoInicial)
-  const fondoFinal = newFondoInicial - totalExpenses
+  const fondoFinal = calculateFondoFinal(
+    newFondoInicial,
+    [{ importe: expensesAgg._sum.importe }],
+    [{ importe: currentExpensesAgg._sum.importe }],
+  )
 
   const updated = await prisma.$transaction(async (tx) => {
     const updatedShift = await tx.shift.update({

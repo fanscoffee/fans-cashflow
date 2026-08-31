@@ -1,6 +1,7 @@
 import { z } from "zod"
 import { prisma } from "@/lib/prisma"
 import { Prisma } from "@/generated/prisma/client"
+import { recalculateShiftFondoFinal } from "@/lib/shift-fondo"
 
 export const paymentEntitySchema = z.enum(["OBRADOR", "CAFETERIA"])
 export const paymentFunctionSchema = z.enum([
@@ -41,6 +42,8 @@ export const createExpenseSchema = z.object({
   justificante: z.enum(["FACTURA", "RECIBO", "TICKET", "CONTRATO", "VALE_INTERNO", "SIN_JUSTIFICANTE"]),
 })
 
+export const createShiftExpenseSchema = createExpenseSchema.omit({ entidad: true, justificante: true })
+
 export const authorizeExpenseSchema = z.object({
   autorizadorId: z.string().min(1),
   aprobar: z.boolean(),
@@ -64,6 +67,7 @@ export type PaymentEntity = z.infer<typeof paymentEntitySchema>
 export type PaymentFunction = z.infer<typeof paymentFunctionSchema>
 export type CreatePaymentInput = z.infer<typeof createPaymentSchema>
 export type CreateExpenseInput = z.infer<typeof createExpenseSchema>
+export type CreateShiftExpenseInput = z.infer<typeof createShiftExpenseSchema>
 
 export class PaymentDomainError extends Error {
   status: number
@@ -81,11 +85,6 @@ type Database = typeof prisma | Prisma.TransactionClient
 
 function decimal(value: number | string | Prisma.Decimal) {
   return new Prisma.Decimal(value)
-}
-
-function numberValue(value: unknown) {
-  if (value instanceof Prisma.Decimal) return value.toNumber()
-  return Number(value || 0)
 }
 
 function sum(values: Prisma.Decimal[]) {
@@ -222,20 +221,6 @@ async function ensureAcreedorCompraMenor(entity: PaymentEntity, createdById: str
     update: { estado: "ACTIVO" },
     create: { codigo: code, tipo: "OTROS", nombre: `Compras menores ${entity.toLowerCase()}`, entidadHabitual: entity, estado: "ACTIVO", createdById },
   })
-}
-
-async function getParameter(db: Database, code: string, entity: PaymentEntity) {
-  const parameter = await db.parametroAutorizacion.findFirst({
-    where: {
-      codigo: code,
-      activo: true,
-      OR: [{ entidad: entity }, { entidad: null }],
-      vigenteDesde: { lte: new Date() },
-      AND: [{ OR: [{ vigenteHasta: null }, { vigenteHasta: { gt: new Date() } }] }],
-    },
-    orderBy: [{ entidad: "desc" }, { version: "desc" }],
-  })
-  return parameter?.valorDecimal ? numberValue(parameter.valorDecimal) : null
 }
 
 async function lockTarget(db: Prisma.TransactionClient, type: "Factura" | "GastoCorriente" | "Anticipo", id: string) {
@@ -439,31 +424,16 @@ export async function createPayment(user: { id: string; role: string }, input: C
   })
 }
 
-export async function createExpense(user: { id: string; role: string }, input: CreateExpenseInput) {
-  await requirePaymentFunction(user.id, "SOLICITAR", input.entidad, user.role)
+export async function createExpense(user: { id: string; role: string }, input: CreateExpenseInput, options: { shiftId?: string; skipSolicitarPermission?: boolean } = {}) {
+  if (!options.skipSolicitarPermission) await requirePaymentFunction(user.id, "SOLICITAR", input.entidad, user.role)
   const date = parseDate(input.fechaDevengo)
   const amount = decimal(input.importe)
 
   const category = await prisma.categoriaGasto.findUnique({ where: { id: input.categoriaId }, select: { id: true, codigo: true, activo: true } })
   if (!category?.activo) throw new PaymentDomainError("Categoría de gasto no disponible", 409, "CATEGORY_UNAVAILABLE")
 
-  if (input.justificante === "SIN_JUSTIFICANTE") {
-    if (category.codigo !== "MEN") throw new PaymentDomainError("Un gasto sin factura solo puede registrarse como compra menor", 409, "MINOR_CATEGORY_REQUIRED")
-    const limit = await getParameter(prisma, "COMPRA_MENOR_LIMITE", input.entidad)
-    const monthlyLimit = await getParameter(prisma, "COMPRA_MENOR_TOPE_MENSUAL", input.entidad)
-    if (!limit || amount.greaterThan(limit)) throw new PaymentDomainError("La compra menor supera el límite configurado", 409, "MINOR_PURCHASE_LIMIT")
-    if (monthlyLimit) {
-      const monthStart = new Date(date.getFullYear(), date.getMonth(), 1)
-      const nextMonth = new Date(date.getFullYear(), date.getMonth() + 1, 1)
-      const aggregate = await prisma.gastoCorriente.aggregate({ _sum: { importe: true }, where: { entidad: input.entidad, justificante: "SIN_JUSTIFICANTE", fechaDevengo: { gte: monthStart, lt: nextMonth }, estado: { not: "ANULADO" } } })
-      if (decimal(aggregate._sum.importe || 0).plus(amount).greaterThan(monthlyLimit)) throw new PaymentDomainError("Se ha alcanzado el tope mensual de compras sin factura", 409, "MINOR_PURCHASE_MONTHLY_LIMIT")
-    }
-  }
   if (input.concepto.trim().split(/\s+/).length === 1) throw new PaymentDomainError("El concepto debe ser específico y no una sola palabra", 400, "GENERIC_CONCEPT")
-  if (!input.acreedorId && !(category.codigo === "MEN" && input.justificante === "SIN_JUSTIFICANTE")) throw new PaymentDomainError("El acreedor es obligatorio para este gasto", 400, "CREDITOR_REQUIRED")
-  if (input.justificante !== "SIN_JUSTIFICANTE" && input.justificante !== "VALE_INTERNO") {
-    // The attachment endpoint can be called immediately after creating the draft.
-  }
+  if (!input.acreedorId && category.codigo !== "PER" && !(category.codigo === "MEN" && input.justificante === "SIN_JUSTIFICANTE")) throw new PaymentDomainError("El acreedor es obligatorio para este gasto", 400, "CREDITOR_REQUIRED")
 
   if (category.codigo === "OTR") {
     const direction = await userHasPaymentFunction(user.id, "AUTORIZAR", input.entidad, user.role)
@@ -483,6 +453,7 @@ export async function createExpense(user: { id: string; role: string }, input: C
       categoriaId: input.categoriaId,
       acreedorId: creditorId,
       contratoId: input.contratoId || null,
+      shiftId: options.shiftId || null,
       concepto: input.concepto.trim(),
       fechaDevengo: date,
       importe: amount,
@@ -491,7 +462,18 @@ export async function createExpense(user: { id: string; role: string }, input: C
       estado: "PENDIENTE_AUTORIZACION",
     },
   })
-  await auditPaymentEvent(prisma, { actorId: user.id, accion: "GASTO_CREADO", tipoRegistro: "GastoCorriente", registroId: expense.id, entidad: input.entidad, despues: { importe: amount.toString(), categoriaId: input.categoriaId } })
+  await auditPaymentEvent(prisma, { actorId: user.id, accion: "GASTO_CREADO", tipoRegistro: "GastoCorriente", registroId: expense.id, entidad: input.entidad, despues: { importe: amount.toString(), categoriaId: input.categoriaId, shiftId: options.shiftId || null } })
+  return expense
+}
+
+export async function createExpenseFromShift(user: { id: string; role: string }, shiftId: string, input: CreateShiftExpenseInput) {
+  const shift = await prisma.shift.findUnique({ where: { id: shiftId }, select: { id: true, status: true, createdById: true } })
+  const canManageAllShifts = user.role === "ADMIN" || user.role === "SOCIO"
+  if (!shift || (!canManageAllShifts && shift.createdById !== user.id)) throw new PaymentDomainError("Turno no encontrado", 404, "SHIFT_NOT_FOUND")
+  if (shift.status !== "ABIERTO") throw new PaymentDomainError("El turno debe estar abierto para registrar el gasto", 409, "SHIFT_NOT_OPEN")
+
+  const expense = await createExpense(user, { ...input, entidad: "CAFETERIA", justificante: "SIN_JUSTIFICANTE" }, { shiftId, skipSolicitarPermission: true })
+  await recalculateShiftFondoFinal(shiftId)
   return expense
 }
 
@@ -521,15 +503,14 @@ export async function authorizeAdvance(user: { id: string; role: string }, advan
 }
 
 export async function authorizeExpense(user: { id: string; role: string }, expenseId: string, input: z.infer<typeof authorizeExpenseSchema>) {
-  const expense = await prisma.gastoCorriente.findUnique({ where: { id: expenseId }, include: { categoria: true, adjuntos: { select: { id: true } } } })
+  const expense = await prisma.gastoCorriente.findUnique({ where: { id: expenseId }, include: { categoria: true } })
   if (!expense) throw new PaymentDomainError("Gasto no encontrado", 404, "DOCUMENT_NOT_FOUND")
   await requirePaymentFunction(user.id, "AUTORIZAR", expense.entidad, user.role)
   if (input.autorizadorId !== user.id) throw new PaymentDomainError("El autorizador debe ser el usuario autenticado", 403, "AUTHORIZER_MISMATCH")
   if (expense.solicitanteId === user.id) throw new PaymentDomainError("Nadie puede autorizar su propio gasto", 409, "SEGREGATION_VIOLATION")
-  if (input.aprobar && expense.justificante !== "SIN_JUSTIFICANTE" && expense.adjuntos.length === 0) throw new PaymentDomainError("El justificante adjunto es obligatorio antes de autorizar", 409, "ATTACHMENT_REQUIRED")
-  await requireAmountAuthorization(user.id, user.role, expense.entidad, expense.importe)
   if (expense.estado !== "PENDIENTE_AUTORIZACION") throw new PaymentDomainError("El gasto no está pendiente de autorización", 409, "INVALID_STATE")
   if (!input.aprobar && !input.motivoRechazo) throw new PaymentDomainError("El rechazo debe tener un motivo")
+  if (input.aprobar) await requireAmountAuthorization(user.id, user.role, expense.entidad, expense.importe)
 
   const updated = await prisma.gastoCorriente.update({
     where: { id: expense.id },
@@ -539,16 +520,58 @@ export async function authorizeExpense(user: { id: string; role: string }, expen
   return updated
 }
 
+export async function deleteCurrentExpense(user: { id: string; role: string }, expenseId: string) {
+  if (user.role !== "ADMIN" && user.role !== "SOCIO") {
+    throw new PaymentDomainError("No tienes permiso para eliminar gastos corrientes", 403, "PAYMENT_FORBIDDEN")
+  }
+
+  const expense = await prisma.gastoCorriente.findUnique({
+    where: { id: expenseId },
+    select: {
+      id: true,
+      entidad: true,
+      shiftId: true,
+      estado: true,
+      importe: true,
+      aplicaciones: { select: { id: true } },
+    },
+  })
+  if (!expense || !expense.shiftId || expense.estado === "ANULADO") {
+    throw new PaymentDomainError("Gasto corriente no encontrado", 404, "DOCUMENT_NOT_FOUND")
+  }
+  if (expense.aplicaciones.length > 0) {
+    throw new PaymentDomainError("No se puede eliminar un gasto con pagos aplicados", 409, "EXPENSE_HAS_PAYMENTS")
+  }
+
+  const updated = await prisma.gastoCorriente.update({
+    where: { id: expense.id },
+    data: { estado: "ANULADO" },
+  })
+  await auditPaymentEvent(prisma, {
+    actorId: user.id,
+    accion: "GASTO_ANULADO",
+    tipoRegistro: "GastoCorriente",
+    registroId: expense.id,
+    entidad: expense.entidad,
+    motivo: "Eliminado desde el seguimiento de gastos corrientes",
+    antes: { estado: expense.estado, importe: expense.importe.toString(), shiftId: expense.shiftId },
+    despues: { estado: "ANULADO", importe: expense.importe.toString(), shiftId: expense.shiftId },
+  })
+  await recalculateShiftFondoFinal(expense.shiftId)
+  return updated
+}
+
 export async function getPaymentDashboard(entity?: PaymentEntity) {
   const where = entity ? { entidad: entity } : {}
-  const [invoices, expenses, payments, cashAccounts, methods] = await Promise.all([
+  const [invoices, expenses, pendingExpenses, payments, cashAccounts, methods] = await Promise.all([
     prisma.factura.findMany({ where: { ...where, estadoCircuito: { in: ["CONFORMADA", "PARCIALMENTE_CONFORMADA"] }, acreedorId: { not: null } }, include: { acreedor: { select: { id: true, nombre: true } }, aplicaciones: { where: { pago: { estado: { not: "ANULADO" } } }, select: { importeAplicado: true } } }, orderBy: [{ fechaVencimiento: "asc" }, { createdAt: "asc" }], take: 100 }),
-    prisma.gastoCorriente.findMany({ where: { ...where, estado: { in: ["PENDIENTE_AUTORIZACION", "AUTORIZADO"] } }, include: { categoria: true, acreedor: { select: { id: true, nombre: true } }, aplicaciones: { where: { pago: { estado: { not: "ANULADO" } } }, select: { importeAplicado: true } } }, orderBy: { fechaDevengo: "desc" }, take: 100 }),
+    prisma.gastoCorriente.findMany({ where: { ...where, estado: { in: ["PENDIENTE_AUTORIZACION", "AUTORIZADO"] } }, include: { categoria: true, acreedor: { select: { id: true, nombre: true } }, solicitante: { select: { id: true, name: true, email: true } }, shift: { select: { id: true, date: true, turno: true } }, aplicaciones: { where: { pago: { estado: { not: "ANULADO" } } }, select: { importeAplicado: true } } }, orderBy: { fechaDevengo: "desc" }, take: 100 }),
+    prisma.gastoCorriente.findMany({ where: { ...where, estado: "PENDIENTE_AUTORIZACION", shiftId: { not: null } }, include: { categoria: true, acreedor: { select: { id: true, nombre: true } }, solicitante: { select: { id: true, name: true, email: true } }, shift: { select: { id: true, date: true, turno: true } }, aplicaciones: { where: { pago: { estado: { not: "ANULADO" } } }, select: { importeAplicado: true } } }, orderBy: { fechaDevengo: "desc" }, take: 500 }),
     prisma.pago.findMany({ where, include: { acreedor: { select: { id: true, nombre: true } }, medioPago: true, cuentaFondos: true, aplicaciones: true }, orderBy: { createdAt: "desc" }, take: 50 }),
     prisma.cuentaFondos.findMany({ where: { ...where, estado: "ACTIVA" }, orderBy: [{ entidad: "asc" }, { id: "asc" }] }),
     prisma.medioPago.findMany({ where: { estado: "ACTIVO" }, orderBy: { id: "asc" } }),
   ])
-  return { invoices, expenses, payments, cashAccounts, methods }
+  return { invoices, expenses, pendingExpenses, payments, cashAccounts, methods }
 }
 
 export async function getIndicators(entity: PaymentEntity, from: Date, to: Date) {

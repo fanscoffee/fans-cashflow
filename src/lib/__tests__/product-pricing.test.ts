@@ -13,9 +13,52 @@ describe("calculateProductPricing", () => {
       ivaVentaPct: 10,
       ivaPct: 10,
       costeConIva: 12.1,
+      pvpObjetivoConIva: null,
+      pvpFijoConIva: null,
+      pvpAplicadoConIva: 20,
       pvpVentaSinIva: 18.1818,
       gananciaEurUd: 8.1818,
       margenRealPct: 45,
+      desviacionPp: null,
+      diferenciaEurUd: null,
+      diagnosticoPrecio: "SIN OBJETIVO",
+    })
+  })
+
+  it("calculates the target and applied price for the margin method", () => {
+    expect(calculateProductPricing({
+      costeSinIva: 10,
+      ivaCompraPct: 21,
+      ivaVentaPct: 10,
+      metodoPrecio: "MARGEN",
+      margenObjetivoPct: 70,
+    })).toMatchObject({
+      pvpObjetivoConIva: 36.6667,
+      pvpFijoConIva: null,
+      pvpAplicadoConIva: 36.6667,
+      pvpVentaSinIva: 33.3334,
+      gananciaEurUd: 23.3334,
+      margenRealPct: 70,
+      desviacionPp: 0,
+      diferenciaEurUd: 0,
+      diagnosticoPrecio: "EN OBJETIVO",
+    })
+  })
+
+  it("uses the single sale price for the fixed method and diagnoses the deviation", () => {
+    expect(calculateProductPricing({
+      costeSinIva: 10,
+      ivaVentaPct: 10,
+      metodoPrecio: "FIJO",
+      margenObjetivoPct: 70,
+      pvpVentaConIva: 20,
+    })).toMatchObject({
+      pvpObjetivoConIva: 36.6667,
+      pvpFijoConIva: 20,
+      pvpAplicadoConIva: 20,
+      desviacionPp: -25,
+      diferenciaEurUd: -16.6667,
+      diagnosticoPrecio: "MUY POR DEBAJO",
     })
   })
 

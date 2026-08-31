@@ -5,6 +5,7 @@ vi.mock("@/lib/prisma", () => ({
   prisma: {
     shift: { findUnique: vi.fn() },
     expense: { aggregate: vi.fn() },
+    gastoCorriente: { aggregate: vi.fn() },
     cierreTurno: { findUnique: vi.fn(), findFirst: vi.fn(), upsert: vi.fn() },
     $transaction: vi.fn(),
   },
@@ -34,6 +35,7 @@ describe("PATCH /api/shifts/[shiftId]", () => {
     vi.mocked(auth).mockResolvedValue({ user: { id: "user-1", role: "EMPLEADO" } } as any)
     vi.mocked(prisma.shift.findUnique).mockResolvedValue(shift as any)
     vi.mocked(prisma.expense.aggregate).mockResolvedValue({ _sum: { importe: 0 } } as any)
+    vi.mocked(prisma.gastoCorriente.aggregate).mockResolvedValue({ _sum: { importe: 0 } } as any)
   })
 
   it("closes the shift without creating a ticket when explicitly requested", async () => {
@@ -73,5 +75,29 @@ describe("PATCH /api/shifts/[shiftId]", () => {
 
     expect(response.status).toBe(400)
     expect(prisma.expense.aggregate).not.toHaveBeenCalled()
+  })
+
+  it("includes current expenses when calculating the final fund", async () => {
+    vi.mocked(prisma.expense.aggregate).mockResolvedValue({ _sum: { importe: 10 } } as any)
+    vi.mocked(prisma.gastoCorriente.aggregate).mockResolvedValue({ _sum: { importe: 25 } } as any)
+    const updateShift = vi.fn().mockResolvedValue({ id: "shift-1", status: "CERRADO" })
+    vi.mocked((prisma as any).$transaction).mockImplementation(async (callback: (tx: unknown) => unknown) => callback({
+      shift: { update: updateShift },
+      cierreTurno: { upsert: vi.fn() },
+    }))
+
+    const response = await PATCH(
+      new Request("http://localhost/api/shifts/shift-1", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ status: "CERRADO", sinInformacion: true }),
+      }) as unknown as NextRequest,
+      context,
+    )
+
+    expect(response.status).toBe(200)
+    expect(updateShift).toHaveBeenCalledWith(expect.objectContaining({
+      data: expect.objectContaining({ fondoFinal: 65 }),
+    }))
   })
 })

@@ -5,6 +5,17 @@ import { calculateFondo } from "@/lib/fondo"
 import { withAuth } from "@/lib/with-auth"
 import { toJSON } from "@/lib/money"
 
+const shiftExpenseInclude = {
+  categoria: { select: { codigo: true, nombre: true } },
+  solicitante: { select: { name: true, email: true } },
+} as const
+
+const currentExpensesInclude = {
+  where: { estado: { not: "ANULADO" } },
+  include: shiftExpenseInclude,
+  orderBy: { createdAt: "asc" },
+} as const
+
 const shiftSchema = z.object({
   date: z.string(),
   turno: z.enum(["mañana", "tarde"]),
@@ -19,19 +30,19 @@ export const GET = withAuth(async (req, session) => {
 
   if (isAdminOrSocio) {
     shifts = await prisma.shift.findMany({
-      include: { expenses: true, cierreTurno: true, createdBy: { select: { name: true, email: true } } },
+      include: { expenses: true, gastosCorrientes: currentExpensesInclude, cierreTurno: true, createdBy: { select: { name: true, email: true } } },
       orderBy,
     })
   } else {
     const openShift = await prisma.shift.findFirst({
       where: { createdById: session.user.id, status: "ABIERTO" },
-      include: { expenses: true, cierreTurno: true, createdBy: { select: { name: true, email: true } } },
+      include: { expenses: true, gastosCorrientes: currentExpensesInclude, cierreTurno: true, createdBy: { select: { name: true, email: true } } },
       orderBy,
     })
 
     const lastClosed = await prisma.shift.findFirst({
       where: { createdById: session.user.id, status: "CERRADO" },
-      include: { expenses: true, cierreTurno: true, createdBy: { select: { name: true, email: true } } },
+      include: { expenses: true, gastosCorrientes: currentExpensesInclude, cierreTurno: true, createdBy: { select: { name: true, email: true } } },
       orderBy,
     })
 

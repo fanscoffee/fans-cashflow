@@ -55,20 +55,35 @@ export const PATCH = withAuth(async (req, session, context) => {
 })
 
 export const DELETE = withAuth(async (req, session, context) => {
-  if (session.user.role !== "ADMIN") {
-    return NextResponse.json({ error: "Solo los administradores pueden eliminar proveedores" }, { status: 403 })
+  if (session.user.role !== "ADMIN" && session.user.role !== "SOCIO") {
+    return NextResponse.json({ error: "Solo los administradores y socios pueden eliminar proveedores" }, { status: 403 })
   }
 
   const { id } = await context.params
 
   try {
-    const count = await prisma.proveedorProducto.count({
-      where: { proveedorId: id },
-    })
-    if (count > 0) {
+    const proveedor = await prisma.proveedor.findUnique({ where: { id }, select: { id: true } })
+    if (!proveedor) {
+      return NextResponse.json({ error: "Proveedor no encontrado" }, { status: 404 })
+    }
+
+    const [productos, recepciones, facturas, acreedores] = await Promise.all([
+      prisma.proveedorProducto.count({ where: { proveedorId: id } }),
+      prisma.recepcion.count({ where: { proveedorId: id } }),
+      prisma.factura.count({ where: { proveedorId: id } }),
+      prisma.acreedor.count({ where: { proveedorId: id } }),
+    ])
+    const vinculaciones = { productos, recepciones, facturas, acreedores }
+    const totalVinculaciones = Object.values(vinculaciones).reduce((total, count) => total + count, 0)
+
+    if (totalVinculaciones > 0) {
       return NextResponse.json(
-        { error: `No se puede eliminar: tiene ${count} producto(s) asignado(s). Desactívalo en su lugar.` },
-        { status: 400 }
+        {
+          error: "No se puede eliminar el proveedor porque todavía tiene vinculaciones.",
+          code: "PROVIDER_HAS_LINKS",
+          vinculaciones,
+        },
+        { status: 409 }
       )
     }
 

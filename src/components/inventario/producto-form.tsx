@@ -322,10 +322,12 @@ function CalculatedField({
   decimals = 2,
 }: {
   label: string
-  value: number | null
+  value: number | string | null
   decimals?: number
 }) {
-  const displayValue = value === null || !Number.isFinite(value) ? "" : value.toFixed(decimals)
+  const displayValue = value === null || value === undefined || (typeof value === "number" && !Number.isFinite(value))
+    ? ""
+    : typeof value === "number" ? value.toFixed(decimals) : value
 
   return (
     <div>
@@ -443,12 +445,16 @@ export default function ProductoForm({
   const legacyIvaPct = useWatch({ control, name: "ivaPct" })
   const ivaCompraPct = useWatch({ control, name: "ivaCompraPct" })
   const ivaVentaPct = useWatch({ control, name: "ivaVentaPct" })
+  const metodoPrecio = useWatch({ control, name: "metodoPrecio" })
+  const margenObjetivoPct = useWatch({ control, name: "margenObjetivoPct" })
   const pvpVentaConIva = useWatch({ control, name: "pvpAplicadoConIva" })
   const pricing = calculateProductPricing({
     costeSinIva,
     ivaCompraPct,
     ivaVentaPct,
     ivaPct: legacyIvaPct,
+    metodoPrecio,
+    margenObjetivoPct,
     pvpVentaConIva,
   })
   const [codigoLoading, setCodigoLoading] = useState(false)
@@ -699,15 +705,18 @@ export default function ProductoForm({
           <NumberField label="IVA Venta (%)" name="ivaVentaPct" register={register} placeholder="10" error={errors.ivaVentaPct?.message} />
           <CatalogSelect label="Método precio *" name="metodoPrecio" register={register} options={cat("METODO_PRECIO")} placeholder="Seleccionar método..." error={errors.metodoPrecio?.message} />
           <NumberField label="Margen objetivo %" name="margenObjetivoPct" register={register} placeholder="70" error={errors.margenObjetivoPct?.message} />
-          <NumberField label="PVP objetivo con IVA (€)" name="pvpObjetivoConIva" register={register} placeholder="1.19" error={errors.pvpObjetivoConIva?.message} />
-          <NumberField label="PVP fijo con IVA (€)" name="pvpFijoConIva" register={register} placeholder="1.20" error={errors.pvpFijoConIva?.message} />
-          <NumberField label="PVP Venta Con IVA (€)" name="pvpAplicadoConIva" register={register} placeholder="1.20" error={errors.pvpAplicadoConIva?.message} />
-          <CalculatedField label="PVP Venta Sin IVA (€)" value={pricing.pvpVentaSinIva} />
-          <CalculatedField label="Ganancia (€/ud)" value={pricing.gananciaEurUd} />
-          <CalculatedField label="Margen Real (%)" value={pricing.margenRealPct} />
-          <NumberField label="Desviación (pp)" name="desviacionPp" register={register} placeholder="-0.35" error={errors.desviacionPp?.message} />
-          <NumberField label="Diferencia EUR/ud" name="diferenciaEurUd" register={register} placeholder="0.01" error={errors.diferenciaEurUd?.message} />
-          <TextField label="Diagnóstico precio" name="diagnosticoPrecio" register={register} placeholder="EN OBJETIVO" error={errors.diagnosticoPrecio?.message} />
+           <CalculatedField label="PVP objetivo con IVA (€)" value={pricing.pvpObjetivoConIva} />
+           {metodoPrecio === "FIJO" ? (
+             <NumberField label="PVP de venta con IVA (€)" name="pvpAplicadoConIva" register={register} placeholder="1.20" error={errors.pvpAplicadoConIva?.message} />
+           ) : (
+             <CalculatedField label="PVP de venta con IVA (€)" value={pricing.pvpAplicadoConIva} />
+           )}
+           <CalculatedField label="PVP de venta sin IVA (€)" value={pricing.pvpVentaSinIva} />
+           <CalculatedField label="Ganancia (€/ud)" value={pricing.gananciaEurUd} />
+           <CalculatedField label="Margen Real (%)" value={pricing.margenRealPct} />
+           <CalculatedField label="Desviación (pp)" value={pricing.desviacionPp} />
+           <CalculatedField label="Diferencia EUR/ud" value={pricing.diferenciaEurUd} decimals={4} />
+           <CalculatedField label="Diagnóstico precio" value={pricing.diagnosticoPrecio} />
         </div>
       </Section>
 
