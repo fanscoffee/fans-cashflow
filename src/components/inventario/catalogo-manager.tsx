@@ -172,26 +172,26 @@ export default function CatalogoManager() {
         <div className="rounded-md bg-green-50 p-2 text-xs text-green-600">{success}</div>
       )}
 
-      <div className="flex items-center justify-between">
+      <div className="flex flex-col items-stretch gap-2 sm:flex-row sm:items-center sm:justify-between">
         <p className="text-sm text-gray-500">
           {items.length} valor{items.length !== 1 ? "es" : ""} en <span className="font-medium">{selectedTipo}</span>
         </p>
         <button
           onClick={() => setShowAdd(!showAdd)}
-          className="rounded-md bg-blue-600 px-3 py-1.5 text-xs font-medium text-white hover:bg-blue-700"
+          className="w-full rounded-md bg-blue-600 px-3 py-2 text-xs font-medium text-white hover:bg-blue-700 sm:w-auto sm:py-1.5"
         >
           {showAdd ? "Cancelar" : "+ Añadir valor"}
         </button>
       </div>
 
       {showAdd && (
-        <div className="flex gap-2 rounded-md border border-gray-200 bg-gray-50 p-3">
+        <div className="grid gap-2 rounded-md border border-gray-200 bg-gray-50 p-3 sm:flex sm:items-center">
           <input
             type="text"
             value={newValor}
             onChange={(e) => setNewValor(e.target.value)}
             placeholder="Valor (ej: NuevoTipo)"
-            className="flex-1 rounded-md border border-gray-300 px-3 py-1.5 text-sm text-gray-900 focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
+            className="min-w-0 w-full rounded-md border border-gray-300 px-3 py-2 text-sm text-gray-900 focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500 sm:flex-1 sm:py-1.5"
           />
           {selectedTipo === "FAMILIA" && (
             <input
@@ -200,7 +200,7 @@ export default function CatalogoManager() {
               onChange={(e) => setNewPrefijoCodigo(e.target.value.toUpperCase())}
               placeholder="Prefijo (HAR)"
               maxLength={3}
-              className="w-32 rounded-md border border-gray-300 px-3 py-1.5 text-sm uppercase text-gray-900 focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
+              className="w-full rounded-md border border-gray-300 px-3 py-2 text-sm uppercase text-gray-900 focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500 sm:w-32 sm:py-1.5"
             />
           )}
           <input
@@ -208,11 +208,11 @@ export default function CatalogoManager() {
             value={newDescripcion}
             onChange={(e) => setNewDescripcion(e.target.value)}
             placeholder="Descripción (opcional)"
-            className="flex-1 rounded-md border border-gray-300 px-3 py-1.5 text-sm text-gray-900 focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
+            className="min-w-0 w-full rounded-md border border-gray-300 px-3 py-2 text-sm text-gray-900 focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500 sm:flex-1 sm:py-1.5"
           />
           <button
             onClick={handleAdd}
-            className="rounded-md bg-green-600 px-3 py-1.5 text-xs font-medium text-white hover:bg-green-700"
+            className="w-full rounded-md bg-green-600 px-3 py-2 text-xs font-medium text-white hover:bg-green-700 sm:w-auto sm:py-1.5"
           >
             Guardar
           </button>
@@ -225,7 +225,7 @@ export default function CatalogoManager() {
         <p className="text-sm text-gray-500">No hay valores en este catálogo.</p>
       ) : (
         <div className="overflow-x-auto rounded-md border bg-white">
-          <table className="w-full text-left text-sm">
+          <table className="w-full min-w-max text-left text-sm sm:min-w-0">
             <thead>
               <tr className="border-b bg-gray-50 text-xs font-medium text-gray-500">
                 <th className="px-3 py-2">Valor</th>
@@ -249,7 +249,7 @@ export default function CatalogoManager() {
                     </span>
                   </td>
                   <td className="px-3 py-2 text-right">
-                    <div className="flex justify-end gap-3">
+                      <div className="flex flex-wrap justify-end gap-3">
                       <button
                         onClick={() => handleToggleActive(item.id, item.activo)}
                         className={`text-xs font-medium ${item.activo ? "text-red-600 hover:text-red-800" : "text-green-600 hover:text-green-800"}`}

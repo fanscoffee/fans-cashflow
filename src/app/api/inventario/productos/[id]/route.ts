@@ -3,6 +3,7 @@ import { prisma } from "@/lib/prisma"
 import { withAuth } from "@/lib/with-auth"
 import { getProductTypeBehavior } from "@/lib/product-types"
 import { calculateProductPricing } from "@/lib/product-pricing"
+import { canDeleteInventoryItems } from "@/lib/inventory-permissions"
 
 export const GET = withAuth(async (req, _session, context) => {
   const { id } = await context.params
@@ -97,8 +98,8 @@ export const PATCH = withAuth(async (req, session, context) => {
 })
 
 export const DELETE = withAuth(async (req, session, context) => {
-  if (session.user.role !== "ADMIN") {
-    return NextResponse.json({ error: "Solo los administradores pueden eliminar productos" }, { status: 403 })
+  if (!canDeleteInventoryItems(session.user)) {
+    return NextResponse.json({ error: "Solo ADMIN o el socio Yomi pueden eliminar productos" }, { status: 403 })
   }
 
   const { id } = await context.params

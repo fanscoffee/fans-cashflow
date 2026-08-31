@@ -100,7 +100,7 @@ function ProductoCombobox({
         placeholder="Buscar producto..."
         onFocus={() => setOpen(true)}
         onClick={() => setOpen(true)}
-        className="w-full cursor-pointer rounded-md border border-gray-300 px-2 py-1 text-xs text-gray-900 focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
+        className="w-full min-w-0 cursor-pointer overflow-hidden text-ellipsis whitespace-nowrap rounded-md border border-gray-300 px-2 py-2 text-xs text-gray-900 focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
       />
       {open && (
         <div className="absolute z-50 mt-1 max-h-60 w-full overflow-auto rounded-md border border-gray-200 bg-white shadow-lg">
@@ -290,7 +290,7 @@ export default function RecepcionForm({
         )}
 
         <div className="overflow-x-auto rounded-md border bg-white">
-          <table className="w-full text-left text-sm">
+          <table className="w-full min-w-max text-left text-sm sm:min-w-0">
             <thead>
               <tr className="border-b bg-gray-50 text-xs font-medium text-gray-500">
                 <th className="px-3 py-2">Producto</th>
@@ -358,7 +358,7 @@ export default function RecepcionForm({
                         <button
                           type="button"
                           onClick={() => remove(index)}
-                          className="text-red-500 hover:text-red-700 text-xs"
+                          className="min-h-11 min-w-11 text-red-500 hover:text-red-700 text-xs sm:min-h-0 sm:min-w-0"
                         >
                           X
                         </button>
@@ -385,18 +385,18 @@ export default function RecepcionForm({
         </div>
       </div>
 
-      <div className="flex gap-2 pt-2">
+      <div className="flex flex-col gap-2 pt-2 sm:flex-row">
         <button
           type="submit"
           disabled={saving}
-          className="rounded-md bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-700 disabled:opacity-50"
+          className="w-full rounded-md bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-700 disabled:opacity-50 sm:w-auto"
         >
           {saving ? "Guardando..." : "Registrar recepcion"}
         </button>
         <button
           type="button"
           onClick={onCancel}
-          className="rounded-md border border-gray-300 px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50"
+          className="w-full rounded-md border border-gray-300 px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50 sm:w-auto"
         >
           Cancelar
         </button>

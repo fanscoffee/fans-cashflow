@@ -136,7 +136,7 @@ export default function FondoPage() {
         subtitle="Gestión del Fondo"
       />
 
-      <main className="mx-auto max-w-5xl px-4 py-6 space-y-6">
+      <main className="mx-auto max-w-5xl space-y-6 px-4 py-6 pb-24 sm:pb-6">
         {error && (
           <div className="rounded-md bg-red-50 p-3 text-sm text-red-600">{error}</div>
         )}
@@ -146,7 +146,7 @@ export default function FondoPage() {
 
         <section className="rounded-lg border bg-white p-4 shadow-sm sm:p-6">
           <h2 className="mb-4 text-lg font-semibold text-gray-900">Depósito al Fondo</h2>
-          <form onSubmit={handleSubmit(onSubmitFund)} className="grid grid-cols-2 gap-3 sm:flex sm:items-end sm:gap-4">
+          <form onSubmit={handleSubmit(onSubmitFund)} className="grid grid-cols-1 gap-3 sm:flex sm:items-end sm:gap-4">
             <div className="flex items-center gap-2 rounded-md bg-blue-50 px-3 py-2 sm:hidden">
               <span className="text-xs text-gray-600">Fondo:</span>
               <span className="text-sm font-bold text-blue-700">
@@ -165,7 +165,7 @@ export default function FondoPage() {
                 <p className="mt-1 text-xs text-red-500">{errors.amount.message}</p>
               )}
             </div>
-            <div className="col-span-2 min-w-0 flex-1 sm:col-span-1">
+            <div className="min-w-0 flex-1">
               <label className="block text-xs font-medium text-gray-600">Descripción</label>
               <input
                 type="text"
@@ -183,20 +183,20 @@ export default function FondoPage() {
             <button
               type="submit"
               disabled={isSubmitting}
-              className="col-span-2 w-full rounded-md bg-blue-600 py-2 text-sm font-medium text-white hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 disabled:opacity-50 sm:col-span-1 sm:w-auto sm:px-6"
+              className="w-full rounded-md bg-blue-600 py-2 text-sm font-medium text-white hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 disabled:opacity-50 sm:w-auto sm:px-6"
             >
               {isSubmitting ? "Guardando..." : "Depositar"}
             </button>
           </form>
         </section>
 
-        <section className="rounded-lg border bg-white p-6 shadow-sm">
+        <section className="rounded-lg border bg-white p-4 shadow-sm sm:p-6">
           <h2 className="mb-4 text-lg font-semibold text-gray-900">Historial de Depósitos</h2>
 
           {/* Filters */}
           <div className="mb-4 rounded-md border border-gray-200 bg-gray-50 p-4">
-            <div className="grid grid-cols-2 gap-3 sm:flex sm:flex-wrap sm:items-end">
-              <div className="min-w-0 overflow-hidden sm:min-w-[140px]">
+            <div className="grid grid-cols-1 gap-3 sm:flex sm:flex-wrap sm:items-end">
+              <div className="min-w-0 sm:min-w-[140px]">
                 <label className="block text-xs font-medium text-gray-600">Desde</label>
                 <input
                   type="date"
@@ -205,7 +205,7 @@ export default function FondoPage() {
                   className="mt-1 block w-full min-w-0 rounded-md border border-gray-300 px-2 py-1.5 text-sm text-gray-900 focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
                 />
               </div>
-              <div className="min-w-0 overflow-hidden sm:min-w-[140px]">
+              <div className="min-w-0 sm:min-w-[140px]">
                 <label className="block text-xs font-medium text-gray-600">Hasta</label>
                 <input
                   type="date"
@@ -214,7 +214,7 @@ export default function FondoPage() {
                   className="mt-1 block w-full min-w-0 rounded-md border border-gray-300 px-2 py-1.5 text-sm text-gray-900 focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
                 />
               </div>
-              <div className="col-span-2 min-w-0 sm:col-span-1 sm:min-w-[180px]">
+              <div className="min-w-0 sm:min-w-[180px]">
                 <label className="block text-xs font-medium text-gray-600">Buscar</label>
                 <input
                   type="text"
@@ -226,7 +226,7 @@ export default function FondoPage() {
               </div>
               <button
                 onClick={resetFilters}
-                className="col-span-2 w-full rounded-md border border-gray-300 px-4 py-1.5 text-sm text-gray-600 hover:bg-gray-100 sm:col-span-1 sm:w-auto"
+                className="w-full rounded-md border border-gray-300 px-4 py-2 text-sm text-gray-600 hover:bg-gray-100 sm:w-auto sm:py-1.5"
               >
                 Limpiar
               </button>
@@ -244,17 +244,17 @@ export default function FondoPage() {
               <p className="mb-3 text-xs text-gray-500">Mostrando {visible.length} de {filtered.length} depósitos</p>
               <div className="space-y-2">
                 {visible.map((addition) => (
-                  <div key={addition.id} className="flex items-center justify-between rounded-md border border-gray-100 px-4 py-3">
-                    <div>
+                  <div key={addition.id} className="flex flex-col gap-2 rounded-md border border-gray-100 px-3 py-3 sm:flex-row sm:items-center sm:justify-between sm:px-4">
+                    <div className="min-w-0">
                       <p className="text-sm font-medium text-gray-900">
                         + {toFixed(addition.amount)} €
                       </p>
                       {addition.description && (
-                        <p className="text-xs text-gray-500">{addition.description}</p>
+                        <p className="break-words text-xs text-gray-500 [overflow-wrap:anywhere]">{addition.description}</p>
                       )}
                     </div>
-                    <div className="text-right">
-                      <p className="text-xs text-gray-500">
+                    <div className="min-w-0 text-left sm:text-right">
+                      <p className="break-words text-xs text-gray-500 [overflow-wrap:anywhere]">
                         {addition.createdBy.name || addition.createdBy.email}
                       </p>
                       <p className="text-xs text-gray-400">

@@ -66,4 +66,16 @@ describe("ProductoForm pricing calculations", () => {
     expect(document.querySelector('input[name="pvpFijoConIva"]')).toBeNull()
     expect(document.querySelector('input[name="pvpAplicadoConIva"]')).toBeInTheDocument()
   })
+
+  it("shows the existing type and family while editing", async () => {
+    const user = userEvent.setup()
+    renderEdit()
+
+    await user.click(screen.getByRole("button", { name: "Clasificación" }))
+
+    await waitFor(() => {
+      expect(screen.getByLabelText("Tipo de artículo *")).toHaveValue("MP")
+      expect(screen.getByLabelText("Familia *")).toHaveValue("Harinas y sémolas")
+    })
+  })
 })

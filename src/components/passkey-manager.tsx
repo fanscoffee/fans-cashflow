@@ -93,7 +93,7 @@ export default function PasskeyManager() {
   }
 
   return (
-    <div className="rounded-lg border bg-white p-6 shadow-sm">
+    <div className="rounded-lg border bg-white p-4 shadow-sm sm:p-6">
       <h2 className="mb-4 text-lg font-semibold text-gray-900">Face ID / Biometría</h2>
 
       {!supportsPasskeys ? (
@@ -121,8 +121,8 @@ export default function PasskeyManager() {
               {passkeys.length > 0 && (
                 <div className="mb-4 space-y-2">
                   {passkeys.map((pk) => (
-                    <div key={pk.id} className="flex items-center justify-between rounded-md border border-gray-200 p-3">
-                      <div>
+                    <div key={pk.id} className="flex items-center justify-between gap-3 rounded-md border border-gray-200 p-3">
+                      <div className="min-w-0">
                         <p className="text-sm font-medium text-gray-900">Face ID registrado</p>
                         <p className="text-xs text-gray-500">
                           {new Date(pk.createdAt).toLocaleDateString("es-ES")}

@@ -376,8 +376,8 @@ export default function CierreTurnoModal({
   }
 
   return (
-    <div className="fixed inset-0 z-50 overflow-y-auto bg-black/50 p-4">
-      <div className="mx-auto max-w-5xl rounded-lg bg-white p-5 shadow-xl">
+    <div className="fixed inset-0 z-50 overflow-y-auto bg-black/50 p-2 pb-[calc(0.5rem+env(safe-area-inset-bottom))] sm:p-4">
+      <div className="mx-auto max-w-5xl rounded-lg bg-white p-4 shadow-xl sm:p-5">
         <div className="mb-4 flex items-start justify-between gap-4">
           <div>
             <h2 className="text-lg font-semibold text-gray-900">Cierre de turno</h2>
@@ -385,7 +385,7 @@ export default function CierreTurnoModal({
               {new Date(shift.date).toLocaleDateString("es-ES")} — {shift.turno}
             </p>
           </div>
-          <button type="button" onClick={onCancel} className="text-gray-500 hover:text-gray-800">Cerrar</button>
+          <button type="button" onClick={onCancel} className="min-h-11 shrink-0 rounded-md px-2 text-gray-500 hover:text-gray-800">Cerrar</button>
         </div>
 
         {requirePhoto ? (
@@ -402,7 +402,7 @@ export default function CierreTurnoModal({
               <input ref={cameraInputRef} type="file" accept="image/*" capture="environment" className="hidden" onChange={(event) => event.target.files?.[0] && handleImage(event.target.files[0])} />
               <input ref={fileInputRef} type="file" accept="image/*" className="hidden" onChange={(event) => event.target.files?.[0] && handleImage(event.target.files[0])} />
             </div>
-            {fileName && <p className="mt-2 text-xs text-gray-600">Imagen procesada: {fileName}</p>}
+            {fileName && <p className="mt-2 break-words text-xs text-gray-600 [overflow-wrap:anywhere]">Imagen procesada: {fileName}</p>}
             {ocrStatus && <p className="mt-2 text-xs text-blue-800">{ocrStatus}</p>}
             {ocrError && <p className="mt-2 text-xs text-red-600">{ocrError}</p>}
           </div>
@@ -425,7 +425,7 @@ export default function CierreTurnoModal({
 
           <section>
             <h3 className="mb-2 text-sm font-semibold text-gray-900">Cajón de efectivo</h3>
-            <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
+            <div className="grid grid-cols-1 gap-3 min-[480px]:grid-cols-2 sm:grid-cols-4">
               <InputField label="Fondo caja anterior" type="number" value={fields.fondoCajaAnterior} onChange={(value) => updateField("fondoCajaAnterior", value)} />
               <InputField label="Cobros en efectivo" type="number" value={fields.cobrosEfectivo} onChange={(value) => updateField("cobrosEfectivo", value)} />
               <InputField label="Reembolsos efectivo" type="number" value={fields.reembolsosEfectivo} onChange={(value) => updateField("reembolsosEfectivo", value)} />
@@ -439,7 +439,7 @@ export default function CierreTurnoModal({
 
           <section>
             <h3 className="mb-2 text-sm font-semibold text-gray-900">Resumen de ventas</h3>
-            <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
+            <div className="grid grid-cols-1 gap-3 min-[480px]:grid-cols-2 sm:grid-cols-4">
               <InputField label="Ventas brutas" type="number" value={fields.ventasBrutas} onChange={(value) => updateField("ventasBrutas", value)} />
               <InputField label="Reembolsos" type="number" value={fields.reembolsos} onChange={(value) => updateField("reembolsos", value)} />
               <InputField label="Descuentos" type="number" value={fields.descuentos} onChange={(value) => updateField("descuentos", value)} />
@@ -451,7 +451,7 @@ export default function CierreTurnoModal({
 
           <section>
             <h3 className="mb-2 text-sm font-semibold text-gray-900">Impuestos</h3>
-            <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
+            <div className="grid grid-cols-1 gap-3 min-[480px]:grid-cols-2 sm:grid-cols-4">
               <InputField label="IVA Pan 4% — base" type="number" value={fields.ivaPan4Base} onChange={(value) => updateField("ivaPan4Base", value)} />
               <InputField label="IVA Pan 4% — cuota" type="number" value={fields.ivaPan4Cuota} onChange={(value) => updateField("ivaPan4Cuota", value)} />
               <InputField label="IVA 10% — base" type="number" value={fields.iva10Base} onChange={(value) => updateField("iva10Base", value)} />
@@ -461,7 +461,7 @@ export default function CierreTurnoModal({
 
           <section>
             <h3 className="mb-2 text-sm font-semibold text-gray-900">Control de importes actuales</h3>
-            <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
+            <div className="grid grid-cols-1 gap-3 min-[480px]:grid-cols-2 sm:grid-cols-4">
               <InputField label="Efectivo del turno" type="number" value={fields.efectivo} onChange={(value) => updateField("efectivo", value)} />
               <InputField label="Caixa" type="number" value={fields.caixa} onChange={(value) => updateField("caixa", value)} />
               <InputField label="Santander" type="number" value={fields.santander} onChange={(value) => updateField("santander", value)} />
@@ -484,12 +484,12 @@ export default function CierreTurnoModal({
         )}
         {!ocrCompleted && requirePhoto && <p className="mt-4 rounded-md bg-amber-50 p-3 text-xs text-amber-800">La foto es obligatoria. Carga el ticket para rellenar los datos automáticamente.</p>}
 
-        <div className="mt-5 flex flex-wrap justify-end gap-2">
-          <button type="button" onClick={onCancel} className="rounded-md border border-gray-300 px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50">Cancelar</button>
-          <button type="button" onClick={handleQuickClose} disabled={saving} className="rounded-md border border-red-300 px-4 py-2 text-sm font-medium text-red-700 hover:bg-red-50 disabled:cursor-not-allowed disabled:opacity-50">
+          <div className="mt-5 flex flex-col gap-2 sm:flex-row sm:justify-end">
+          <button type="button" onClick={onCancel} className="w-full rounded-md border border-gray-300 px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50 sm:w-auto">Cancelar</button>
+          <button type="button" onClick={handleQuickClose} disabled={saving} className="w-full rounded-md border border-red-300 px-4 py-2 text-sm font-medium text-red-700 hover:bg-red-50 disabled:cursor-not-allowed disabled:opacity-50 sm:w-auto">
             {saving ? "Cerrando..." : "Cerrar turno sin información"}
           </button>
-          <button type="button" onClick={handleSubmit} disabled={!canConfirm || saving} className="rounded-md bg-red-600 px-4 py-2 text-sm font-medium text-white hover:bg-red-700 disabled:cursor-not-allowed disabled:opacity-50">
+          <button type="button" onClick={handleSubmit} disabled={!canConfirm || saving} className="w-full rounded-md bg-red-600 px-4 py-2 text-sm font-medium text-white hover:bg-red-700 disabled:cursor-not-allowed disabled:opacity-50 sm:w-auto">
             {saving ? "Guardando..." : "Confirmar y cerrar turno"}
           </button>
         </div>

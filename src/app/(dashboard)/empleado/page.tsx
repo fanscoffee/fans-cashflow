@@ -172,7 +172,7 @@ export default function EmpleadoPage() {
         subtitle={isReadOnly ? "Turnos" : `Hola, ${session?.user?.name || session?.user?.email}`}
       />
 
-      <main className="mx-auto max-w-4xl px-4 py-6 space-y-6">
+      <main className="mx-auto max-w-4xl space-y-6 px-4 py-6 pb-24 sm:pb-6">
         {error && (
           <div className="rounded-md bg-red-50 p-3 text-sm text-red-600">{error}</div>
         )}
@@ -203,7 +203,7 @@ export default function EmpleadoPage() {
           />
         )}
 
-        <section className="rounded-lg border bg-white p-6 shadow-sm">
+        <section className="rounded-lg border bg-white p-4 shadow-sm sm:p-6">
           <h2 className="mb-4 text-lg font-semibold text-gray-900">{isReadOnly ? "Todos los Turnos" : "Mis Turnos"}</h2>
           {shifts.length === 0 ? (
             <p className="text-sm text-gray-500">{isReadOnly ? "No hay turnos registrados." : "No tienes turnos registrados."}</p>

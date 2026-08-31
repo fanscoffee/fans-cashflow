@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server"
 import { prisma } from "@/lib/prisma"
 import { withAuth } from "@/lib/with-auth"
+import { canDeleteInventoryItems } from "@/lib/inventory-permissions"
 
 export const GET = withAuth(async (req, _session, context) => {
   const { id } = await context.params
@@ -55,8 +56,8 @@ export const PATCH = withAuth(async (req, session, context) => {
 })
 
 export const DELETE = withAuth(async (req, session, context) => {
-  if (session.user.role !== "ADMIN" && session.user.role !== "SOCIO") {
-    return NextResponse.json({ error: "Solo los administradores y socios pueden eliminar proveedores" }, { status: 403 })
+  if (!canDeleteInventoryItems(session.user)) {
+    return NextResponse.json({ error: "Solo ADMIN o el socio Yomi pueden eliminar proveedores" }, { status: 403 })
   }
 
   const { id } = await context.params

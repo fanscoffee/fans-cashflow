@@ -6,6 +6,7 @@ vi.mock("@/lib/prisma", () => ({
     producto: {
       findUnique: vi.fn(),
       update: vi.fn(),
+      delete: vi.fn(),
     },
   },
 }))
@@ -14,11 +15,13 @@ vi.mock("@/lib/auth", () => ({
   auth: vi.fn(),
 }))
 
-import { PATCH } from "../route"
+import { DELETE, PATCH } from "../route"
 import { prisma } from "@/lib/prisma"
 import { auth } from "@/lib/auth"
 
 const context = { params: Promise.resolve({ id: "product-1" }) }
+
+const deleteRequest = new Request("http://localhost/api/inventario/productos/product-1", { method: "DELETE" }) as unknown as NextRequest
 
 function mockRequest(body: Record<string, unknown>) {
   return new Request("http://localhost/api/inventario/productos/product-1", {
@@ -100,5 +103,39 @@ describe("PATCH /api/inventario/productos/[id]", () => {
         observaciones: "Actualizado",
       },
     })
+  })
+})
+
+describe("DELETE /api/inventario/productos/[id]", () => {
+  beforeEach(() => {
+    vi.clearAllMocks()
+  })
+
+  it("blocks a regular SOCIO", async () => {
+    vi.mocked(auth).mockResolvedValue({ user: { id: "partner-1", role: "SOCIO", name: "Ana" } } as any)
+
+    const response = await DELETE(deleteRequest, context)
+
+    expect(response.status).toBe(403)
+    expect(prisma.producto.delete).not.toHaveBeenCalled()
+  })
+
+  it("allows Yomi", async () => {
+    vi.mocked(auth).mockResolvedValue({ user: { id: "partner-1", role: "SOCIO", name: "yomi" } } as any)
+    vi.mocked(prisma.producto.delete).mockResolvedValue({ id: "product-1" } as any)
+
+    const response = await DELETE(deleteRequest, context)
+
+    expect(response.status).toBe(200)
+    expect(prisma.producto.delete).toHaveBeenCalledWith({ where: { id: "product-1" } })
+  })
+
+  it("allows ADMIN", async () => {
+    vi.mocked(auth).mockResolvedValue({ user: { id: "admin-1", role: "ADMIN" } } as any)
+    vi.mocked(prisma.producto.delete).mockResolvedValue({ id: "product-1" } as any)
+
+    const response = await DELETE(deleteRequest, context)
+
+    expect(response.status).toBe(200)
   })
 })

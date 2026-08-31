@@ -3,6 +3,7 @@
 import { useSession } from "next-auth/react"
 import AppHeader from "@/components/app-header"
 import InventarioPage from "@/components/inventario/inventario-page"
+import { canDeleteInventoryItems } from "@/lib/inventory-permissions"
 
 export default function SocioInventarioPage() {
   const { data: session, status } = useSession()
@@ -21,8 +22,8 @@ export default function SocioInventarioPage() {
         title="Fans Cashflow"
         subtitle={`Inventario — ${session?.user?.name || session?.user?.email}`}
       />
-      <main className="mx-auto max-w-6xl px-4 py-6">
-        <InventarioPage />
+      <main className="mx-auto max-w-6xl px-4 py-6 pb-24 sm:pb-6">
+         <InventarioPage canDeleteProductsAndSuppliers={canDeleteInventoryItems(session?.user)} />
       </main>
     </div>
   )

@@ -101,7 +101,7 @@ export default function GastosCorrientesTracking({ canAccess }: { canAccess: boo
           value={search}
           onChange={(event) => setSearch(event.target.value)}
           placeholder="Buscar concepto, persona..."
-          className="min-w-56 rounded-md border px-3 py-2 text-sm text-gray-900"
+          className="w-full min-w-0 rounded-md border px-3 py-2 text-sm text-gray-900 sm:w-56"
         />
       </div>
       {error && <p className="mb-3 rounded-md bg-red-50 p-3 text-sm text-red-700">{error}</p>}
@@ -112,7 +112,7 @@ export default function GastosCorrientesTracking({ canAccess }: { canAccess: boo
         <p className="text-sm text-gray-500">No hay gastos corrientes que mostrar.</p>
       ) : (
         <div className="overflow-x-auto rounded-md border">
-          <table className="w-full min-w-[900px] text-left text-sm">
+          <table className="w-full min-w-[760px] text-left text-sm sm:min-w-0">
             <thead className="bg-gray-50 text-xs text-gray-500">
               <tr>
                 <th className="px-3 py-2">Fecha</th>
