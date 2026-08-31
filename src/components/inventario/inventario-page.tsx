@@ -68,7 +68,6 @@ interface Producto {
   estado: string
   fechaAlta: string
   observaciones: string | null
-  esEjemplo: boolean
   proveedores?: ProveedorRelation[]
 }
 
@@ -218,25 +217,6 @@ export default function InventarioPage() {
     }
   }
 
-  async function handleCleanExamples() {
-    if (!confirm("¿Estás seguro de que quieres eliminar todos los productos de ejemplo?")) return
-    setError(null)
-    setSuccess(null)
-    try {
-      const res = await fetch("/api/inventario/productos/ejemplos", { method: "DELETE" })
-      if (!res.ok) {
-        const result = await res.json()
-        setError(result.error || "Error al limpiar ejemplos")
-        return
-      }
-      const result = await res.json()
-      setSuccess(result.message)
-      loadProductos()
-    } catch {
-      setError("Error al conectar con el servidor")
-    }
-  }
-
   const totalPages = Math.ceil(total / pageSize)
 
   return (
@@ -280,12 +260,6 @@ export default function InventarioPage() {
               className="rounded-md border border-gray-300 px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50"
             >
               Inventario Físico
-            </button>
-            <button
-              onClick={handleCleanExamples}
-              className="rounded-md border border-red-200 px-4 py-2 text-sm font-medium text-red-600 hover:bg-red-50"
-            >
-              Limpiar ejemplos
             </button>
             <span className="ml-auto text-sm text-gray-500">
               {total} producto{total !== 1 ? "s" : ""}

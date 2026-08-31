@@ -2,7 +2,8 @@ import { NextResponse } from "next/server"
 import { prisma } from "@/lib/prisma"
 import { withAuth } from "@/lib/with-auth"
 import { buildInvoiceAlerts, facturaSchema, normalizeNif } from "@/lib/facturas"
-import { ensureAcreedorForProveedor } from "@/lib/pagos"
+import { auditPaymentEvent, ensureAcreedorForProveedor } from "@/lib/pagos"
+import { getPaymentStorage, paymentStorageBucket } from "@/lib/pagos-storage"
 
 const lineData = (linea: ReturnType<typeof facturaSchema.parse>["lineas"][number], alertaValidacion: string | null) => ({
   productoId: linea.productoId || null,
@@ -132,10 +133,69 @@ export const PATCH = withAuth(async (req, session, context) => {
 })
 
 export const DELETE = withAuth(async (_req, session, context) => {
-  if (session.user.role !== "ADMIN") return NextResponse.json({ error: "Solo ADMIN puede eliminar facturas" }, { status: 403 })
+  if (session.user.role !== "ADMIN" && session.user.role !== "SOCIO") return NextResponse.json({ error: "Solo ADMIN y SOCIO pueden eliminar facturas" }, { status: 403 })
   const { id } = await context.params
-  const existing = await prisma.factura.findUnique({ where: { id }, select: { id: true, estado: true } })
-  if (!existing) return NextResponse.json({ error: "Factura no encontrada" }, { status: 404 })
-  const factura = await prisma.factura.update({ where: { id }, data: { estado: "ANULADA" } })
-  return NextResponse.json({ ok: true, factura })
+
+  try {
+    const existing = await prisma.factura.findUnique({
+      where: { id },
+      select: {
+        id: true,
+        entidad: true,
+        serie: true,
+        numero: true,
+        estado: true,
+        estadoPago: true,
+        estadoCircuito: true,
+        importePagado: true,
+        importeTotal: true,
+        adjuntos: { select: { storageKey: true } },
+        _count: { select: { aplicaciones: true } },
+      },
+    })
+    if (!existing) return NextResponse.json({ error: "Factura no encontrada" }, { status: 404 })
+
+    const hasPayments = existing._count.aplicaciones > 0 ||
+      ["PARCIAL", "PAGADA"].includes(existing.estadoPago) ||
+      Number(existing.importePagado || 0) > 0
+    if (hasPayments) {
+      return NextResponse.json(
+        { error: "No se puede eliminar una factura con pagos registrados", code: "INVOICE_HAS_PAYMENTS" },
+        { status: 409 },
+      )
+    }
+
+    const storageKeys = existing.adjuntos.map((adjunto) => adjunto.storageKey)
+    await prisma.$transaction(async (tx) => {
+      await tx.recepcion.updateMany({ where: { facturaId: id }, data: { facturaId: null } })
+      await auditPaymentEvent(tx, {
+        actorId: session.user.id,
+        accion: "FACTURA_ELIMINADA",
+        tipoRegistro: "Factura",
+        registroId: id,
+        entidad: existing.entidad,
+        antes: {
+          serie: existing.serie,
+          numero: existing.numero,
+          estado: existing.estado,
+          estadoPago: existing.estadoPago,
+          estadoCircuito: existing.estadoCircuito,
+          importeTotal: String(existing.importeTotal),
+        },
+      })
+      await tx.factura.delete({ where: { id } })
+    })
+
+    if (storageKeys.length > 0) {
+      const storage = getPaymentStorage()
+      if (storage) {
+        const { error } = await storage.storage.from(paymentStorageBucket).remove(storageKeys)
+        if (error) console.error("No se pudieron eliminar todos los adjuntos de la factura", id, error)
+      }
+    }
+
+    return NextResponse.json({ ok: true, id })
+  } catch (error) {
+    return NextResponse.json({ error: error instanceof Error ? error.message : "Error al eliminar factura" }, { status: 500 })
+  }
 })

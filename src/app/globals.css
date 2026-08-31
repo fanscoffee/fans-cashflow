@@ -25,9 +25,11 @@ body {
   font-family: Arial, Helvetica, sans-serif;
 }
 
+.facturas-page,
 .facturas-page .text-gray-500,
-.facturas-page .text-gray-600 {
-  color: #374151;
+.facturas-page .text-gray-600,
+.facturas-page .text-gray-700 {
+  color: #000000;
 }
 
 .facturas-page table,
