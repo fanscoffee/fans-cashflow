@@ -34,8 +34,13 @@ interface Recepcion {
   lineas?: RecepcionLinea[]
 }
 
-export default function RecepcionesPanel() {
-  const [view, setView] = useState<"list" | "create" | "detail">("list")
+type RecepcionesPanelProps = {
+  canDelete?: boolean
+  initialView?: "list" | "create"
+}
+
+export default function RecepcionesPanel({ canDelete = true, initialView = "list" }: RecepcionesPanelProps) {
+  const [view, setView] = useState<"list" | "create" | "detail">(initialView)
   const [recepciones, setRecepciones] = useState<Recepcion[]>([])
   const [total, setTotal] = useState(0)
   const [page, setPage] = useState(1)
@@ -133,6 +138,7 @@ export default function RecepcionesPanel() {
   }
 
   const handleDelete = async (id: string) => {
+    if (!canDelete) return
     if (!confirm("¿Eliminar esta recepción?")) return
     setError("")
     setSuccess("")
@@ -372,12 +378,14 @@ export default function RecepcionesPanel() {
                       >
                         Ver
                       </button>
-                      <button
-                        onClick={() => handleDelete(rec.id)}
-                        className="text-xs font-medium text-red-600 hover:text-red-800"
-                      >
-                        Eliminar
-                      </button>
+                      {canDelete && (
+                        <button
+                          onClick={() => handleDelete(rec.id)}
+                          className="text-xs font-medium text-red-600 hover:text-red-800"
+                        >
+                          Eliminar
+                        </button>
+                      )}
                     </td>
                   </tr>
                 ))}

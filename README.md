@@ -16,7 +16,7 @@ Aplicación de gestión de caja y turnos para el local de Fans. Permite controla
 |---|---|
 | **ADMIN** | Total. Gestión de usuarios, todos los dashboards, Face ID |
 | **SOCIO** | Dashboard con gráficos, fondo, turnos, efectivo, encargos, Face ID |
-| **EMPLEADO** | Abrir/cerrar turnos y solicitar gastos cuando tenga función asignada. Auto-logout por inactividad (2 min) |
+| **EMPLEADO** | Abrir/cerrar turnos, registrar recepciones y solicitar gastos cuando tenga función asignada. Auto-logout por inactividad (2 min) |
 
 ## Pantallas y Funcionalidades
 
@@ -29,6 +29,7 @@ Aplicación de gestión de caja y turnos para el local de Fans. Permite controla
 - **Abrir turno**: Selecciona mañana/tarde. El fondo inicial se calcula automáticamente (último fondoFinal + ingresos al fondo desde entonces)
 - **Registrar gastos**: Añade proveedor + importe a turno abierto
 - **Cerrar turno**: Introduce efectivo, Caixa, Santander. Se calcula fondoFinal = fondoInicial - gastos
+- **Recepciones** (`/empleado/recepciones`): Registra el proveedor y albarán, cuenta manualmente los productos entregados y guarda cantidades, precios, lotes y vencimientos
 - **Face ID**: Puede registrar Passkey desde esta pantalla
 - Solo puede ver su propio turno abierto y el último turno cerrado
 - Auto-logout tras 2 minutos de inactividad (dispositivo compartido)
