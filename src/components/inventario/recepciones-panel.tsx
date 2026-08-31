@@ -165,12 +165,12 @@ export default function RecepcionesPanel() {
 
   if (view === "create") {
     return (
-      <div className="rounded-lg border bg-white p-6 shadow-sm">
-        <div className="mb-4 flex items-center justify-between">
+      <div className="rounded-lg border bg-white p-4 shadow-sm sm:p-6">
+        <div className="mb-4 flex flex-col items-stretch gap-2 sm:flex-row sm:items-center sm:justify-between">
           <h2 className="text-lg font-semibold text-gray-900">Nueva recepción</h2>
           <button
             onClick={() => setView("list")}
-            className="rounded-md border border-gray-300 px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50"
+            className="w-full rounded-md border border-gray-300 px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50 sm:w-auto"
           >
             Volver
           </button>
@@ -189,20 +189,20 @@ export default function RecepcionesPanel() {
       0
     )
     return (
-      <div className="rounded-lg border bg-white p-6 shadow-sm">
-        <div className="mb-4 flex items-center justify-between">
+      <div className="rounded-lg border bg-white p-4 shadow-sm sm:p-6">
+        <div className="mb-4 flex flex-col items-stretch gap-2 sm:flex-row sm:items-center sm:justify-between">
           <h2 className="text-lg font-semibold text-gray-900">
             Albarán: {selectedRecepcion.codigoAlbaran}
           </h2>
           <button
             onClick={() => { setView("list"); setSelectedRecepcion(null) }}
-            className="rounded-md border border-gray-300 px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50"
+            className="w-full rounded-md border border-gray-300 px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50 sm:w-auto"
           >
             Volver
           </button>
         </div>
 
-        <div className="mb-4 grid grid-cols-2 gap-4 text-sm sm:grid-cols-4">
+        <div className="mb-4 grid grid-cols-1 gap-3 text-sm min-[420px]:grid-cols-2 sm:grid-cols-4">
           <div>
             <span className="text-gray-500">Proveedor</span>
             <p className="font-medium text-gray-900">{selectedRecepcion.proveedor.razonSocial}</p>
@@ -229,7 +229,7 @@ export default function RecepcionesPanel() {
           <p className="text-sm text-gray-500">Cargando líneas...</p>
         ) : (
           <div className="overflow-x-auto rounded-md border bg-white">
-            <table className="w-full text-left text-sm">
+            <table className="w-full min-w-max text-left text-sm sm:min-w-0">
               <thead>
                 <tr className="border-b bg-gray-50 text-xs font-medium text-gray-500">
                   <th className="px-3 py-2">Código</th>
@@ -291,30 +291,30 @@ export default function RecepcionesPanel() {
         <div className="rounded-md bg-green-50 p-3 text-sm text-green-600">{success}</div>
       )}
 
-      <div className="flex flex-wrap items-center gap-2">
+      <div className="flex flex-col items-stretch gap-2 sm:flex-row sm:flex-wrap sm:items-center">
         <button
           onClick={() => setView("create")}
-          className="rounded-md bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-700"
+          className="w-full rounded-md bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-700 sm:w-auto"
         >
           + Nueva recepción
         </button>
-        <span className="ml-auto text-sm text-gray-500">
+        <span className="text-center text-sm text-gray-500 sm:ml-auto">
           {total} recepcione{total !== 1 ? "s" : ""}
         </span>
       </div>
 
-      <div className="flex flex-wrap gap-2">
+      <div className="grid grid-cols-1 gap-2 sm:flex sm:flex-wrap">
         <input
           type="text"
           value={search}
           onChange={(e) => setSearch(e.target.value)}
           placeholder="Buscar por albarán..."
-          className="flex-1 min-w-[180px] rounded-md border border-gray-300 px-3 py-2 text-sm text-gray-900 shadow-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
+          className="w-full min-w-0 rounded-md border border-gray-300 px-3 py-2 text-sm text-gray-900 shadow-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500 sm:min-w-[180px] sm:flex-1"
         />
         <select
           value={filtroProveedor}
           onChange={(e) => setFiltroProveedor(e.target.value)}
-          className="rounded-md border border-gray-300 px-3 py-2 text-sm text-gray-900"
+          className="w-full rounded-md border border-gray-300 px-3 py-2 text-sm text-gray-900 sm:w-auto"
         >
           <option value="">Todos los proveedores</option>
           {proveedores.map((p) => (
@@ -325,13 +325,13 @@ export default function RecepcionesPanel() {
           type="date"
           value={fechaDesde}
           onChange={(e) => setFechaDesde(e.target.value)}
-          className="rounded-md border border-gray-300 px-3 py-2 text-sm text-gray-900"
+          className="w-full rounded-md border border-gray-300 px-3 py-2 text-sm text-gray-900 sm:w-auto"
         />
         <input
           type="date"
           value={fechaHasta}
           onChange={(e) => setFechaHasta(e.target.value)}
-          className="rounded-md border border-gray-300 px-3 py-2 text-sm text-gray-900"
+          className="w-full rounded-md border border-gray-300 px-3 py-2 text-sm text-gray-900 sm:w-auto"
         />
       </div>
 
@@ -341,8 +341,8 @@ export default function RecepcionesPanel() {
         <p className="text-sm text-gray-500">No se encontraron recepciones.</p>
       ) : (
         <>
-          <div className="overflow-x-auto rounded-md border bg-white">
-            <table className="w-full text-left text-sm">
+          <div className="overflow-x-auto rounded-md border bg-white [scrollbar-width:thin]">
+            <table className="w-full min-w-max text-left text-sm sm:min-w-0">
               <thead>
                 <tr className="border-b bg-gray-50 text-xs font-medium text-gray-500">
                   <th className="px-3 py-2">Fecha</th>

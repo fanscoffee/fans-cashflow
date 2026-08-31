@@ -172,7 +172,7 @@ export default function OrdersPage() {
     <div className="min-h-screen bg-gray-50">
       <AppHeader title="Fans Cashflow" subtitle="Encargos" />
 
-      <main className="mx-auto max-w-5xl px-4 py-6">
+      <main className="mx-auto max-w-5xl px-4 py-6 pb-24 sm:pb-6">
         {error && (
           <div className="mb-4 rounded-md bg-red-50 p-3 text-sm text-red-600">{error}</div>
         )}
@@ -180,10 +180,10 @@ export default function OrdersPage() {
           <div className="mb-4 rounded-md bg-green-50 p-3 text-sm text-green-600">{success}</div>
         )}
 
-        <section className="rounded-lg border bg-white p-6 shadow-sm">
+        <section className="rounded-lg border bg-white p-4 shadow-sm sm:p-6">
           <div className="mb-4 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
             <h2 className="text-lg font-semibold text-gray-900">Encargos</h2>
-            <div className="flex flex-wrap items-center gap-2">
+            <div className="grid w-full grid-cols-1 gap-2 min-[360px]:grid-cols-2 sm:flex sm:w-auto">
               {showFilters && (
                 <OrderFilters
                   selectedMonth={selectedMonth}
@@ -198,7 +198,7 @@ export default function OrdersPage() {
                   handleCancel()
                   setShowForm(!showForm)
                 }}
-                className="rounded-md bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-700"
+                className="w-full rounded-md bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-700 sm:w-auto"
               >
                 {showForm ? "Cancelar" : "+ Nuevo"}
               </button>

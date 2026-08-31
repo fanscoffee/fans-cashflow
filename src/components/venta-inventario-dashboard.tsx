@@ -29,9 +29,9 @@ function money(value: number | string | null) {
 
 function Card({ label, value, tone = "text-gray-900" }: { label: string; value: string; tone?: string }) {
   return (
-    <div className="rounded-lg border bg-white p-4 shadow-sm">
+    <div className="min-w-0 rounded-lg border bg-white p-4 shadow-sm">
       <p className="text-sm text-gray-500">{label}</p>
-      <p className={`mt-1 text-2xl font-semibold ${tone}`}>{value}</p>
+      <p className={`mt-1 break-words text-2xl font-semibold ${tone}`}>{value}</p>
     </div>
   )
 }
@@ -83,7 +83,7 @@ export default function VentaInventarioDashboard({ month, year }: { month: numbe
           </div>
 
           <div className="rounded-lg border bg-white p-4 shadow-sm">
-            <div className="grid grid-cols-2 gap-3 text-sm sm:grid-cols-4">
+            <div className="grid grid-cols-1 gap-3 text-sm min-[360px]:grid-cols-2 sm:grid-cols-4">
               <div>
                 <span className="text-gray-500">Desviación</span>
                 <p className="font-semibold text-gray-900">{data.resumen.diferenciaPct == null ? "—" : `${data.resumen.diferenciaPct.toFixed(2)}%`}</p>
@@ -102,7 +102,7 @@ export default function VentaInventarioDashboard({ month, year }: { month: numbe
               </div>
               <div>
                 <span className="text-gray-500">Conteos</span>
-                <p className="font-semibold text-gray-900">
+                <p className="break-words font-semibold text-gray-900 [overflow-wrap:anywhere]">
                   {data.conteos.anterior ? `${new Date(data.conteos.anterior.fechaConteo).toLocaleDateString("es-ES")} → ` : "— → "}
                   {data.conteos.actual ? new Date(data.conteos.actual.fechaConteo).toLocaleDateString("es-ES") : "—"}
                 </p>

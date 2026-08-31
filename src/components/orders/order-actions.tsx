@@ -115,7 +115,7 @@ export default function OrderActions({
       <button
         ref={triggerRef}
         onClick={handleOpen}
-        className="rounded p-1 text-gray-500 hover:bg-gray-100 hover:text-gray-700"
+        className="min-h-11 min-w-11 rounded p-2 text-gray-500 hover:bg-gray-100 hover:text-gray-700"
         aria-label="Acciones"
       >
         <svg viewBox="0 0 24 24" fill="currentColor" className="h-5 w-5">
@@ -128,7 +128,7 @@ export default function OrderActions({
       {open && (
         <div
           ref={menuRef}
-          className="fixed z-50 w-48 rounded-md border border-gray-200 bg-white py-1 shadow-lg"
+          className="fixed z-50 max-h-[calc(100dvh-1rem)] w-48 max-w-[calc(100vw-1rem)] overflow-y-auto rounded-md border border-gray-200 bg-white py-1 shadow-lg"
           style={{ top: menuPos.top, left: menuPos.left }}
         >
           {canEdit && (

@@ -24,10 +24,10 @@ export function OpenShiftForm({ fondoInicial, hasOpenShift, dateStr, userRole, o
   })
 
   return (
-    <section className="rounded-lg border bg-white p-6 shadow-sm">
+    <section className="rounded-lg border bg-white p-4 shadow-sm sm:p-6">
       <h2 className="mb-4 text-lg font-semibold text-gray-900">Abrir Turno</h2>
       <form onSubmit={handleSubmit(onSubmit)} className="flex flex-col gap-4 sm:flex-row sm:items-end">
-        <div>
+        <div className="min-w-0 flex-1">
           <label className="block text-sm font-medium text-gray-700">Fecha</label>
           <input
             type="date"
@@ -42,7 +42,7 @@ export function OpenShiftForm({ fondoInicial, hasOpenShift, dateStr, userRole, o
           />
         </div>
 
-        <div>
+        <div className="min-w-0 flex-1">
           <label className="block text-sm font-medium text-gray-700">Turno</label>
           <select
             {...register("turno")}
@@ -56,7 +56,7 @@ export function OpenShiftForm({ fondoInicial, hasOpenShift, dateStr, userRole, o
           )}
         </div>
 
-        <div>
+        <div className="min-w-0 flex-1">
           <label className="block text-sm font-medium text-gray-700">Fondo Inicial</label>
           <input
             type="text"
@@ -69,7 +69,7 @@ export function OpenShiftForm({ fondoInicial, hasOpenShift, dateStr, userRole, o
         <button
           type="submit"
           disabled={isSubmitting || hasOpenShift}
-          className="rounded-md bg-blue-600 px-6 py-2 text-sm font-medium text-white hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 disabled:opacity-50"
+          className="w-full rounded-md bg-blue-600 px-6 py-2 text-sm font-medium text-white hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 disabled:opacity-50 sm:w-auto"
         >
           {isSubmitting ? "Abriendo..." : "Abrir Turno"}
         </button>

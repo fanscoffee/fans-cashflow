@@ -63,7 +63,7 @@ export default function LoginPage() {
 
   return (
     <div className="flex min-h-screen items-center justify-center bg-gray-50 px-4">
-      <div className="w-full max-w-sm rounded-lg border bg-white p-8 shadow-sm">
+      <div className="w-full max-w-sm rounded-lg border bg-white p-6 shadow-sm sm:p-8">
         <div className="mb-6 text-center">
           <h1 className="text-2xl font-bold text-gray-900">Fans Cashflow</h1>
           <p className="mt-1 text-sm text-gray-500">Inicia sesión en tu cuenta</p>

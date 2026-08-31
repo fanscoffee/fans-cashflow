@@ -97,14 +97,14 @@ export default function HistorialTurnosPage() {
         subtitle="Fans Cashflow"
       />
 
-      <main className="mx-auto max-w-5xl px-4 py-6">
-        <section className="rounded-lg border bg-white p-6 shadow-sm">
+      <main className="mx-auto max-w-5xl px-4 py-6 pb-24 sm:pb-6">
+        <section className="rounded-lg border bg-white p-4 shadow-sm sm:p-6">
           <h2 className="mb-4 text-lg font-semibold text-gray-900">Historial de Turnos</h2>
 
           {/* Filters */}
           <div className="mb-4 rounded-md border border-gray-200 bg-gray-50 p-4">
-            <div className="grid grid-cols-2 gap-3 sm:flex sm:flex-wrap sm:items-end">
-              <div className="min-w-0 overflow-hidden sm:min-w-[140px]">
+            <div className="grid grid-cols-1 gap-3 sm:flex sm:flex-wrap sm:items-end">
+              <div className="min-w-0 sm:min-w-[140px]">
                 <label className="block text-xs font-medium text-gray-600">Desde</label>
                 <input
                   type="date"
@@ -113,7 +113,7 @@ export default function HistorialTurnosPage() {
                   className="mt-1 block w-full min-w-0 rounded-md border border-gray-300 px-2 py-1.5 text-sm text-gray-900 focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
                 />
               </div>
-              <div className="min-w-0 overflow-hidden sm:min-w-[140px]">
+              <div className="min-w-0 sm:min-w-[140px]">
                 <label className="block text-xs font-medium text-gray-600">Hasta</label>
                 <input
                   type="date"
@@ -146,7 +146,7 @@ export default function HistorialTurnosPage() {
                   <option value="CERRADO">Cerrado</option>
                 </select>
               </div>
-              <div className="col-span-2 min-w-0 sm:col-span-1 sm:min-w-[180px]">
+              <div className="min-w-0 sm:min-w-[180px]">
                 <label className="block text-xs font-medium text-gray-600">Persona</label>
                 <input
                   type="text"
@@ -158,7 +158,7 @@ export default function HistorialTurnosPage() {
               </div>
               <button
                 onClick={resetFilters}
-                className="col-span-2 w-full rounded-md border border-gray-300 px-4 py-1.5 text-sm text-gray-600 hover:bg-gray-100 sm:col-span-1 sm:w-auto"
+                className="w-full rounded-md border border-gray-300 px-4 py-2 text-sm text-gray-600 hover:bg-gray-100 sm:w-auto sm:py-1.5"
               >
                 Limpiar
               </button>
@@ -190,8 +190,8 @@ export default function HistorialTurnosPage() {
                     )
                     return (
                       <div key={day} className="rounded-lg border border-gray-200 bg-gray-50 p-4">
-                        <div className="mb-3 flex items-center justify-between border-b border-gray-200 pb-2">
-                          <h3 className="font-semibold text-gray-900">
+                        <div className="mb-3 flex flex-col gap-2 border-b border-gray-200 pb-2 sm:flex-row sm:items-center sm:justify-between">
+                          <h3 className="break-words font-semibold text-gray-900 [overflow-wrap:anywhere]">
                             {new Date(day + "T00:00:00").toLocaleDateString("es-ES", { weekday: "long", day: "numeric", month: "long", year: "numeric" })}
                           </h3>
                           <span className="rounded-md bg-blue-50 px-3 py-1 text-sm font-bold text-blue-700">
@@ -224,7 +224,7 @@ export default function HistorialTurnosPage() {
                                     </span>
                                   </div>
                                 </div>
-                                <div className="mt-2 grid grid-cols-2 gap-2 text-sm md:grid-cols-4">
+                        <div className="mt-2 grid grid-cols-1 gap-2 text-sm min-[420px]:grid-cols-2 md:grid-cols-4">
                                   <div>
                                     <span className="text-gray-500">F. Inicial:</span>{" "}
                                      <span className="font-medium text-gray-900">{toN(shift.fondoInicial).toFixed(2)}</span>
@@ -259,8 +259,8 @@ export default function HistorialTurnosPage() {
                                     <div className="space-y-1">
                                       {shift.expenses.map((expense) => (
                                         <div key={expense.id} className="flex justify-between text-xs">
-                                          <span className="text-gray-600">{expense.proveedor}</span>
-                                          <span className="font-medium text-gray-900">{toN(expense.importe).toFixed(2)}</span>
+                                      <span className="min-w-0 break-words text-gray-600 [overflow-wrap:anywhere]">{expense.proveedor}</span>
+                                      <span className="shrink-0 font-medium text-gray-900">{toN(expense.importe).toFixed(2)}</span>
                                         </div>
                                       ))}
                                     </div>
@@ -272,8 +272,8 @@ export default function HistorialTurnosPage() {
                                     <div className="space-y-1">
                                       {currentExpenses.map((expense) => (
                                         <div key={expense.id} className="flex justify-between gap-3 text-xs">
-                                          <span className="text-gray-700">{expense.concepto} · {expense.categoria.codigo} · {expense.estado === "PENDIENTE_AUTORIZACION" ? "Pendiente de autorización" : expense.estado} · {expense.solicitante.name || expense.solicitante.email}</span>
-                                          <span className="whitespace-nowrap font-medium text-gray-900">{toN(expense.importe).toFixed(2)}</span>
+                                          <span className="min-w-0 break-words text-gray-700 [overflow-wrap:anywhere]">{expense.concepto} · {expense.categoria.codigo} · {expense.estado === "PENDIENTE_AUTORIZACION" ? "Pendiente de autorización" : expense.estado} · {expense.solicitante.name || expense.solicitante.email}</span>
+                                          <span className="shrink-0 whitespace-nowrap font-medium text-gray-900">{toN(expense.importe).toFixed(2)}</span>
                                         </div>
                                       ))}
                                     </div>

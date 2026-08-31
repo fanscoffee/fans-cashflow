@@ -106,15 +106,15 @@ export default function EfectivoPage() {
     <div className="min-h-screen bg-gray-50">
       <AppHeader title="Fans Cashflow" subtitle="Tracking de Efectivo" />
 
-      <main className="mx-auto max-w-5xl px-4 py-6">
-        <section className="rounded-lg border bg-white p-6 shadow-sm">
+      <main className="mx-auto max-w-5xl px-4 py-6 pb-24 sm:pb-6">
+        <section className="rounded-lg border bg-white p-4 shadow-sm sm:p-6">
           <div className="mb-4 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
             <h2 className="text-lg font-semibold text-gray-900">Efectivo por Turno</h2>
-            <div className="flex flex-wrap items-center gap-2">
+            <div className="grid w-full grid-cols-2 gap-2 sm:flex sm:w-auto">
               <select
                 value={selectedMonth}
                 onChange={(e) => setSelectedMonth(parseInt(e.target.value))}
-                className="rounded-md border border-gray-300 px-3 py-1.5 text-sm text-gray-900 focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
+                className="w-full rounded-md border border-gray-300 px-3 py-2 text-sm text-gray-900 focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500 sm:w-auto sm:py-1.5"
               >
                 {MONTH_NAMES.map((name, i) => (
                   <option key={i + 1} value={i + 1}>{name}</option>
@@ -123,7 +123,7 @@ export default function EfectivoPage() {
               <select
                 value={selectedYear}
                 onChange={(e) => setSelectedYear(parseInt(e.target.value))}
-                className="rounded-md border border-gray-300 px-3 py-1.5 text-sm text-gray-900 focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
+                className="w-full rounded-md border border-gray-300 px-3 py-2 text-sm text-gray-900 focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500 sm:w-auto sm:py-1.5"
               >
                 {[selectedYear, selectedYear - 1, selectedYear - 2].map((y) => (
                   <option key={y} value={y}>{y}</option>
@@ -132,7 +132,7 @@ export default function EfectivoPage() {
               <button
                 onClick={handleExport}
                 disabled={shifts.length === 0}
-                className="rounded-md bg-green-600 px-4 py-1.5 text-sm font-medium text-white hover:bg-green-700 disabled:opacity-50"
+                className="col-span-2 w-full rounded-md bg-green-600 px-4 py-2 text-sm font-medium text-white hover:bg-green-700 disabled:opacity-50 sm:col-span-1 sm:w-auto sm:py-1.5"
               >
                 Exportar
               </button>
@@ -147,7 +147,7 @@ export default function EfectivoPage() {
               <div className="space-y-2 sm:hidden">
                 {shifts.map((shift) => (
                   <div key={shift.id} className="rounded-md border border-gray-200 bg-gray-50 p-3">
-                    <div className="mb-2 flex items-center justify-between">
+                    <div className="mb-2 flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
                       <div className="flex items-center gap-2">
                         <span className="text-xs text-gray-500">{new Date(shift.date).toLocaleDateString("es-ES")}</span>
                         <span className={`rounded px-1.5 py-0.5 text-xs font-medium ${shift.turno === "mañana" ? "bg-amber-100 text-amber-700" : "bg-blue-100 text-blue-700"}`}>
@@ -156,9 +156,9 @@ export default function EfectivoPage() {
                       </div>
                       <span className="text-sm font-bold text-gray-900">{toFixed(shift.efectivo)} €</span>
                     </div>
-                    <div className="flex gap-2">
+                      <div className="grid grid-cols-2 gap-2">
                         {DESTINATION_KEYS.map((dest) => (
-                        <label key={dest} className={`flex flex-1 cursor-pointer items-center justify-center gap-1 rounded-md border px-2 py-1.5 text-xs font-medium transition-colors ${
+                        <label key={dest} className={`flex min-h-11 min-w-0 cursor-pointer items-center justify-center gap-1 rounded-md border px-2 py-2 text-center text-xs font-medium transition-colors ${
                           shift.cashTracking?.destination === dest
                             ? "border-blue-500 bg-blue-50 text-blue-700"
                             : "border-gray-200 bg-white text-gray-600 hover:bg-gray-50"
