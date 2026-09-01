@@ -49,6 +49,7 @@ interface DashboardData {
   exportExpenses: {
     fecha: string
     turno: string
+    concepto: string
     proveedor: string
     importe: number
     creadoPor: string
