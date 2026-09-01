@@ -74,6 +74,11 @@ enum EstadoCircuitoFactura {
   ANULADA
 }
 
+enum OrigenFacturaGestoria {
+  OCR
+  MANUAL
+}
+
 enum JustificanteGasto {
   FACTURA
   RECIBO
@@ -200,6 +205,7 @@ model User {
   contratosAutorizados     ContratoRecurrente[]
   anticiposSolicitados     Anticipo[]              @relation("AnticipoSolicitante")
   anticiposAutorizados     Anticipo[]              @relation("AnticipoAutorizador")
+  facturasGestoria         FacturaGestoria[]
 }
 
 model Passkey {
@@ -545,6 +551,41 @@ model FacturaImpuesto {
 
   @@index([facturaId])
   @@index([tipo])
+}
+
+model FacturaGestoria {
+  id                String                @id @default(cuid())
+  fecha             DateTime              @db.Date
+  facturaNumero     String                @default("")
+  proveedorAcreedor String
+  nif               String                @default("")
+  concepto          String                @default("")
+  baseExenta        Decimal               @default(0) @db.Decimal(12, 2)
+  base21            Decimal               @default(0) @db.Decimal(12, 2)
+  iva21             Decimal               @default(0) @db.Decimal(12, 2)
+  base10            Decimal               @default(0) @db.Decimal(12, 2)
+  iva10             Decimal               @default(0) @db.Decimal(12, 2)
+  base4             Decimal               @default(0) @db.Decimal(12, 2)
+  iva4              Decimal               @default(0) @db.Decimal(12, 2)
+  base2             Decimal               @default(0) @db.Decimal(12, 2)
+  iva2              Decimal               @default(0) @db.Decimal(12, 2)
+  totalBase         Decimal               @default(0) @db.Decimal(12, 2)
+  totalIva          Decimal               @default(0) @db.Decimal(12, 2)
+  irpf              Decimal               @default(0) @db.Decimal(12, 2)
+  totalFactura      Decimal               @db.Decimal(12, 2)
+  formaPago         String                @default("")
+  textoOCR          String?
+  origen            OrigenFacturaGestoria @default(MANUAL)
+  alertas           Json?
+  creadoPorId       String
+  createdAt         DateTime              @default(now())
+  updatedAt         DateTime              @updatedAt
+
+  creadoPor User @relation(fields: [creadoPorId], references: [id])
+
+  @@index([fecha])
+  @@index([nif, facturaNumero])
+  @@index([creadoPorId])
 }
 
 model RecepcionLinea {

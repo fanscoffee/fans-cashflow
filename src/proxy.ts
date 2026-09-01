@@ -8,6 +8,7 @@ export default auth((req) => {
 
   const isLoginPage = pathname === "/" || pathname === "/login"
   const isDashboardPage = pathname.startsWith("/admin") || pathname.startsWith("/socio") || pathname.startsWith("/empleado")
+  const isGestoriaPage = pathname.startsWith("/gestoria")
   const isOrdersPage = pathname.startsWith("/encargos")
 
   // Logged in user visiting login/root → redirect to their dashboard
@@ -17,12 +18,12 @@ export default auth((req) => {
   }
 
   // Not logged in visiting dashboard or orders → redirect to login (root)
-  if (!session && (isDashboardPage || isOrdersPage)) {
+  if (!session && (isDashboardPage || isGestoriaPage || isOrdersPage)) {
     return NextResponse.redirect(new URL("/", req.url))
   }
 
   // Logged in user on dashboard → role check
-  if (session && isDashboardPage) {
+  if (session && (isDashboardPage || isGestoriaPage)) {
     const role = session.user?.role as string
 
     if (role === "ADMIN" || role === "SOCIO") return NextResponse.next()
@@ -42,5 +43,5 @@ export default auth((req) => {
 })
 
 export const config = {
-  matcher: ["/", "/login", "/admin/:path*", "/socio/:path*", "/empleado/:path*", "/encargos/:path*"],
+  matcher: ["/", "/login", "/admin/:path*", "/socio/:path*", "/empleado/:path*", "/gestoria/:path*", "/encargos/:path*"],
 }

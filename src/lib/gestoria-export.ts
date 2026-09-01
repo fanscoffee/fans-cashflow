@@ -82,6 +82,28 @@ export type GestoriaLegacyExpenseSource = {
   shift: { date: Date; turno: string }
 }
 
+export type GestoriaCapturedSource = {
+  fecha: Date
+  facturaNumero: string
+  proveedorAcreedor: string
+  nif: string
+  concepto: string
+  baseExenta: NumericValue
+  base21: NumericValue
+  iva21: NumericValue
+  base10: NumericValue
+  iva10: NumericValue
+  base4: NumericValue
+  iva4: NumericValue
+  base2: NumericValue
+  iva2: NumericValue
+  totalBase: NumericValue
+  totalIva: NumericValue
+  irpf: NumericValue
+  totalFactura: NumericValue
+  formaPago: string
+}
+
 export type GestoriaExportRow = {
   numero: number
   fecha: Date
@@ -267,12 +289,44 @@ function legacyExpenseRow(expense: GestoriaLegacyExpenseSource): GestoriaExportR
   }
 }
 
+function capturedRow(invoice: GestoriaCapturedSource): GestoriaExportRow {
+  return {
+    numero: 0,
+    fecha: invoice.fecha,
+    facturaNumero: invoice.facturaNumero,
+    proveedor: invoice.proveedorAcreedor,
+    nif: invoice.nif,
+    concepto: invoice.concepto,
+    baseExenta: money(invoice.baseExenta),
+    base21: money(invoice.base21),
+    iva21: money(invoice.iva21),
+    base10: money(invoice.base10),
+    iva10: money(invoice.iva10),
+    base4: money(invoice.base4),
+    iva4: money(invoice.iva4),
+    base2: money(invoice.base2),
+    iva2: money(invoice.iva2),
+    totalBase: money(invoice.totalBase),
+    totalIva: money(invoice.totalIva),
+    irpf: money(invoice.irpf),
+    totalFactura: money(invoice.totalFactura),
+    formaPago: invoice.formaPago,
+  }
+}
+
 export function buildGestoriaRows(sources: GestoriaSources) {
   return [
     ...sources.facturas.map(invoiceRow),
     ...sources.gastos.map(expenseRow),
     ...sources.gastosLegacy.map(legacyExpenseRow),
   ]
+    .sort((left, right) => left.fecha.getTime() - right.fecha.getTime() || left.proveedor.localeCompare(right.proveedor, "es"))
+    .map((row, index) => ({ ...row, numero: index + 1 }))
+}
+
+export function buildCapturedGestoriaRows(invoices: GestoriaCapturedSource[]) {
+  return invoices
+    .map(capturedRow)
     .sort((left, right) => left.fecha.getTime() - right.fecha.getTime() || left.proveedor.localeCompare(right.proveedor, "es"))
     .map((row, index) => ({ ...row, numero: index + 1 }))
 }
