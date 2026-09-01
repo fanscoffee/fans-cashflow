@@ -24,6 +24,7 @@ async function requireOpenShift(shiftId: string, userId: string, role: string) {
 }
 
 export const GET = withAuth(async (_req, session, context) => {
+  if (session.user.role === "OBRADOR") return NextResponse.json({ error: "No autorizado" }, { status: 403 })
   try {
     const { shiftId } = await context.params
     await requireOpenShift(shiftId, session.user.id, session.user.role)
@@ -46,6 +47,7 @@ export const GET = withAuth(async (_req, session, context) => {
 })
 
 export const POST = withAuth(async (req, session, context) => {
+  if (session.user.role === "OBRADOR") return NextResponse.json({ error: "No autorizado" }, { status: 403 })
   try {
     const { shiftId } = await context.params
     const input = createShiftExpenseSchema.parse(await req.json())

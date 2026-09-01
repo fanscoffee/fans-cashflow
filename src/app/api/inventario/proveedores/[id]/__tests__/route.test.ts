@@ -3,7 +3,7 @@ import type { NextRequest } from "next/server"
 
 vi.mock("@/lib/prisma", () => ({
   prisma: {
-    proveedor: { findUnique: vi.fn(), delete: vi.fn() },
+    proveedor: { findUnique: vi.fn(), findFirst: vi.fn(), update: vi.fn(), delete: vi.fn() },
     proveedorProducto: { count: vi.fn() },
     recepcion: { count: vi.fn() },
     factura: { count: vi.fn() },
@@ -15,7 +15,7 @@ vi.mock("@/lib/auth", () => ({
   auth: vi.fn(),
 }))
 
-import { DELETE } from "../route"
+import { DELETE, GET, PATCH } from "../route"
 import { prisma } from "@/lib/prisma"
 import { auth } from "@/lib/auth"
 
@@ -88,5 +88,54 @@ describe("DELETE /api/inventario/proveedores/[id]", () => {
 
     expect(response.status).toBe(200)
     expect(prisma.proveedor.delete).toHaveBeenCalledWith({ where: { id: "provider-1" } })
+  })
+})
+
+describe("GET/PATCH /api/inventario/proveedores/[id]", () => {
+  const getRequest = new Request("http://localhost/api/inventario/proveedores/provider-1") as unknown as NextRequest
+  const patchRequest = (body: unknown) => new Request("http://localhost/api/inventario/proveedores/provider-1", {
+    method: "PATCH",
+    headers: { "content-type": "application/json" },
+    body: JSON.stringify(body),
+  }) as unknown as NextRequest
+  const context = { params: Promise.resolve({ id: "provider-1" }) }
+
+  beforeEach(() => {
+    vi.clearAllMocks()
+    vi.mocked(auth).mockResolvedValue({ user: { id: "admin-1", role: "ADMIN" } } as any)
+    vi.mocked(prisma.proveedor.findUnique).mockResolvedValue({ id: "provider-1", razonSocial: "Proveedor", productos: [] } as any)
+    vi.mocked(prisma.proveedor.findFirst).mockResolvedValue(null)
+    vi.mocked(prisma.proveedor.update).mockResolvedValue({ id: "provider-1", razonSocial: "Proveedor actualizado" } as any)
+  })
+
+  it("gets a provider and returns not found when it is missing", async () => {
+    const response = await GET(getRequest, context)
+    expect(response.status).toBe(200)
+    await expect(response.json()).resolves.toMatchObject({ id: "provider-1", productos: [] })
+
+    vi.mocked(prisma.proveedor.findUnique).mockResolvedValue(null)
+    expect((await GET(getRequest, context)).status).toBe(404)
+  })
+
+  it("updates a provider and rejects duplicate CIF/NIF values", async () => {
+    const response = await PATCH(patchRequest({ razonSocial: "Proveedor actualizado" }), context)
+    expect(response.status).toBe(200)
+    expect(prisma.proveedor.update).toHaveBeenCalledWith({
+      where: { id: "provider-1" },
+      data: { razonSocial: "Proveedor actualizado" },
+    })
+
+    vi.mocked(prisma.proveedor.findFirst).mockResolvedValue({ id: "provider-2" } as any)
+    const conflict = await PATCH(patchRequest({ cifNif: "B12345678" }), context)
+    expect(conflict.status).toBe(400)
+    await expect(conflict.json()).resolves.toMatchObject({ error: expect.stringContaining("B12345678") })
+  })
+
+  it("returns persistence errors from provider updates", async () => {
+    vi.mocked(prisma.proveedor.update).mockRejectedValue(new Error("provider update failed"))
+
+    const response = await PATCH(patchRequest({ razonSocial: "Proveedor actualizado" }), context)
+    expect(response.status).toBe(500)
+    await expect(response.json()).resolves.toEqual({ error: "provider update failed" })
   })
 })

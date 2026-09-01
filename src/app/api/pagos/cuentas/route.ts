@@ -17,10 +17,14 @@ const accountSchema = z.object({
 })
 
 export const GET = withAuth(async (req, session) => {
-  const entity = new URL(req.url).searchParams.get("entidad")
   try {
-    await requirePaymentFunction(session.user.id, "SOLICITAR", entity === "OBRADOR" || entity === "CAFETERIA" ? entity : undefined, session.user.role)
-    const accounts = await prisma.cuentaFondos.findMany({ where: entity === "OBRADOR" || entity === "CAFETERIA" ? { entidad: entity } : {}, orderBy: [{ entidad: "asc" }, { id: "asc" }] })
+    const rawEntity = new URL(req.url).searchParams.get("entidad")
+    const entity = rawEntity === null || rawEntity === "" ? undefined : rawEntity
+    if (entity !== undefined && entity !== "OBRADOR" && entity !== "CAFETERIA") {
+      return NextResponse.json({ error: "Entidad no válida" }, { status: 400 })
+    }
+    await requirePaymentFunction(session.user.id, "SOLICITAR", entity, session.user.role)
+    const accounts = await prisma.cuentaFondos.findMany({ where: entity ? { entidad: entity } : {}, orderBy: [{ entidad: "asc" }, { id: "asc" }] })
     return NextResponse.json(accounts)
   } catch (error) {
     return paymentErrorResponse(error)

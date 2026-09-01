@@ -17,10 +17,16 @@ export const POST = withAuth(async () => {
 })
 
 export const PATCH = withAuth(async (req, session, context) => {
+  if (session.user.role === "OBRADOR") {
+    return NextResponse.json({ error: "No autorizado" }, { status: 403 })
+  }
   const { shiftId } = await context.params
   const shift = await checkAccess(shiftId, session.user.id, session.user.role)
   if (!shift) {
     return NextResponse.json({ error: "Turno no encontrado" }, { status: 404 })
+  }
+  if (shift.status !== "ABIERTO") {
+    return NextResponse.json({ error: "El turno ya está cerrado" }, { status: 409 })
   }
 
   try {
@@ -30,6 +36,14 @@ export const PATCH = withAuth(async (req, session, context) => {
       proveedor: z.string().min(1).optional(),
       importe: z.number().min(0.01).optional(),
     }).parse(body)
+
+    const existingExpense = await prisma.expense.findFirst({
+      where: { id: data.expenseId, shiftId },
+      select: { id: true },
+    })
+    if (!existingExpense) {
+      return NextResponse.json({ error: "Gasto no encontrado" }, { status: 404 })
+    }
 
     const expense = await prisma.expense.update({
       where: { id: data.expenseId },
@@ -57,18 +71,32 @@ export const PATCH = withAuth(async (req, session, context) => {
 })
 
 export const DELETE = withAuth(async (req, session, context) => {
+  if (session.user.role === "OBRADOR") {
+    return NextResponse.json({ error: "No autorizado" }, { status: 403 })
+  }
   const { shiftId } = await context.params
   const shift = await checkAccess(shiftId, session.user.id, session.user.role)
   if (!shift) {
     return NextResponse.json({ error: "Turno no encontrado" }, { status: 404 })
   }
+  if (shift.status !== "ABIERTO") {
+    return NextResponse.json({ error: "El turno ya está cerrado" }, { status: 409 })
+  }
 
   try {
-    const { expenseId } = await req.json()
-    await prisma.expense.delete({ where: { id: expenseId } })
+    const { expenseId } = z.object({ expenseId: z.string().min(1) }).parse(await req.json())
+    const existingExpense = await prisma.expense.findFirst({
+      where: { id: expenseId, shiftId },
+      select: { id: true },
+    })
+    if (!existingExpense) return NextResponse.json({ error: "Gasto no encontrado" }, { status: 404 })
+    await prisma.expense.delete({ where: { id: existingExpense.id } })
     await recalculateShiftFondoFinal(shiftId)
     return NextResponse.json({ ok: true })
-  } catch {
+  } catch (error) {
+    if (error instanceof z.ZodError) {
+      return NextResponse.json({ error: error.issues[0]?.message || "Datos no válidos" }, { status: 400 })
+    }
     return NextResponse.json(
       { error: "Error al eliminar el gasto" },
       { status: 500 }

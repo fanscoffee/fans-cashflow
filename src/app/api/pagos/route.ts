@@ -4,8 +4,8 @@ import { createPayment, createPaymentSchema, getPaymentDashboard, requirePayment
 import { parseEntity, paymentErrorResponse } from "@/lib/pagos-http"
 
 export const GET = withAuth(async (req, session) => {
-  const entity = parseEntity(new URL(req.url).searchParams.get("entidad"))
   try {
+    const entity = parseEntity(new URL(req.url).searchParams.get("entidad"))
     // The dashboard contains balances and creditor data, not just public status.
     await requirePaymentFunction(session.user.id, "SOLICITAR", entity, session.user.role)
     const dashboard = await getPaymentDashboard(entity)

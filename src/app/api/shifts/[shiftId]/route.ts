@@ -69,6 +69,9 @@ function hasPaymentDifference(cierre: z.infer<typeof cierreTurnoSchema>) {
 }
 
 export const PATCH = withAuth(async (req, session, context) => {
+  if (session.user.role === "OBRADOR") {
+    return NextResponse.json({ error: "No autorizado" }, { status: 403 })
+  }
   const { shiftId } = await context.params
 
   const shift = await prisma.shift.findUnique({ where: { id: shiftId } })
@@ -91,6 +94,10 @@ export const PATCH = withAuth(async (req, session, context) => {
     return NextResponse.json({ error: parsedData.error.issues[0]?.message || "Datos no válidos" }, { status: 400 })
   }
   const data = parsedData.data
+
+  if (!isAdminOrSocio && data.fondoInicial !== undefined) {
+    return NextResponse.json({ error: "El fondo inicial solo puede cambiarse desde una operación autorizada" }, { status: 403 })
+  }
 
   if (data.sinInformacion && data.status !== "CERRADO") {
     return NextResponse.json({ error: "El cierre sin información debe cerrar el turno" }, { status: 400 })

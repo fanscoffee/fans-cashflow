@@ -1,7 +1,34 @@
 import { NextResponse } from "next/server"
 import { Prisma } from "@/generated/prisma/client"
+import { z } from "zod"
 import { prisma } from "@/lib/prisma"
 import { withAuth } from "@/lib/with-auth"
+
+const catalogType = z.enum([
+  "TIPO_ARTICULO",
+  "SECCION",
+  "FAMILIA",
+  "SUBFAMILIA",
+  "UNIDAD_MEDIDA",
+  "SI_NO",
+  "VALORACION",
+  "METODO_PRECIO",
+  "CLASE_ABC",
+  "UBICACION",
+  "CONSERVACION",
+  "ESTADO",
+  "CODIGO_IVA",
+  "ALERGENO",
+  "PROVEEDOR",
+])
+
+const catalogUpdateSchema = z.object({
+  tipo: catalogType.optional(),
+  valor: z.string().trim().min(1).max(120).optional(),
+  descripcion: z.string().trim().max(500).nullable().optional(),
+  prefijoCodigo: z.string().trim().max(3).nullable().optional(),
+  activo: z.boolean().optional(),
+}).strict()
 
 const PRODUCTO_CATALOGO_FIELDS: Record<string, string[]> = {
   TIPO_ARTICULO: ["tipoArticulo"],
@@ -45,6 +72,7 @@ export const PATCH = withAuth(async (req, session, context) => {
 
   try {
     const body = await req.json()
+    const input = catalogUpdateSchema.parse(body)
     const current = await prisma.catalogo.findUnique({
       where: { id },
       select: { tipo: true, valor: true, prefijoCodigo: true },
@@ -52,14 +80,21 @@ export const PATCH = withAuth(async (req, session, context) => {
     if (!current) {
       return NextResponse.json({ error: "Catálogo no encontrado" }, { status: 404 })
     }
+    if (input.tipo !== undefined && input.tipo !== current.tipo) {
+      return NextResponse.json({ error: "El tipo de catálogo es inmutable" }, { status: 400 })
+    }
 
-    const data = { ...body }
-    if (body.prefijoCodigo !== undefined) {
+    const data: Record<string, unknown> = {}
+    if (input.tipo !== undefined) data.tipo = current.tipo
+    if (input.valor !== undefined) data.valor = input.valor
+    if (input.descripcion !== undefined) data.descripcion = input.descripcion
+    if (input.activo !== undefined) data.activo = input.activo
+    if (input.prefijoCodigo !== undefined) {
       if (current.tipo !== "FAMILIA") {
         return NextResponse.json({ error: "El prefijo solo aplica a familias" }, { status: 400 })
       }
-      const prefijoCodigo = typeof body.prefijoCodigo === "string"
-        ? body.prefijoCodigo.trim().toUpperCase()
+      const prefijoCodigo = typeof input.prefijoCodigo === "string"
+        ? input.prefijoCodigo.toUpperCase()
         : ""
       if (!/^[A-Z]{3}$/.test(prefijoCodigo)) {
         return NextResponse.json({ error: "El prefijo de familia debe tener 3 letras mayúsculas" }, { status: 400 })
@@ -73,11 +108,11 @@ export const PATCH = withAuth(async (req, session, context) => {
       data.prefijoCodigo = prefijoCodigo
     }
 
-    if (body.valor) {
+    if (input.valor) {
       const existing = await prisma.catalogo.findFirst({
         where: {
-          tipo: body.tipo || undefined,
-          valor: body.valor,
+          tipo: current.tipo,
+          valor: input.valor,
           id: { not: id },
         },
       })
@@ -96,6 +131,9 @@ export const PATCH = withAuth(async (req, session, context) => {
 
     return NextResponse.json(catalogo)
   } catch (error) {
+    if (error instanceof z.ZodError) {
+      return NextResponse.json({ error: error.issues[0]?.message || "Datos no válidos" }, { status: 400 })
+    }
     if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === "P2002") {
       return NextResponse.json({ error: "Ya existe ese prefijo de familia" }, { status: 400 })
     }

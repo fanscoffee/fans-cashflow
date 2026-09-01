@@ -4,10 +4,10 @@ import { prisma } from "@/lib/prisma"
 import { withAuth } from "@/lib/with-auth"
 
 const orderSchema = z.object({
-  clientName: z.string().min(1, "El nombre del cliente es obligatorio"),
-  clientPhone: z.string().min(1, "El teléfono del cliente es obligatorio"),
-  deliveryDate: z.string(),
-  comment: z.string().optional(),
+  clientName: z.string().trim().min(1, "El nombre del cliente es obligatorio").max(160),
+  clientPhone: z.string().trim().min(1, "El teléfono del cliente es obligatorio").max(40),
+  deliveryDate: z.string().refine((value) => Number.isFinite(new Date(value).getTime()), "Fecha no válida"),
+  comment: z.string().trim().max(1000).optional(),
 })
 
 export const GET = withAuth(async (req, session) => {
@@ -21,8 +21,13 @@ export const GET = withAuth(async (req, session) => {
   const where: Record<string, unknown> = {}
 
   if (isAdminOrSocio && month && year) {
-    const startDate = new Date(Number(year), Number(month) - 1, 1)
-    const endDate = new Date(Number(year), Number(month), 1)
+    const monthNumber = Number(month)
+    const yearNumber = Number(year)
+    if (!Number.isInteger(monthNumber) || monthNumber < 1 || monthNumber > 12 || !Number.isInteger(yearNumber) || yearNumber < 2000 || yearNumber > 2100) {
+      return NextResponse.json({ error: "Periodo no válido" }, { status: 400 })
+    }
+    const startDate = new Date(yearNumber, monthNumber - 1, 1)
+    const endDate = new Date(yearNumber, monthNumber, 1)
     where.deliveryDate = { gte: startDate, lt: endDate }
   } else if (!isAdminOrSocio) {
     const today = new Date()

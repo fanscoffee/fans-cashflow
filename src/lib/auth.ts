@@ -3,6 +3,13 @@ import Credentials from "next-auth/providers/credentials"
 import { PrismaAdapter } from "@auth/prisma-adapter"
 import bcrypt from "bcryptjs"
 import { prisma } from "./prisma"
+import { checkRateLimit, requestAddress } from "./rate-limit"
+
+const authSecret = process.env.AUTH_SECRET || process.env.NEXTAUTH_SECRET
+
+if (process.env.NODE_ENV === "production" && (!authSecret || authSecret.length < 32)) {
+  throw new Error("AUTH_SECRET debe tener al menos 32 caracteres en producción")
+}
 
 export const { handlers, signIn, signOut, auth } = NextAuth({
   adapter: PrismaAdapter(prisma),
@@ -12,33 +19,27 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
         email: { label: "Email", type: "email" },
         password: { label: "Password", type: "password" },
       },
-      async authorize(credentials) {
-        const { email, password } = credentials as {
-          email: string
-          password: string
-        }
+      async authorize(credentials, request) {
+        const email = typeof credentials?.email === "string" ? credentials.email.trim().toLowerCase() : ""
+        const password = typeof credentials?.password === "string" ? credentials.password : ""
 
-        console.log("[Auth] Intento de login:", email)
+        if (!email || !password) return null
+        const addressLimit = checkRateLimit(`password-login:${requestAddress(request)}`, 20, 60_000)
+        const accountLimit = checkRateLimit(`password-account:${email}`, 10, 15 * 60_000)
+        if (!addressLimit.allowed || !accountLimit.allowed) return null
 
         const user = await prisma.user.findUnique({ where: { email } })
-        if (!user) {
-          console.log("[Auth] Usuario no encontrado:", email)
-          return null
-        }
+        if (!user) return null
 
-        console.log("[Auth] Usuario encontrado, verificando contraseña...")
         const isValid = await bcrypt.compare(password, user.password)
-        if (!isValid) {
-          console.log("[Auth] Contraseña incorrecta para:", email)
-          return null
-        }
+        if (!isValid) return null
 
-        console.log("[Auth] Login exitoso:", email, "rol:", user.role)
         return {
           id: user.id,
           email: user.email,
           name: user.name,
           role: user.role,
+          authVersion: user.authVersion,
         }
       },
     }),
@@ -46,23 +47,46 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
       id: "passkey-credentials",
       name: "Passkey",
       credentials: {
-        userId: { label: "User ID", type: "text" },
+        challenge: { label: "WebAuthn challenge", type: "text" },
       },
       async authorize(credentials) {
-        const { userId } = credentials as { userId: string }
+        const challenge = typeof credentials?.challenge === "string" ? credentials.challenge : ""
+        if (!challenge) return null
 
-        const user = await prisma.user.findUnique({ where: { id: userId } })
-        if (!user) {
-          console.log("[Auth] Passkey: Usuario no encontrado:", userId)
-          return null
-        }
+        const now = new Date()
+        const grant = await prisma.webAuthnChallenge.findFirst({
+          where: {
+            challenge,
+            purpose: "AUTHENTICATION",
+            expiresAt: { gt: now },
+            verifiedAt: { not: null },
+            consumedAt: null,
+            verifiedUserId: { not: null },
+          },
+          select: { id: true, verifiedUserId: true },
+        })
+        if (!grant?.verifiedUserId) return null
 
-        console.log("[Auth] Passkey login exitoso:", user.email, "rol:", user.role)
+        const consumed = await prisma.webAuthnChallenge.updateMany({
+          where: {
+            id: grant.id,
+            expiresAt: { gt: now },
+            verifiedAt: { not: null },
+            consumedAt: null,
+          },
+          data: { consumedAt: now },
+        })
+        if (consumed.count !== 1) return null
+
+        const user = await prisma.user.findUnique({ where: { id: grant.verifiedUserId } })
+        if (!user) return null
+
         return {
           id: user.id,
           email: user.email,
           name: user.name,
           role: user.role,
+          authVersion: user.authVersion,
         }
       },
     }),
@@ -72,6 +96,31 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
       if (user) {
         token.role = user.role
         token.id = user.id
+        token.authVersion = (user as typeof user & { authVersion?: number }).authVersion
+      }
+
+      if (typeof token.id === "string") {
+        const currentUser = await prisma.user.findUnique({
+          where: { id: token.id },
+          select: { id: true, email: true, name: true, role: true, authVersion: true },
+        })
+        if (!currentUser) {
+          token.id = undefined
+          token.role = undefined
+          token.sub = undefined
+          return token
+        }
+        if (typeof token.authVersion === "number" && token.authVersion !== currentUser.authVersion) {
+          token.id = undefined
+          token.role = undefined
+          token.sub = undefined
+          token.authVersion = undefined
+          return token
+        }
+        token.role = currentUser.role
+        token.email = currentUser.email
+        token.name = currentUser.name
+        token.authVersion = currentUser.authVersion
       }
       return token
     },
@@ -89,4 +138,5 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
   session: {
     strategy: "jwt",
   },
+  ...(authSecret ? { secret: authSecret } : {}),
 })

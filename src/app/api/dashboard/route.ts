@@ -3,14 +3,21 @@ import { prisma } from "@/lib/prisma"
 import { withAuth } from "@/lib/with-auth"
 import { toN, sum, toJSON, toFixed } from "@/lib/money"
 
-export const GET = withAuth(async (req) => {
+export const GET = withAuth(async (req, session) => {
+  if (session.user.role !== "ADMIN" && session.user.role !== "SOCIO") {
+    return NextResponse.json({ error: "No autorizado" }, { status: 403 })
+  }
+
   const { searchParams } = new URL(req.url)
   const monthParam = searchParams.get("month")
   const yearParam = searchParams.get("year")
 
   const now = new Date()
-  const month = monthParam ? parseInt(monthParam) : now.getMonth() + 1
-  const year = yearParam ? parseInt(yearParam) : now.getFullYear()
+  const month = monthParam ? Number(monthParam) : now.getMonth() + 1
+  const year = yearParam ? Number(yearParam) : now.getFullYear()
+  if (!Number.isInteger(month) || month < 1 || month > 12 || !Number.isInteger(year) || year < 2000 || year > 2100) {
+    return NextResponse.json({ error: "Periodo no válido" }, { status: 400 })
+  }
 
   const startDate = new Date(year, month - 1, 1)
   const endDate = new Date(year, month, 0, 23, 59, 59, 999)

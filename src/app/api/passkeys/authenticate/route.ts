@@ -2,23 +2,34 @@ import { NextResponse } from "next/server"
 import { generateAuthenticationOptions } from "@simplewebauthn/server"
 import { isoBase64URL } from "@simplewebauthn/server/helpers"
 import { prisma } from "@/lib/prisma"
-import { RP_ID } from "@/lib/webauthn"
+import { checkRateLimit, requestAddress } from "@/lib/rate-limit"
+import {
+  AUTHENTICATION_CHALLENGE,
+  challengeExpiresAt,
+  RP_ID,
+} from "@/lib/webauthn"
 
 type PasskeyRow = { id: string; credentialId: string; transports: string | null }
 
 export async function POST(request: Request) {
   try {
-    const body = await request.json()
-    const { email } = body
+    const rateLimit = checkRateLimit(`passkey-options:${requestAddress(request)}`, 10, 60_000)
+    if (!rateLimit.allowed) {
+      return NextResponse.json({ error: "Demasiadas solicitudes" }, { status: 429, headers: { "Retry-After": String(rateLimit.retryAfterSeconds) } })
+    }
+    const body = await request.json().catch(() => ({}))
+    const email = typeof body?.email === "string" ? body.email.trim() : ""
 
     let passkeys: PasskeyRow[] = []
+    let userId: string | null = null
 
     if (email) {
       const user = await prisma.user.findUnique({
         where: { email },
-        include: { passkeys: true },
+        select: { id: true, passkeys: { select: { id: true, credentialId: true, transports: true } } },
       })
       if (user) {
+        userId = user.id
         passkeys = user.passkeys
       }
     } else {
@@ -40,7 +51,19 @@ export async function POST(request: Request) {
         type: "public-key" as const,
         transports: pk.transports ? JSON.parse(pk.transports) : undefined,
       })),
-      userVerification: "preferred",
+      userVerification: "required",
+    })
+
+    await prisma.webAuthnChallenge.deleteMany({
+      where: { expiresAt: { lte: new Date() } },
+    })
+    await prisma.webAuthnChallenge.create({
+      data: {
+        challenge: options.challenge,
+        purpose: AUTHENTICATION_CHALLENGE,
+        userId,
+        expiresAt: challengeExpiresAt(),
+      },
     })
 
     return NextResponse.json(options)

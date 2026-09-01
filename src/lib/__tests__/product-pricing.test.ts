@@ -98,4 +98,38 @@ describe("calculateProductPricing", () => {
       margenRealPct: null,
     })
   })
+
+  it.each([
+    [5, "PERDIDA"],
+    [17, "POR DEBAJO"],
+    [19, "AJUSTADO"],
+    [25, "POR ENCIMA"],
+  ])("diagnoses a fixed sale price of %s correctly", (pvpVentaConIva, diagnosticoPrecio) => {
+    expect(calculateProductPricing({
+      costeSinIva: 10,
+      ivaCompraPct: 0,
+      ivaVentaPct: 0,
+      metodoPrecio: "FIJO",
+      margenObjetivoPct: 50,
+      pvpVentaConIva,
+    }).diagnosticoPrecio).toBe(diagnosticoPrecio)
+  })
+
+  it("returns missing data for invalid numeric inputs and impossible VAT rates", () => {
+    expect(calculateProductPricing({
+      costeSinIva: "not-a-number",
+      ivaCompraPct: "not-a-number",
+      ivaVentaPct: -100,
+      metodoPrecio: " desconocido ",
+      margenObjetivoPct: 100,
+      pvpVentaConIva: "not-a-number",
+    })).toMatchObject({
+      ivaCompraPct: null,
+      ivaVentaPct: -100,
+      costeConIva: null,
+      pvpObjetivoConIva: null,
+      pvpVentaSinIva: null,
+      diagnosticoPrecio: "FALTAN DATOS",
+    })
+  })
 })

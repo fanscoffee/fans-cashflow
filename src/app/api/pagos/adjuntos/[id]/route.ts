@@ -11,6 +11,7 @@ export const GET = withAuth(async (_req, session, context) => {
     const attachment = await prisma.adjuntoPago.findUnique({ where: { id }, include: { factura: { select: { entidad: true } } } })
     if (!attachment) return NextResponse.json({ error: "Adjunto no encontrado" }, { status: 404 })
     const entity = attachment.factura?.entidad
+    if (!entity) return NextResponse.json({ error: "Adjunto no encontrado" }, { status: 404 })
     await requirePaymentFunction(session.user.id, "REGISTRAR", entity, session.user.role)
     const storage = getPaymentStorage()
     if (!storage) return NextResponse.json({ error: "El almacenamiento privado no está configurado" }, { status: 503 })

@@ -5,8 +5,8 @@ import { paymentErrorResponse, parseEntity } from "@/lib/pagos-http"
 import { requirePaymentFunction } from "@/lib/pagos"
 
 export const GET = withAuth(async (req, session) => {
-  const entity = parseEntity(new URL(req.url).searchParams.get("entidad"))
   try {
+    const entity = parseEntity(new URL(req.url).searchParams.get("entidad"))
     await requirePaymentFunction(session.user.id, "SOLICITAR", entity, session.user.role)
     const [categorias, acreedores, cuentas, medios] = await Promise.all([
       prisma.categoriaGasto.findMany({ where: { activo: true }, orderBy: { codigo: "asc" } }),

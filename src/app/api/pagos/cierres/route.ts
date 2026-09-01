@@ -10,6 +10,9 @@ const closeSchema = z.object({ entidad: z.enum(["OBRADOR", "CAFETERIA"]), anio: 
 export const GET = withAuth(async (req, session) => {
   const params = new URL(req.url).searchParams
   const entidad = params.get("entidad")
+  if (entidad !== null && entidad !== "OBRADOR" && entidad !== "CAFETERIA") {
+    return NextResponse.json({ error: "Entidad no válida" }, { status: 400 })
+  }
   const where = entidad === "OBRADOR" || entidad === "CAFETERIA" ? { entidad: entidad as "OBRADOR" | "CAFETERIA" } : {}
   try {
     await requirePaymentFunction(session.user.id, "CONCILIAR", entidad === "OBRADOR" || entidad === "CAFETERIA" ? entidad : undefined, session.user.role)
@@ -25,6 +28,13 @@ export const POST = withAuth(async (req, session) => {
     await requirePaymentFunction(session.user.id, "CONCILIAR", input.entidad, session.user.role)
     const from = new Date(input.anio, input.mes - 1, 1)
     const to = new Date(input.anio, input.mes, 1)
+    const existingClose = await prisma.cierreMensual.findUnique({
+      where: { entidad_anio_mes: { entidad: input.entidad, anio: input.anio, mes: input.mes } },
+      select: { estado: true },
+    })
+    if (existingClose && existingClose.estado !== "ABIERTO") {
+      return NextResponse.json({ error: "El periodo contable ya está cerrado" }, { status: 409 })
+    }
     const unexplained = await prisma.movimientoExtracto.count({ where: { cuentaFondos: { entidad: input.entidad }, direccion: "SALIDA", fechaValor: { gte: from, lt: to }, estado: { not: "CONCILIADO" } } })
     if (unexplained > 0) return NextResponse.json({ error: "No se puede cerrar: hay movimientos bancarios sin conciliar", pendientes: unexplained }, { status: 409 })
     const indicators = await getIndicators(input.entidad, from, to)
