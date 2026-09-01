@@ -4,7 +4,7 @@ import { setupServer } from "msw/node"
 import { afterAll, afterEach, beforeAll, describe, expect, it, vi } from "vitest"
 import Dashboard from "../dashboard"
 import { MONTH_NAMES } from "@/lib/constants"
-import { downloadCSV } from "@/lib/csv"
+import { downloadBlob, downloadCSV } from "@/lib/csv"
 
 vi.mock("next-auth/react", () => ({
   useSession: () => ({
@@ -14,6 +14,7 @@ vi.mock("next-auth/react", () => ({
 }))
 
 vi.mock("@/lib/csv", () => ({
+  downloadBlob: vi.fn(),
   downloadCSV: vi.fn(),
 }))
 
@@ -49,6 +50,7 @@ const mockVentaInventarioData = {
 const server = setupServer(
   http.get("/api/dashboard", () => HttpResponse.json(mockDashboardData)),
   http.get("/api/dashboard/venta-inventario", () => HttpResponse.json(mockVentaInventarioData)),
+  http.get("/api/dashboard/export-gestoria", () => new HttpResponse(new Uint8Array([80, 75, 3, 4]), { headers: { "Content-Type": "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" } })),
 )
 
 beforeAll(() => server.listen())
@@ -120,6 +122,22 @@ describe("Dashboard", () => {
     )
   })
 
+  it("exports the selected period for the gestoría", async () => {
+    vi.mocked(downloadBlob).mockClear()
+    render(<Dashboard />)
+    await waitFor(() => {
+      expect(screen.getByText("Exportar Gestoria")).toBeInTheDocument()
+    })
+
+    fireEvent.click(screen.getByText("Exportar Gestoria"))
+
+    await waitFor(() => {
+      expect(downloadBlob).toHaveBeenCalled()
+    })
+    const filename = vi.mocked(downloadBlob).mock.calls[0]?.[1]
+    expect(filename).toBe(`fans-cashflow-gestoria-${new Date().getFullYear()}-${String(new Date().getMonth() + 1).padStart(2, "0")}.xlsx`)
+  })
+
   it("disables export buttons when no export data", async () => {
     server.use(http.get("/api/dashboard", () => HttpResponse.json({ ...mockDashboardData, exportData: [], exportExpenses: [] })))
     render(<Dashboard />)
@@ -128,6 +146,7 @@ describe("Dashboard", () => {
     })
     expect(screen.getByText("Exportar Turnos")).toBeDisabled()
     expect(screen.getByText("Exportar Gastos")).toBeDisabled()
+    expect(screen.getByText("Exportar Gestoria")).not.toBeDisabled()
   })
 
   it("renders summary with negative profit", async () => {

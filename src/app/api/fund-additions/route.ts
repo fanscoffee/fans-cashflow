@@ -32,7 +32,7 @@ export const POST = withAuth(async (req, session) => {
     const data = fundAdditionSchema.parse(body)
 
     const addition = await prisma.$transaction(async (tx) => {
-      await tx.$queryRaw(Prisma.sql`SELECT pg_advisory_xact_lock(6432101)`)
+      await tx.$executeRaw(Prisma.sql`SELECT pg_advisory_xact_lock(6432101)`)
       const created = await tx.fundAddition.create({
         data: {
           amount: data.amount,

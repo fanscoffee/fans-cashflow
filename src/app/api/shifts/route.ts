@@ -77,7 +77,7 @@ export const POST = withAuth(async (req, session) => {
     const data = shiftSchema.parse(body)
 
     const shift = await prisma.$transaction(async (tx) => {
-      await tx.$queryRaw(Prisma.sql`SELECT pg_advisory_xact_lock(6432101)`)
+      await tx.$executeRaw(Prisma.sql`SELECT pg_advisory_xact_lock(6432101)`)
 
       const openShiftInsideTransaction = await tx.shift.findFirst({ where: { status: "ABIERTO" } })
       if (openShiftInsideTransaction) throw new ShiftConflictError("Ya hay un turno abierto")
