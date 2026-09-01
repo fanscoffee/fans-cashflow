@@ -118,6 +118,7 @@ export const GET = withAuth(async (req) => {
       ...s.expenses.map((e) => ({
         fecha: new Date(s.date).toLocaleDateString("es-ES"),
         turno: s.turno,
+        concepto: "",
         proveedor: e.proveedor,
         importe: toN(e.importe),
         creadoPor: s.createdBy?.name || "",
@@ -125,6 +126,7 @@ export const GET = withAuth(async (req) => {
       ...(s.gastosCorrientes || []).map((e) => ({
         fecha: new Date(s.date).toLocaleDateString("es-ES"),
         turno: s.turno,
+        concepto: e.concepto,
         proveedor: `Gasto corriente · ${e.categoria.nombre}`,
         importe: toN(e.importe),
         creadoPor: s.createdBy?.name || "",

@@ -4,6 +4,7 @@ import { setupServer } from "msw/node"
 import { afterAll, afterEach, beforeAll, describe, expect, it, vi } from "vitest"
 import Dashboard from "../dashboard"
 import { MONTH_NAMES } from "@/lib/constants"
+import { downloadCSV } from "@/lib/csv"
 
 vi.mock("next-auth/react", () => ({
   useSession: () => ({
@@ -12,13 +13,17 @@ vi.mock("next-auth/react", () => ({
   }),
 }))
 
+vi.mock("@/lib/csv", () => ({
+  downloadCSV: vi.fn(),
+}))
+
 const mockDashboardData = {
   resumen: { totalTurnos: 10, totalIngresos: 5000, totalGastos: 2000, beneficioNeto: 3000 },
   dailyData: [{ dia: "22/07", ingresos: 500, gastos: 200, mañana: 300, tarde: 200 }],
   turnoData: [{ name: "Mañana", value: 3000 }],
   expenseData: [{ proveedor: "Proveedor A", total: 500 }],
   exportData: [{ fecha: "22/07", turno: "mañana", estado: "CERRADO", creadoPor: "Juan", fondoInicial: 200, efectivo: 500, caixa: 100, santander: 50, efectivoGasto: 50, fondoFinal: 300, totalGastos: 50, gastos: "Frutas: 50" }],
-  exportExpenses: [{ fecha: "22/07", turno: "mañana", proveedor: "Frutas", importe: 50, creadoPor: "Juan" }],
+  exportExpenses: [{ fecha: "22/07", turno: "mañana", concepto: "Compra de fruta", proveedor: "Frutas", importe: 50, creadoPor: "Juan" }],
 }
 
 const mockVentaInventarioData = {
@@ -98,6 +103,21 @@ describe("Dashboard", () => {
       expect(screen.getByText("Exportar Turnos")).toBeInTheDocument()
     })
     expect(screen.getByText("Exportar Gastos")).toBeInTheDocument()
+  })
+
+  it("includes the expense concept when exporting expenses", async () => {
+    vi.mocked(downloadCSV).mockClear()
+    render(<Dashboard />)
+    await waitFor(() => {
+      expect(screen.getByText("Exportar Gastos")).toBeInTheDocument()
+    })
+
+    fireEvent.click(screen.getByText("Exportar Gastos"))
+
+    expect(downloadCSV).toHaveBeenCalledWith(
+      expect.arrayContaining([expect.objectContaining({ concepto: "Compra de fruta" })]),
+      expect.stringMatching(/^fans-cashflow-gastos-\d{4}-\d{2}\.csv$/),
+    )
   })
 
   it("disables export buttons when no export data", async () => {
