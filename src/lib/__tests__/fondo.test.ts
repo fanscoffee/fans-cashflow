@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest"
-import { calculateFondo, calculateFondoFinal } from "../fondo"
+import { calculateFondo, calculateFondoFinal, calculateTotalExpenses } from "../fondo"
 
 describe("calculateFondo", () => {
   it("returns 0 when there is no last shift and no additions", () => {
@@ -39,5 +39,12 @@ describe("calculateFondo", () => {
       { importe: 30, estado: "PENDIENTE_AUTORIZACION" },
       { importe: 100, estado: "ANULADO" },
     ])).toBe(450)
+  })
+
+  it("includes current expenses in the displayed expense total", () => {
+    expect(calculateTotalExpenses([{ importe: 20 }], [
+      { importe: 30, estado: "PENDIENTE_AUTORIZACION" },
+      { importe: 100, estado: "ANULADO" },
+    ])).toBe(50)
   })
 })
