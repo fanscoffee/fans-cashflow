@@ -166,11 +166,24 @@ function amounts(value: string) {
   return (value.match(/[-+]?\d+(?:[.,]\d+)*(?![a-zA-Z])/g) || []).map(amount)
 }
 
+function amountsAfterLabel(value: string, label: string) {
+  const line = normalize(value)
+  const index = line.indexOf(normalize(label))
+  if (index < 0) return []
+  const rest = line.slice(index + normalize(label).length)
+  const nextLabel = rest.search(/\b(?:total\s+(?:bases?|impuestos?|iva|iv|neto|bruto|re|recargo)|total\s*:|base\s+(?:imponible|imp)|importe)\b/)
+  return amounts(nextLabel >= 0 ? rest.slice(0, nextLabel) : rest)
+}
+
 function findAmount(lines: string[], labels: string[]) {
   const wanted = labels.map(normalize)
   for (let index = 0; index < lines.length; index += 1) {
     const line = normalize(lines[index])
-    if (!wanted.some((label) => line.includes(label))) continue
+    const label = wanted.find((candidate) => line.includes(candidate))
+    if (!label) continue
+    const labeledTail = amountsAfterLabel(lines[index], label)
+    if (labeledTail.length) return labeledTail[labeledTail.length - 1]
+    if (/base\s+(?:imponible|imp)/.test(line) && /tipo|impuesto|importe/.test(line)) continue
     const tail = amounts(lines[index])
     if (tail.length) return tail[tail.length - 1]
     const next = amounts(lines[index + 1] || "")
@@ -197,7 +210,7 @@ function findLastAmount(lines: string[], labels: string[]) {
 
 function findDate(lines: string[], labels: string[]) {
   const wanted = labels.map(normalize)
-  const pattern = /(\d{1,2})[/-](\d{1,2})[/-](\d{2,4})/
+  const pattern = /(\d{1,2})[./-](\d{1,2})[./-](\d{2,4})/
   for (let index = 0; index < lines.length; index += 1) {
     if (!wanted.some((label) => normalize(lines[index]).includes(label))) continue
     const match = lines.slice(index, index + 5).join(" ").match(pattern)
@@ -225,6 +238,18 @@ function findValue(lines: string[], labels: string[]) {
   return ""
 }
 
+function findPaymentMethod(lines: string[]) {
+  for (const rawLine of lines) {
+    const line = normalize(rawLine)
+    if (/\bsepa\s+domi\b/.test(line)) return "SEPA DOMI"
+    if (/\bdomiciliacion\b/.test(line)) return "DOMICILIACION"
+    if (/\btransferencia\b/.test(line)) return "Transferencia bancaria"
+    if (/\befectivo\b/.test(line)) return "Efectivo"
+    if (/\btarjeta\b|\bvisa\b|\bmastercard\b/.test(line)) return "Tarjeta"
+  }
+  return ""
+}
+
 function splitInvoiceNumber(value: string) {
   const clean = value.replace(/^factura\s*/i, "").trim()
   const slash = clean.lastIndexOf("/")
@@ -233,7 +258,7 @@ function splitInvoiceNumber(value: string) {
 }
 
 function parseDateInLine(value: string) {
-  const match = value.match(/(\d{1,2})[/-](\d{1,2})[/-](\d{2,4})/)
+  const match = value.match(/(\d{1,2})[./-](\d{1,2})[./-](\d{2,4})/)
   if (!match) return ""
   const [, day, month, rawYear] = match
   const year = rawYear.length === 2 ? `20${rawYear}` : rawYear
@@ -349,8 +374,9 @@ export function parseFacturaText(text: string): FacturaDraft {
 
   const invoiceLine = normalized.find((line) => /numero.*factura|nº.*factura|factura\s+[a-z0-9_-]+\s*\//i.test(line)) || ""
   const numberMatch = invoiceLine.match(/(?:numero\s+de\s+factura|nº\s*factura|factura)\s*[:#]?\s*([a-z0-9_-]+\s*\/\s*[a-z0-9_-]+)/i)
+  const simpleNumberMatch = invoiceLine.match(/(?:numero\s+(?:de\s+)?factura|factura)\s*[:#]?\s*([a-z0-9][a-z0-9_-]{2,})/i)
   const standaloneNumber = normalized.flatMap((line) => Array.from(line.matchAll(/\b[a-z]{2,}[-_]\d{2,4}[-_]-?\d{2,4}\s*\/\s*\d+/gi)).map((match) => ({ line, candidate: match[0] }))).find(({ line, candidate }) => !/factura/.test(line) && /^[a-z0-9_-]+\s*\/\s*\d+$/i.test(candidate))?.candidate
-  let number = standaloneNumber || numberMatch?.[1] || invoiceLine.match(/([a-z]{2,}[-_]\d{4}\s*\/\s*\d+)/i)?.[1] || invoiceLine.match(/([a-z]{2,}[-_]\d{3,}[-_]\d{2,4}\s*\/\s*\d+)/i)?.[1] || ""
+  let number = standaloneNumber || numberMatch?.[1] || simpleNumberMatch?.[1] || invoiceLine.match(/([a-z]{2,}[-_]\d{4}\s*\/\s*\d+)/i)?.[1] || invoiceLine.match(/([a-z]{2,}[-_]\d{3,}[-_]\d{2,4}\s*\/\s*\d+)/i)?.[1] || ""
   if (!number) {
     const numberLine = lines.find((line) => /\b[A-Z]{2,}[-_]\d+[-_]\d+\s*\/\s*\d+/i.test(line))
     if (numberLine) {
@@ -362,10 +388,14 @@ export function parseFacturaText(text: string): FacturaDraft {
   draft.serie = split.serie.toUpperCase()
   draft.numero = split.numero.toUpperCase()
   draft.fechaExpedicion = findDate(lines, ["fecha de factura", "fecha de emisión", "fecha de expedición", "fecha factura"])
+  if (!draft.fechaExpedicion) {
+    const documentLine = lines.find((line) => /\bfactura\b/i.test(line) && /\d{1,2}[./-]\d{1,2}[./-]\d{2,4}/.test(line))
+    if (documentLine) draft.fechaExpedicion = parseDateInLine(documentLine)
+  }
   draft.fechaOperacion = findDate(lines, ["fecha de operación", "fecha operacion"])
   draft.fechaVencimiento = findDate(lines, ["vencimiento"])
   draft.fechaPago = findDate(lines, ["fecha de pago"])
-  draft.formaPago = findValue(lines, ["forma de pago", "forma pago"])
+  draft.formaPago = findPaymentMethod(lines) || findValue(lines, ["forma de pago", "forma pago"])
   if (!draft.formaPago && normalized.some((line) => line.includes("transferencia bancaria"))) draft.formaPago = "Transferencia bancaria"
   if (!draft.formaPago && normalized.some((line) => /\befectivo\b/.test(line))) draft.formaPago = "Efectivo"
 
@@ -487,7 +517,7 @@ export function parseFacturaText(text: string): FacturaDraft {
     })
   }
   if (!taxRows.length) {
-    const taxHeaderIndex = normalized.findIndex((line) => /c[oó]digo.*base imp/.test(line))
+    const taxHeaderIndex = normalized.findIndex((line) => /c[oó]digo/.test(line) && /base\s*(?:imp|inp)|\b(?:iva|va)\b/.test(line))
     const taxData = taxHeaderIndex >= 0 ? amounts(lines[taxHeaderIndex + 1] || "") : []
     if (taxData.length >= 4) {
       taxRows.push({ tipo: "IVA", porcentaje: Number(taxData[1]).toFixed(0) + ".00", baseImponible: taxData[taxData.length - 2], cuota: taxData[taxData.length - 1] })
@@ -499,7 +529,10 @@ export function parseFacturaText(text: string): FacturaDraft {
       if (!match) continue
       const taxNums = amounts(line)
       if (taxNums.length >= 2 && /iva|impuesto|tipo/i.test(normalize(line))) {
-        taxRows.push({ tipo: "IVA", porcentaje: amount(match[1]), baseImponible: taxNums[taxNums.length - 2], cuota: taxNums[taxNums.length - 1] })
+        const matchIndex = match.index || 0
+        const beforeRate = amounts(line.slice(0, matchIndex))
+        const afterRate = amounts(line.slice(matchIndex + match[0].length))
+        taxRows.push({ tipo: "IVA", porcentaje: amount(match[1]), baseImponible: beforeRate[beforeRate.length - 1] || afterRate[afterRate.length - 2] || taxNums[taxNums.length - 2], cuota: afterRate[afterRate.length - 1] || taxNums[taxNums.length - 1] })
       }
     }
   }
@@ -511,9 +544,7 @@ export function parseFacturaText(text: string): FacturaDraft {
     if (taxBase !== "0.00" && (draft.totalNeto === "0" || Number(draft.totalNeto) < Number(taxBase) * 0.5)) {
       draft.totalNeto = taxBase
     }
-    if (taxCuota !== "0.00" && draft.totalIva === "0") {
-      draft.totalIva = taxCuota
-    }
+    if (taxCuota !== "0.00") draft.totalIva = taxCuota
   }
 
   let hasIkeaReceipt = false
