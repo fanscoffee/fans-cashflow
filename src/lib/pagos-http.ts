@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server"
-import { paymentEntitySchema, serializePaymentError } from "@/lib/pagos"
+import { PaymentDomainError, paymentEntitySchema, serializePaymentError } from "@/lib/pagos"
 
 export function paymentErrorResponse(error: unknown) {
   const result = serializePaymentError(error)
@@ -7,7 +7,8 @@ export function paymentErrorResponse(error: unknown) {
 }
 
 export function parseEntity(value: string | null | undefined) {
-  if (!value) return undefined
+  if (value === null || value === undefined) return undefined
   const parsed = paymentEntitySchema.safeParse(value)
-  return parsed.success ? parsed.data : undefined
+  if (!parsed.success) throw new PaymentDomainError("Entidad no válida", 400, "INVALID_ENTITY")
+  return parsed.data
 }

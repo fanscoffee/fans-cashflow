@@ -4,6 +4,7 @@ import { withAuth } from "@/lib/with-auth"
 import { getProductTypeBehavior } from "@/lib/product-types"
 import { calculateProductPricing } from "@/lib/product-pricing"
 import { canDeleteInventoryItems } from "@/lib/inventory-permissions"
+import { pickProductFields, validateProductInput } from "@/lib/product-input"
 
 export const GET = withAuth(async (req, _session, context) => {
   const { id } = await context.params
@@ -25,6 +26,11 @@ export const PATCH = withAuth(async (req, session, context) => {
 
   try {
     const body = await req.json()
+    if (!body || typeof body !== "object" || Array.isArray(body)) {
+      return NextResponse.json({ error: "Datos no válidos" }, { status: 400 })
+    }
+    const inputError = validateProductInput(body)
+    if (inputError) return NextResponse.json({ error: inputError }, { status: 400 })
 
     const current = await prisma.producto.findUnique({
       where: { id },
@@ -56,8 +62,7 @@ export const PATCH = withAuth(async (req, session, context) => {
       return NextResponse.json({ error: "La familia es inmutable porque forma parte del código" }, { status: 400 })
     }
 
-    const productData = { ...body }
-    delete productData.confirmarDuplicado
+    const productData = pickProductFields(body)
     const behavior = getProductTypeBehavior(current.tipoArticulo)
     if (behavior) Object.assign(productData, behavior)
     const pricing = calculateProductPricing({

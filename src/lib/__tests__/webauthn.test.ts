@@ -1,5 +1,17 @@
 import { describe, expect, it } from "vitest"
-import { transportsToJSON, transportsFromJSON } from "../webauthn"
+import {
+  challengeExpiresAt,
+  transportsToJSON,
+  transportsFromJSON,
+  WEBAUTHN_CHALLENGE_TTL_MS,
+} from "../webauthn"
+
+describe("WebAuthn challenges", () => {
+  it("expires challenges after the configured short lifetime", () => {
+    const now = Date.parse("2026-09-01T12:00:00.000Z")
+    expect(challengeExpiresAt(now)).toEqual(new Date(now + WEBAUTHN_CHALLENGE_TTL_MS))
+  })
+})
 
 describe("transportsToJSON", () => {
   it("returns null for undefined input", () => {

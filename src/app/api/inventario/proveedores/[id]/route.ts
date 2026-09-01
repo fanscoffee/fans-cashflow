@@ -1,9 +1,11 @@
 import { NextResponse } from "next/server"
+import { z } from "zod"
 import { prisma } from "@/lib/prisma"
 import { withAuth } from "@/lib/with-auth"
 import { canDeleteInventoryItems } from "@/lib/inventory-permissions"
+import { proveedorUpdateSchema, sanitizeProveedor } from "@/lib/proveedores"
 
-export const GET = withAuth(async (req, _session, context) => {
+export const GET = withAuth(async (req, session, context) => {
   const { id } = await context.params
   const proveedor = await prisma.proveedor.findUnique({
     where: { id },
@@ -18,7 +20,8 @@ export const GET = withAuth(async (req, _session, context) => {
     return NextResponse.json({ error: "Proveedor no encontrado" }, { status: 404 })
   }
 
-  return NextResponse.json(proveedor)
+  const includeBankDetails = session.user.role === "ADMIN" || session.user.role === "SOCIO"
+  return NextResponse.json(sanitizeProveedor(proveedor, includeBankDetails))
 })
 
 export const PATCH = withAuth(async (req, session, context) => {
@@ -29,15 +32,18 @@ export const PATCH = withAuth(async (req, session, context) => {
   const { id } = await context.params
 
   try {
-    const body = await req.json()
+    const data = proveedorUpdateSchema.parse(await req.json())
 
-    if (body.cifNif) {
+    const existing = await prisma.proveedor.findUnique({ where: { id }, select: { id: true } })
+    if (!existing) return NextResponse.json({ error: "Proveedor no encontrado" }, { status: 404 })
+
+    if (data.cifNif) {
       const conflict = await prisma.proveedor.findFirst({
-        where: { cifNif: body.cifNif, id: { not: id } },
+        where: { cifNif: data.cifNif, id: { not: id } },
       })
       if (conflict) {
         return NextResponse.json(
-          { error: `Ya existe otro proveedor con el CIF/NIF ${body.cifNif}` },
+          { error: `Ya existe otro proveedor con el CIF/NIF ${data.cifNif}` },
           { status: 400 }
         )
       }
@@ -45,11 +51,14 @@ export const PATCH = withAuth(async (req, session, context) => {
 
     const proveedor = await prisma.proveedor.update({
       where: { id },
-      data: body,
+      data,
     })
 
     return NextResponse.json(proveedor)
   } catch (error) {
+    if (error instanceof z.ZodError) {
+      return NextResponse.json({ error: error.issues[0]?.message || "Datos no válidos" }, { status: 400 })
+    }
     const message = error instanceof Error ? error.message : "Error al actualizar el proveedor"
     return NextResponse.json({ error: message }, { status: 500 })
   }

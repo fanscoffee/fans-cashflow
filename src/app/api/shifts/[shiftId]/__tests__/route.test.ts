@@ -100,4 +100,18 @@ describe("PATCH /api/shifts/[shiftId]", () => {
       data: expect.objectContaining({ fondoFinal: 65 }),
     }))
   })
+
+  it("does not allow an employee to overwrite the calculated opening fund", async () => {
+    const response = await PATCH(
+      new Request("http://localhost/api/shifts/shift-1", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ fondoInicial: 999 }),
+      }) as unknown as NextRequest,
+      context,
+    )
+
+    expect(response.status).toBe(403)
+    expect(prisma.$transaction).not.toHaveBeenCalled()
+  })
 })

@@ -3,17 +3,17 @@ import { toN } from "@/lib/money"
 
 const optionalDate = z.preprocess(
   (value) => (typeof value === "string" && value.trim() ? value : null),
-  z.string().nullable()
+  z.string().nullable().refine((value) => value === null || Number.isFinite(new Date(value).getTime()), "Fecha no válida")
 )
 
-const money = z.coerce.number().finite()
+const money = z.coerce.number().finite().nonnegative()
 
 export const facturaLineaSchema = z.object({
   productoId: z.string().nullable().optional(),
   tipoLinea: z.enum(["PRODUCTO", "CARGO"]),
   referenciaProveedor: z.string().optional().default(""),
   codigoArticulo: z.string().optional().default(""),
-  descripcion: z.string().trim().min(1, "La descripción es obligatoria"),
+   descripcion: z.string().trim().min(1, "La descripción es obligatoria").max(500),
   unidadMedida: z.string().optional().default(""),
   formatoOriginal: z.string().optional().default(""),
   cantidad: money,
@@ -26,8 +26,12 @@ export const facturaLineaSchema = z.object({
   cuotaIva: money,
   totalLinea: money,
   lote: z.string().optional().default(""),
-  fechaVencimiento: optionalDate,
-})
+   fechaVencimiento: optionalDate,
+ }).superRefine((linea, context) => {
+   if (linea.tipoLinea === "PRODUCTO" && !linea.productoId) {
+     context.addIssue({ code: "custom", path: ["productoId"], message: "La línea de producto debe usar un producto del catálogo" })
+   }
+ })
 
 export const facturaImpuestoSchema = z.object({
   tipo: z.enum(["IVA", "RECARGO_EQUIVALENCIA", "IRPF"]),
@@ -43,7 +47,7 @@ export const facturaSchema = z.object({
   cifReceptor: z.literal("B09711078", { error: "El CIF receptor debe ser B09711078" }),
   serie: z.string().trim().default(""),
   numero: z.string().trim().min(1, "El número de factura es obligatorio"),
-  fechaExpedicion: z.string().min(1, "La fecha de expedición es obligatoria"),
+  fechaExpedicion: z.string().min(1, "La fecha de expedición es obligatoria").refine((value) => Number.isFinite(new Date(value).getTime()), "Fecha no válida"),
   fechaOperacion: optionalDate,
   fechaVencimiento: optionalDate,
   fechaPago: optionalDate,
@@ -63,7 +67,7 @@ export const facturaSchema = z.object({
   totalRecargo: money,
   totalRetenciones: money,
   importeTotal: money,
-  importePagado: z.coerce.number().finite().nullable().optional(),
+  importePagado: z.coerce.number().finite().nonnegative().nullable().optional(),
   importeConformado: z.coerce.number().finite().nonnegative().nullable().optional(),
   importeRetenido: z.coerce.number().finite().nonnegative().default(0),
   motivoRetencion: z.string().trim().max(500).optional().default(""),
@@ -71,9 +75,19 @@ export const facturaSchema = z.object({
   confirmarConAdjunto: z.boolean().default(false),
   adjuntoExistente: z.boolean().default(false),
   observaciones: z.string().optional().default(""),
-  recepcionIds: z.array(z.string()).default([]),
-  lineas: z.array(facturaLineaSchema).min(1, "Agrega al menos una línea"),
-  impuestos: z.array(facturaImpuestoSchema).default([]),
+  recepcionIds: z.array(z.string()).max(500).default([]),
+  lineas: z.array(facturaLineaSchema).min(1, "Agrega al menos una línea").max(500),
+  impuestos: z.array(facturaImpuestoSchema).max(100).default([]),
+}).superRefine((factura, context) => {
+  if (factura.importePagado != null && factura.importePagado > factura.importeTotal) {
+    context.addIssue({ code: "custom", path: ["importePagado"], message: "El importe pagado no puede superar el total" })
+  }
+  if (factura.importeConformado != null && factura.importeConformado + factura.importeRetenido > factura.importeTotal) {
+    context.addIssue({ code: "custom", path: ["importeConformado"], message: "El importe conformado y retenido no puede superar el total" })
+  }
+  if (factura.importeRetenido > 0 && !factura.motivoRetencion.trim()) {
+    context.addIssue({ code: "custom", path: ["motivoRetencion"], message: "La retención debe tener un motivo" })
+  }
 })
 
 export type FacturaInput = z.infer<typeof facturaSchema>

@@ -101,12 +101,10 @@ export default function LoginPage() {
         return
       }
 
-      const { user } = await verifyRes.json()
-
-      const signinRes = await fetch("/api/auth/passkey-signin", {
+       const signinRes = await fetch("/api/auth/passkey-signin", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ userId: user.id }),
+         body: JSON.stringify({ challenge: options.challenge }),
       })
 
       if (!signinRes.ok) {
@@ -114,7 +112,9 @@ export default function LoginPage() {
         return
       }
 
-      window.location.href = ROLE_REDIRECT[user.role] ?? "/empleado"
+       const sessionRes = await fetch("/api/auth/session")
+       const session = await sessionRes.json()
+       window.location.href = ROLE_REDIRECT[session?.user?.role] ?? "/empleado"
     } catch {
       setPasskeyError("Error con Face ID / biometría")
     } finally {
