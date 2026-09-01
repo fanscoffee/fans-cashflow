@@ -2,10 +2,12 @@ import { beforeEach, describe, expect, it, vi } from "vitest"
 import type { NextRequest } from "next/server"
 
 vi.mock("@/lib/prisma", () => ({
-  prisma: {
-    recepcion: {
-      findUnique: vi.fn(),
-    },
+    prisma: {
+      recepcion: {
+        findUnique: vi.fn(),
+        findMany: vi.fn(),
+        count: vi.fn(),
+      },
     producto: {
       findMany: vi.fn(),
     },
@@ -17,7 +19,7 @@ vi.mock("@/lib/auth", () => ({
   auth: vi.fn(),
 }))
 
-import { POST } from "../route"
+import { GET, POST } from "../route"
 import { prisma } from "@/lib/prisma"
 import { auth } from "@/lib/auth"
 
@@ -29,7 +31,7 @@ const requestBody = {
   lineas: [{ productoId: "product-1", cantidadRecibida: 2, precioUnitario: 3.5 }],
 }
 
-function postRequest(body = requestBody) {
+function postRequest(body: unknown = requestBody) {
   return new Request("http://localhost/api/inventario/recepciones", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
@@ -90,5 +92,45 @@ describe("POST /api/inventario/recepciones", () => {
     expect(response.status).toBe(400)
     await expect(response.json()).resolves.toMatchObject({ error: expect.stringContaining("no asociados al proveedor") })
     expect(transactionRecepcion.create).not.toHaveBeenCalled()
+  })
+
+  it("filters and paginates reception history", async () => {
+    vi.mocked(auth).mockResolvedValue({ user: { id: "employee-1", role: "EMPLEADO" } } as any)
+    vi.mocked(prisma.recepcion.findMany).mockResolvedValue([{ id: "reception-1" }] as any)
+    vi.mocked(prisma.recepcion.count).mockResolvedValue(7)
+
+    const response = await GET(new Request("http://localhost/api/inventario/recepciones?search=ALB&proveedorId=provider-1&fechaDesde=2026-08-01&fechaHasta=2026-08-31&page=2&pageSize=5") as unknown as NextRequest)
+
+    expect(response.status).toBe(200)
+    await expect(response.json()).resolves.toMatchObject({ recepciones: [{ id: "reception-1" }], total: 7, page: 2, pageSize: 5 })
+    expect(prisma.recepcion.findMany).toHaveBeenCalledWith(expect.objectContaining({
+      where: {
+        codigoAlbaran: { contains: "ALB", mode: "insensitive" },
+        proveedorId: "provider-1",
+        fechaRecepcion: {
+          gte: new Date("2026-08-01"),
+          lte: new Date("2026-08-31T23:59:59.999Z"),
+        },
+      },
+      skip: 5,
+      take: 5,
+    }))
+  })
+
+  it("rejects malformed or duplicate receptions and reports transaction errors", async () => {
+    vi.mocked(auth).mockResolvedValue({ user: { id: "employee-1", role: "EMPLEADO" } } as any)
+    expect((await POST(postRequest({}),)).status).toBe(400)
+
+    vi.mocked(prisma.recepcion.findUnique).mockResolvedValue({ id: "existing" } as any)
+    expect((await POST(postRequest(),)).status).toBe(400)
+
+    vi.mocked(prisma.recepcion.findUnique).mockResolvedValue(null)
+    vi.mocked(prisma.$transaction).mockRejectedValue(new Error("reception insert failed"))
+    const response = await POST(postRequest({
+      ...requestBody,
+      lineas: [{ productoId: "product-1", cantidadRecibida: 2, precioUnitario: 3.5, lote: "LOT-1", fechaVencimiento: "2027-01-01" }],
+    }))
+    expect(response.status).toBe(500)
+    await expect(response.json()).resolves.toEqual({ error: "reception insert failed" })
   })
 })
