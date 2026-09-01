@@ -84,6 +84,38 @@ describe("Dashboard API /api/dashboard", () => {
     expect(data.expenseData).toHaveLength(2)
     expect(data.exportData).toHaveLength(2)
     expect(data.exportExpenses).toHaveLength(2)
+    expect(data.exportExpenses[0]).toMatchObject({ concepto: "" })
+  })
+
+  it("includes the concept of current expenses in the export", async () => {
+    vi.mocked(auth).mockResolvedValue({
+      user: { id: "1", role: "ADMIN" },
+    } as any)
+    vi.mocked(prisma.shift.findMany).mockResolvedValue([
+      {
+        date: new Date("2026-07-02"),
+        turno: "mañana",
+        status: "CERRADO",
+        efectivo: 0,
+        caixa: 0,
+        santander: 0,
+        efectivoGasto: 0,
+        fondoInicial: 0,
+        fondoFinal: 0,
+        createdBy: { name: "Empleado" },
+        expenses: [],
+        gastosCorrientes: [{ concepto: "Compra de harina", importe: 25, categoria: { nombre: "Suministros" } }],
+      },
+    ] as any)
+
+    const res = await GET(mockRequest("http://localhost/api/dashboard?month=7&year=2026"))
+    const data = await res.json()
+
+    expect(data.exportExpenses).toMatchObject([{
+      concepto: "Compra de harina",
+      proveedor: "Gasto corriente · Suministros",
+      importe: 25,
+    }])
   })
 
   it("uses current month/year when no params", async () => {
