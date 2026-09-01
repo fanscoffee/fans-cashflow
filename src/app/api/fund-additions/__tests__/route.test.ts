@@ -36,7 +36,7 @@ describe("Fund Additions API /api/fund-additions", () => {
   beforeEach(() => {
     vi.clearAllMocks()
     vi.mocked(prisma.$transaction).mockImplementation(async (callback: any) => callback({
-      $queryRaw: vi.fn().mockResolvedValue([]),
+      $executeRaw: vi.fn().mockResolvedValue(0),
       fundAddition: prisma.fundAddition,
       shift: prisma.shift,
     }))

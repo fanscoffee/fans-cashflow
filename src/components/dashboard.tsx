@@ -56,7 +56,7 @@ interface DashboardData {
   }[]
 }
 
-import { downloadCSV } from "@/lib/csv"
+import { downloadBlob, downloadCSV } from "@/lib/csv"
 import { MONTH_NAMES } from "@/lib/constants"
 import { toN } from "@/lib/money"
 import VentaInventarioDashboard from "@/components/venta-inventario-dashboard"
@@ -67,6 +67,8 @@ export default function Dashboard() {
   const { data: session } = useSession()
   const [data, setData] = useState<DashboardData | null>(null)
   const [loading, setLoading] = useState(true)
+  const [exportingGestoria, setExportingGestoria] = useState(false)
+  const [exportError, setExportError] = useState<string | null>(null)
 
   const now = new Date()
   const [selectedMonth, setSelectedMonth] = useState(now.getMonth() + 1)
@@ -102,6 +104,22 @@ export default function Dashboard() {
     if (!data?.exportExpenses) return
     const filename = `fans-cashflow-gastos-${selectedYear}-${String(selectedMonth).padStart(2, "0")}.csv`
     downloadCSV(data.exportExpenses, filename)
+  }
+
+  async function handleExportGestoria() {
+    setExportingGestoria(true)
+    setExportError(null)
+    try {
+      const response = await fetch(`/api/dashboard/export-gestoria?month=${selectedMonth}&year=${selectedYear}`)
+      if (!response.ok) throw new Error("No se pudo generar la exportación")
+      const blob = await response.blob()
+      const filename = `fans-cashflow-gestoria-${selectedYear}-${String(selectedMonth).padStart(2, "0")}.xlsx`
+      downloadBlob(blob, filename)
+    } catch {
+      setExportError("No se pudo generar la exportación de gestoría")
+    } finally {
+      setExportingGestoria(false)
+    }
   }
 
   if (loading) {
@@ -153,8 +171,16 @@ export default function Dashboard() {
             >
               Exportar Gastos
             </button>
+            <button
+              onClick={handleExportGestoria}
+              disabled={exportingGestoria}
+              className="w-full rounded-md bg-indigo-700 px-4 py-2 text-sm font-medium text-white hover:bg-indigo-800 disabled:opacity-50 sm:w-auto sm:py-1.5"
+            >
+              {exportingGestoria ? "Preparando..." : "Exportar Gestoria"}
+            </button>
           </div>
         )}
+        {exportError && <p role="alert" className="text-sm text-red-600">{exportError}</p>}
       </div>
 
       <div className="grid grid-cols-1 gap-3 min-[360px]:grid-cols-2 md:grid-cols-4">

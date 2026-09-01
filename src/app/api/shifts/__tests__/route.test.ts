@@ -37,7 +37,7 @@ describe("Shifts API /api/shifts", () => {
   beforeEach(() => {
     vi.clearAllMocks()
     vi.mocked(prisma.$transaction).mockImplementation(async (callback: any) => callback({
-      $queryRaw: vi.fn().mockResolvedValue([]),
+      $executeRaw: vi.fn().mockResolvedValue(0),
       shift: prisma.shift,
       fundAddition: prisma.fundAddition,
     }))
