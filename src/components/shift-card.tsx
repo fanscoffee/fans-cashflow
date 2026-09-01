@@ -3,7 +3,7 @@
 import { useState, type FormEvent } from "react"
 import type { Shift } from "@/types/shift"
 import { toN } from "@/lib/money"
-import { calculateFondoFinal } from "@/lib/fondo"
+import { calculateFondoFinal, calculateTotalExpenses } from "@/lib/fondo"
 import CierreTurnoModal, { type CierreTurnoFormData } from "@/components/cierre-turno-modal"
 
 interface ShiftCardProps {
@@ -53,8 +53,8 @@ export function ShiftCard({ shift, userRole, onSave, onClose, onReopen, closingS
   const caixa = isEditing ? Number(editValues.caixa) || 0 : toN(shift.caixa)
   const santander = isEditing ? Number(editValues.santander) || 0 : toN(shift.santander)
   const fondoInicial = toN(shift.fondoInicial)
-  const totalExpenses = shift.expenses.reduce((sum, e) => sum + toN(e.importe), 0)
   const currentExpenses = shift.gastosCorrientes || []
+  const totalExpenses = calculateTotalExpenses(shift.expenses, currentExpenses)
   const fondoFinal = calculateFondoFinal(fondoInicial, shift.expenses, currentExpenses)
 
   function startEditing() {

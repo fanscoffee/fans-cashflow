@@ -14,7 +14,14 @@ export function calculateFondoFinal(
   expenses: { importe: unknown }[],
   currentExpenses: { importe: unknown; estado?: string }[],
 ): number {
+  return Math.round((toN(fondoInicial) - calculateTotalExpenses(expenses, currentExpenses)) * 100) / 100
+}
+
+export function calculateTotalExpenses(
+  expenses: { importe: unknown }[],
+  currentExpenses: { importe: unknown; estado?: string }[],
+) {
   const legacyTotal = expenses.reduce((acc, expense) => acc + toN(expense.importe), 0)
   const currentTotal = currentExpenses.reduce((acc, expense) => expense.estado === "ANULADO" ? acc : acc + toN(expense.importe), 0)
-  return Math.round((toN(fondoInicial) - legacyTotal - currentTotal) * 100) / 100
+  return legacyTotal + currentTotal
 }
