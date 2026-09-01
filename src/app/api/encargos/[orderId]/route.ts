@@ -4,10 +4,10 @@ import { prisma } from "@/lib/prisma"
 import { withAuth } from "@/lib/with-auth"
 
 const updateOrderSchema = z.object({
-  clientName: z.string().min(1).optional(),
-  clientPhone: z.string().min(1).optional(),
-  deliveryDate: z.string().optional(),
-  comment: z.string().optional(),
+  clientName: z.string().trim().min(1).max(160).optional(),
+  clientPhone: z.string().trim().min(1).max(40).optional(),
+  deliveryDate: z.string().refine((value) => Number.isFinite(new Date(value).getTime()), "Fecha no válida").optional(),
+  comment: z.string().trim().max(1000).optional(),
   isPaid: z.boolean().optional(),
   isDelivered: z.boolean().optional(),
 })

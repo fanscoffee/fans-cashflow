@@ -162,10 +162,12 @@ model User {
   email                    String                  @unique
   password                 String
   role                     Role                    @default(EMPLEADO)
+  authVersion              Int                     @default(0)
   createdShifts            Shift[]
   fundAdditions            FundAddition[]
   cashTrackings            CashTracking[]
   passkeys                 Passkey[]
+  webAuthnChallenges       WebAuthnChallenge[]
   orders                   Order[]
   productos                Producto[]
   proveedores              Proveedor[]
@@ -211,6 +213,23 @@ model Passkey {
   createdAt    DateTime @default(now())
 }
 
+model WebAuthnChallenge {
+  id              String    @id @default(cuid())
+  challenge       String    @unique
+  purpose         String
+  userId          String?
+  expiresAt       DateTime
+  verifiedAt      DateTime?
+  verifiedUserId  String?
+  consumedAt      DateTime?
+  createdAt       DateTime  @default(now())
+
+  user User? @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([purpose, expiresAt, consumedAt])
+  @@index([userId, purpose, consumedAt])
+}
+
 model Shift {
   id            String        @id @default(cuid())
   date          DateTime      @db.Date
@@ -231,6 +250,8 @@ model Shift {
   cierreTurno   CierreTurno?
   createdAt     DateTime      @default(now())
   updatedAt     DateTime      @updatedAt
+
+  @@unique([date, turno])
 }
 
 model CierreTurno {
@@ -1042,6 +1063,7 @@ model ReposicionCaja {
   creadaPor    User         @relation("ReposicionCreador", fields: [creadaPorId], references: [id])
 
   @@index([cuentaFondosId, estado, createdAt])
+  @@unique([arqueoId])
 }
 
 model CambioCuentaAcreedor {

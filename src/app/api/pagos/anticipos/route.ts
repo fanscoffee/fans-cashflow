@@ -5,8 +5,8 @@ import { paymentErrorResponse, parseEntity } from "@/lib/pagos-http"
 import { prisma } from "@/lib/prisma"
 
 export const GET = withAuth(async (req, session) => {
-  const entity = parseEntity(new URL(req.url).searchParams.get("entidad"))
   try {
+    const entity = parseEntity(new URL(req.url).searchParams.get("entidad"))
     await requirePaymentFunction(session.user.id, "SOLICITAR", entity, session.user.role)
     const advances = await prisma.anticipo.findMany({ where: entity ? { entidad: entity } : {}, include: { acreedor: { select: { id: true, nombre: true } }, solicitadoPor: { select: { id: true, name: true, email: true } }, autorizadoPor: { select: { id: true, name: true, email: true } }, aplicaciones: { where: { pago: { estado: { not: "ANULADO" } } } } }, orderBy: { fecha: "desc" }, take: 200 })
     return NextResponse.json(advances)

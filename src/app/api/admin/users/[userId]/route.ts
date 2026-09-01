@@ -23,7 +23,7 @@ export const PATCH = withAuth(async (req, session, context) => {
 
     await prisma.user.update({
       where: { id: userId },
-      data: { password: hashedPassword },
+      data: { password: hashedPassword, authVersion: { increment: 1 } },
     })
 
     return NextResponse.json({ ok: true })

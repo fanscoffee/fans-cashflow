@@ -1,7 +1,27 @@
 import { NextResponse } from "next/server"
+import { z } from "zod"
 import { prisma } from "@/lib/prisma"
 import { withAuth } from "@/lib/with-auth"
 import { canRegisterInventoryReception } from "@/lib/inventory-permissions"
+
+const optionalDate = z.preprocess(
+  (value) => value === "" || value === null ? undefined : value,
+  z.string().refine((value) => Number.isFinite(new Date(value).getTime()), "Fecha no válida").optional(),
+)
+
+const receptionSchema = z.object({
+  codigoAlbaran: z.string().trim().min(1).max(120),
+  proveedorId: z.string().min(1),
+  fechaRecepcion: z.string().min(1).refine((value) => Number.isFinite(new Date(value).getTime()), "Fecha no válida"),
+  notas: z.string().trim().max(1000).nullable().optional(),
+  lineas: z.array(z.object({
+    productoId: z.string().min(1),
+    cantidadRecibida: z.coerce.number().finite().positive().max(1_000_000),
+    precioUnitario: z.coerce.number().finite().nonnegative().max(1_000_000_000),
+    lote: z.string().trim().max(120).nullable().optional(),
+    fechaVencimiento: optionalDate,
+  }).strict()).min(1).max(500),
+}).strict()
 
 export const GET = withAuth(async (req) => {
   const { searchParams } = new URL(req.url)
@@ -9,8 +29,10 @@ export const GET = withAuth(async (req) => {
   const proveedorId = searchParams.get("proveedorId") || ""
   const fechaDesde = searchParams.get("fechaDesde") || ""
   const fechaHasta = searchParams.get("fechaHasta") || ""
-  const page = parseInt(searchParams.get("page") || "1")
-  const pageSize = parseInt(searchParams.get("pageSize") || "20")
+  const requestedPage = Number(searchParams.get("page") || "1")
+  const requestedPageSize = Number(searchParams.get("pageSize") || "20")
+  const page = Number.isInteger(requestedPage) ? Math.max(1, requestedPage) : 1
+  const pageSize = Number.isInteger(requestedPageSize) ? Math.min(100, Math.max(1, requestedPageSize)) : 20
 
   const where: Record<string, unknown> = {}
 
@@ -51,15 +73,7 @@ export const POST = withAuth(async (req, session) => {
   }
 
   try {
-    const body = await req.json()
-    const { codigoAlbaran, proveedorId, fechaRecepcion, notas, lineas } = body
-
-    if (!codigoAlbaran || !proveedorId || !fechaRecepcion || !lineas?.length) {
-      return NextResponse.json(
-        { error: "Faltan campos obligatorios" },
-        { status: 400 }
-      )
-    }
+    const { codigoAlbaran, proveedorId, fechaRecepcion, notas, lineas } = receptionSchema.parse(await req.json())
 
     const existing = await prisma.recepcion.findUnique({
       where: { codigoAlbaran_proveedorId: { codigoAlbaran, proveedorId } },
@@ -71,7 +85,7 @@ export const POST = withAuth(async (req, session) => {
       )
     }
 
-    const productoIds = lineas.map((l: { productoId: string }) => l.productoId)
+    const productoIds = lineas.map((l) => l.productoId)
     const productos = await prisma.producto.findMany({
       where: {
         id: { in: productoIds },
@@ -99,13 +113,7 @@ export const POST = withAuth(async (req, session) => {
           notas: notas || null,
           lineas: {
             create: lineas.map(
-              (l: {
-                productoId: string
-                cantidadRecibida: number
-                precioUnitario: number
-                lote?: string
-                fechaVencimiento?: string
-              }) => ({
+              (l) => ({
                 productoId: l.productoId,
                 cantidadRecibida: l.cantidadRecibida,
                 precioUnitario: l.precioUnitario,
@@ -133,6 +141,9 @@ export const POST = withAuth(async (req, session) => {
 
     return NextResponse.json(recepcion, { status: 201 })
   } catch (error) {
+    if (error instanceof z.ZodError) {
+      return NextResponse.json({ error: error.issues[0]?.message || "Datos no válidos" }, { status: 400 })
+    }
     const message =
       error instanceof Error ? error.message : "Error al crear recepción"
     return NextResponse.json({ error: message }, { status: 500 })

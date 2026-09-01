@@ -12,6 +12,7 @@ vi.mock("@/lib/prisma", () => ({
     fundAddition: {
       aggregate: vi.fn(),
     },
+    $transaction: vi.fn(),
   },
 }))
 
@@ -35,6 +36,11 @@ function mockRequest(url: string, method = "GET", body?: object) {
 describe("Shifts API /api/shifts", () => {
   beforeEach(() => {
     vi.clearAllMocks()
+    vi.mocked(prisma.$transaction).mockImplementation(async (callback: any) => callback({
+      $queryRaw: vi.fn().mockResolvedValue([]),
+      shift: prisma.shift,
+      fundAddition: prisma.fundAddition,
+    }))
   })
 
   describe("GET", () => {

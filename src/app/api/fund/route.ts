@@ -4,7 +4,10 @@ import { calculateFondo } from "@/lib/fondo"
 import { withAuth } from "@/lib/with-auth"
 import { toJSON, toN } from "@/lib/money"
 
-export const GET = withAuth(async () => {
+export const GET = withAuth(async (_req, session) => {
+  if (session.user.role === "OBRADOR") {
+    return NextResponse.json({ error: "No autorizado" }, { status: 403 })
+  }
   const openShift = await prisma.shift.findFirst({
     where: { status: "ABIERTO" },
   })

@@ -16,7 +16,7 @@ export const paymentFunctionSchema = z.enum([
 export const applicationSchema = z.object({
   tipoDestino: z.enum(["FACTURA", "GASTO", "ANTICIPO"]),
   destinoId: z.string().min(1),
-  importeAplicado: z.coerce.number().finite().positive(),
+  importeAplicado: z.coerce.number().finite().positive().max(1_000_000_000),
 })
 
 export const createPaymentSchema = z.object({
@@ -26,7 +26,7 @@ export const createPaymentSchema = z.object({
   cuentaFondosId: z.string().min(1),
   acreedorId: z.string().min(1),
   referenciaExterna: z.string().trim().max(40).optional(),
-  aplicaciones: z.array(applicationSchema).min(1, "El pago debe aplicarse a un documento"),
+  aplicaciones: z.array(applicationSchema).min(1, "El pago debe aplicarse a un documento").max(100),
   excesoAutorizadoPorId: z.string().optional(),
   motivoExceso: z.string().trim().max(500).optional(),
 })
@@ -38,7 +38,7 @@ export const createExpenseSchema = z.object({
   contratoId: z.string().optional(),
   concepto: z.string().trim().min(2).max(120),
   fechaDevengo: z.string().min(1),
-  importe: z.coerce.number().finite().positive(),
+  importe: z.coerce.number().finite().positive().max(1_000_000_000),
   justificante: z.enum(["FACTURA", "RECIBO", "TICKET", "CONTRATO", "VALE_INTERNO", "SIN_JUSTIFICANTE"]),
 })
 
@@ -55,7 +55,7 @@ export const createAdvanceSchema = z.object({
   acreedorId: z.string().min(1),
   concepto: z.string().trim().min(2).max(120),
   fecha: z.string().min(1),
-  importe: z.coerce.number().finite().positive(),
+  importe: z.coerce.number().finite().positive().max(1_000_000_000),
 })
 
 export const authorizeAdvanceSchema = z.object({
@@ -127,10 +127,16 @@ export async function userHasPaymentFunction(
   })
   if (assignment) return true
 
-  // Transitional access keeps the existing ADMIN/SOCIO dashboards usable until
-  // the first explicit payment assignments are seeded.
+  // ADMIN remains the emergency owner role. SOCIO keeps the legacy access only
+  // until assignments for that function have been configured at least once.
   if (role === "ADMIN") return true
-  if (role === "SOCIO" && ["REGISTRAR", "SOLICITAR", "AUTORIZAR", "EJECUTAR", "CONCILIAR"].includes(functionName)) return true
+  if (role === "SOCIO" && ["REGISTRAR", "SOLICITAR", "AUTORIZAR", "EJECUTAR", "CONCILIAR"].includes(functionName)) {
+    const configured = await db.asignacionPagoUsuario.findFirst({
+      where: { funcion: functionName, activo: true },
+      select: { id: true },
+    })
+    return !configured
+  }
   return false
 }
 
@@ -143,6 +149,26 @@ export async function requirePaymentFunction(
 ) {
   const allowed = await userHasPaymentFunction(userId, functionName, entity, role, db)
   if (!allowed) throw new PaymentDomainError("No tienes permiso para esta operación", 403, "PAYMENT_FORBIDDEN")
+}
+
+export async function requireOpenAccountingPeriod(
+  db: Database,
+  entity: PaymentEntity,
+  date: Date,
+) {
+  const closure = await db.cierreMensual.findUnique({
+    where: {
+      entidad_anio_mes: {
+        entidad: entity,
+        anio: date.getUTCFullYear(),
+        mes: date.getUTCMonth() + 1,
+      },
+    },
+    select: { estado: true },
+  })
+  if (closure && closure.estado !== "ABIERTO") {
+    throw new PaymentDomainError("El periodo contable está cerrado", 409, "ACCOUNTING_PERIOD_CLOSED")
+  }
 }
 
 export async function requireAmountAuthorization(
@@ -233,7 +259,11 @@ async function lockTarget(db: Prisma.TransactionClient, type: "Factura" | "Gasto
   }
 }
 
-async function existingApplicationTotal(db: Prisma.TransactionClient, field: "facturaId" | "gastoId" | "anticipoId", id: string) {
+async function lockFundAccount(db: Prisma.TransactionClient, id: string) {
+  await db.$queryRaw(Prisma.sql`SELECT "id" FROM "CuentaFondos" WHERE "id" = ${id} FOR UPDATE`)
+}
+
+export async function existingApplicationTotal(db: Prisma.TransactionClient, field: "facturaId" | "gastoId" | "anticipoId", id: string) {
   const aggregate = await db.pagoAplicacion.aggregate({
     _sum: { importeAplicado: true },
     where: { [field]: id, pago: { estado: { not: "ANULADO" } } },
@@ -254,9 +284,9 @@ type PaymentTarget = {
   tipoDestino: "FACTURA" | "GASTO" | "ANTICIPO"
   destinoId: string
   importeAplicado: Prisma.Decimal
-  factura?: { id: string; entidad: PaymentEntity; acreedorId: string | null; estadoCircuito: string; importeConformado: Prisma.Decimal | null; importeRetenido: Prisma.Decimal }
-  gasto?: { id: string; entidad: PaymentEntity; acreedorId: string | null; estado: string; importe: Prisma.Decimal; categoria: { codigo: string } }
-  anticipo?: { id: string; entidad: PaymentEntity; acreedorId: string; estado: string; importe: Prisma.Decimal; importeAplicado: Prisma.Decimal }
+  factura?: { id: string; entidad: PaymentEntity; acreedorId: string | null; confirmadoPorId: string; estadoCircuito: string; importeConformado: Prisma.Decimal | null; importeRetenido: Prisma.Decimal }
+  gasto?: { id: string; entidad: PaymentEntity; acreedorId: string | null; autorizadorId: string | null; estado: string; importe: Prisma.Decimal; categoria: { codigo: string } }
+  anticipo?: { id: string; entidad: PaymentEntity; acreedorId: string; autorizadoPorId: string | null; estado: string; importe: Prisma.Decimal; importeAplicado: Prisma.Decimal }
 }
 
 async function loadAndValidateTarget(
@@ -271,7 +301,7 @@ async function loadAndValidateTarget(
     await lockTarget(db, "Factura", input.destinoId)
     const factura = await db.factura.findUnique({
       where: { id: input.destinoId },
-      select: { id: true, entidad: true, acreedorId: true, estadoCircuito: true, importeConformado: true, importeRetenido: true },
+      select: { id: true, entidad: true, acreedorId: true, confirmadoPorId: true, estadoCircuito: true, importeConformado: true, importeRetenido: true },
     })
     if (!factura) throw new PaymentDomainError("Factura no encontrada", 404, "DOCUMENT_NOT_FOUND")
     if (factura.entidad !== entity) throw new PaymentDomainError("La factura pertenece a otra entidad", 409, "ENTITY_MISMATCH")
@@ -288,7 +318,7 @@ async function loadAndValidateTarget(
     await lockTarget(db, "GastoCorriente", input.destinoId)
     const gasto = await db.gastoCorriente.findUnique({
       where: { id: input.destinoId },
-      select: { id: true, entidad: true, acreedorId: true, estado: true, importe: true, categoria: { select: { codigo: true } } },
+      select: { id: true, entidad: true, acreedorId: true, autorizadorId: true, estado: true, importe: true, categoria: { select: { codigo: true } } },
     })
     if (!gasto) throw new PaymentDomainError("Gasto no encontrado", 404, "DOCUMENT_NOT_FOUND")
     if (gasto.entidad !== entity) throw new PaymentDomainError("El gasto pertenece a otra entidad", 409, "ENTITY_MISMATCH")
@@ -305,7 +335,7 @@ async function loadAndValidateTarget(
   await lockTarget(db, "Anticipo", input.destinoId)
   const anticipo = await db.anticipo.findUnique({
     where: { id: input.destinoId },
-    select: { id: true, entidad: true, acreedorId: true, estado: true, importe: true, importeAplicado: true },
+    select: { id: true, entidad: true, acreedorId: true, autorizadoPorId: true, estado: true, importe: true, importeAplicado: true },
   })
   if (!anticipo) throw new PaymentDomainError("Anticipo no encontrado", 404, "DOCUMENT_NOT_FOUND")
   if (anticipo.entidad !== entity) throw new PaymentDomainError("El anticipo pertenece a otra entidad", 409, "ENTITY_MISMATCH")
@@ -321,6 +351,8 @@ export async function createPayment(user: { id: string; role: string }, input: C
   const parsedDate = parseDate(input.fechaPago)
 
   return prisma.$transaction(async (tx) => {
+    await requireOpenAccountingPeriod(tx, input.entidad, parsedDate)
+    await lockFundAccount(tx, input.cuentaFondosId)
     const method = await tx.medioPago.findUnique({ where: { id: input.medioPagoId } })
     if (!method || method.estado !== "ACTIVO") throw new PaymentDomainError("Medio de pago no disponible", 409, "PAYMENT_METHOD_UNAVAILABLE")
     const account = await tx.cuentaFondos.findUnique({ where: { id: input.cuentaFondosId } })
@@ -330,13 +362,8 @@ export async function createPayment(user: { id: string; role: string }, input: C
     if (method.tipo === "EFECTIVO" && account.tipo !== "CAJA" && account.tipo !== "CAJA_CHICA") throw new PaymentDomainError("El efectivo debe salir de una caja", 409, "CASH_ACCOUNT_REQUIRED")
     if (method.limiteOperacion && sum(input.aplicaciones.map((item) => decimal(item.importeAplicado))).greaterThan(method.limiteOperacion)) throw new PaymentDomainError("El pago supera el límite del medio", 409, "PAYMENT_METHOD_LIMIT")
 
-    const allowExcess = Boolean(input.excesoAutorizadoPorId)
-    if (allowExcess) {
-      const excessAuthorizerId = input.excesoAutorizadoPorId!
-      if (!input.motivoExceso) throw new PaymentDomainError("El motivo del exceso es obligatorio", 400, "EXCESS_REASON_REQUIRED")
-      if (excessAuthorizerId === user.id) throw new PaymentDomainError("El ejecutor no puede autorizar su propio exceso", 409, "SEGREGATION_VIOLATION")
-      const authorized = await userHasPaymentFunction(excessAuthorizerId, "AUTORIZAR", input.entidad, undefined, tx)
-      if (!authorized) throw new PaymentDomainError("El usuario indicado no puede autorizar el exceso", 403, "EXCESS_AUTHORIZATION_INVALID")
+    if (input.excesoAutorizadoPorId || input.motivoExceso) {
+      throw new PaymentDomainError("Los excesos requieren una aprobación registrada antes de ejecutar el pago", 409, "EXCESS_APPROVAL_REQUIRED")
     }
 
     const creditor = await tx.acreedor.findUnique({ where: { id: input.acreedorId }, select: { id: true, estado: true, tipo: true } })
@@ -347,7 +374,14 @@ export async function createPayment(user: { id: string; role: string }, input: C
 
     const targets: PaymentTarget[] = []
     for (const application of input.aplicaciones) {
-      targets.push(await loadAndValidateTarget(tx, application, input.entidad, input.acreedorId, allowExcess))
+      targets.push(await loadAndValidateTarget(tx, application, input.entidad, input.acreedorId, false))
+    }
+    if (targets.some((target) =>
+      target.factura?.confirmadoPorId === user.id ||
+      target.gasto?.autorizadorId === user.id ||
+      target.anticipo?.autorizadoPorId === user.id
+    )) {
+      throw new PaymentDomainError("El autorizador del documento no puede ejecutar su propio pago", 409, "SEGREGATION_VIOLATION")
     }
     if (targets.some((target) => target.gasto?.categoria.codigo === "MEN") && account.tipo !== "CAJA_CHICA") throw new PaymentDomainError("Las compras menores solo se pagan desde caja chica", 409, "MINOR_PURCHASE_CASH_ONLY")
     const total = sum(targets.map((target) => target.importeAplicado))
@@ -416,18 +450,16 @@ export async function createPayment(user: { id: string; role: string }, input: C
       }
     }
 
-    if (input.excesoAutorizadoPorId) {
-      await tx.aprobacionPago.create({ data: { pagoId: payment.id, usuarioId: input.excesoAutorizadoPorId, tipo: "EXCESO_CONFORMADO", motivo: input.motivoExceso! } })
-    }
     await auditPaymentEvent(tx, { actorId: user.id, accion: "PAGO_CREADO", tipoRegistro: "Pago", registroId: payment.id, entidad: input.entidad, motivo: input.motivoExceso, despues: { numero: number, importeTotal: total.toString(), aplicaciones: input.aplicaciones } })
     return payment
   })
 }
 
-export async function createExpense(user: { id: string; role: string }, input: CreateExpenseInput, options: { shiftId?: string; skipSolicitarPermission?: boolean } = {}) {
-  if (!options.skipSolicitarPermission) await requirePaymentFunction(user.id, "SOLICITAR", input.entidad, user.role)
+export async function createExpense(user: { id: string; role: string }, input: CreateExpenseInput, options: { shiftId?: string } = {}) {
+  await requirePaymentFunction(user.id, "SOLICITAR", input.entidad, user.role)
   const date = parseDate(input.fechaDevengo)
   const amount = decimal(input.importe)
+  await requireOpenAccountingPeriod(prisma, input.entidad, date)
 
   const category = await prisma.categoriaGasto.findUnique({ where: { id: input.categoriaId }, select: { id: true, codigo: true, activo: true } })
   if (!category?.activo) throw new PaymentDomainError("Categoría de gasto no disponible", 409, "CATEGORY_UNAVAILABLE")
@@ -472,7 +504,7 @@ export async function createExpenseFromShift(user: { id: string; role: string },
   if (!shift || (!canManageAllShifts && shift.createdById !== user.id)) throw new PaymentDomainError("Turno no encontrado", 404, "SHIFT_NOT_FOUND")
   if (shift.status !== "ABIERTO") throw new PaymentDomainError("El turno debe estar abierto para registrar el gasto", 409, "SHIFT_NOT_OPEN")
 
-  const expense = await createExpense(user, { ...input, entidad: "CAFETERIA", justificante: "SIN_JUSTIFICANTE" }, { shiftId, skipSolicitarPermission: true })
+  const expense = await createExpense(user, { ...input, entidad: "CAFETERIA", justificante: "SIN_JUSTIFICANTE" }, { shiftId })
   await recalculateShiftFondoFinal(shiftId)
   return expense
 }
@@ -480,6 +512,7 @@ export async function createExpenseFromShift(user: { id: string; role: string },
 export async function createAdvance(user: { id: string; role: string }, input: z.infer<typeof createAdvanceSchema>) {
   await requirePaymentFunction(user.id, "SOLICITAR", input.entidad, user.role)
   const date = parseDate(input.fecha)
+  await requireOpenAccountingPeriod(prisma, input.entidad, date)
   if (input.concepto.trim().split(/\s+/).length === 1) throw new PaymentDomainError("El concepto debe ser específico y no una sola palabra", 400, "GENERIC_CONCEPT")
   const creditor = await prisma.acreedor.findUnique({ where: { id: input.acreedorId }, select: { id: true, tipo: true, estado: true } })
   if (!creditor || creditor.estado !== "ACTIVO") throw new PaymentDomainError("Acreedor no disponible", 409, "CREDITOR_UNAVAILABLE")
@@ -493,6 +526,7 @@ export async function authorizeAdvance(user: { id: string; role: string }, advan
   const advance = await prisma.anticipo.findUnique({ where: { id: advanceId } })
   if (!advance) throw new PaymentDomainError("Anticipo no encontrado", 404, "DOCUMENT_NOT_FOUND")
   await requirePaymentFunction(user.id, "AUTORIZAR", advance.entidad, user.role)
+  await requireOpenAccountingPeriod(prisma, advance.entidad, advance.fecha)
   if (input.autorizadorId !== user.id) throw new PaymentDomainError("El autorizador debe ser el usuario autenticado", 403, "AUTHORIZER_MISMATCH")
   if (advance.solicitadoPorId === user.id) throw new PaymentDomainError("Nadie puede autorizar su propio anticipo", 409, "SEGREGATION_VIOLATION")
   if (advance.estado !== "PENDIENTE_AUTORIZACION") throw new PaymentDomainError("El anticipo no está pendiente de autorización", 409, "INVALID_STATE")
@@ -506,6 +540,7 @@ export async function authorizeExpense(user: { id: string; role: string }, expen
   const expense = await prisma.gastoCorriente.findUnique({ where: { id: expenseId }, include: { categoria: true } })
   if (!expense) throw new PaymentDomainError("Gasto no encontrado", 404, "DOCUMENT_NOT_FOUND")
   await requirePaymentFunction(user.id, "AUTORIZAR", expense.entidad, user.role)
+  await requireOpenAccountingPeriod(prisma, expense.entidad, expense.fechaDevengo)
   if (input.autorizadorId !== user.id) throw new PaymentDomainError("El autorizador debe ser el usuario autenticado", 403, "AUTHORIZER_MISMATCH")
   if (expense.solicitanteId === user.id) throw new PaymentDomainError("Nadie puede autorizar su propio gasto", 409, "SEGREGATION_VIOLATION")
   if (expense.estado !== "PENDIENTE_AUTORIZACION") throw new PaymentDomainError("El gasto no está pendiente de autorización", 409, "INVALID_STATE")
@@ -531,6 +566,7 @@ export async function deleteCurrentExpense(user: { id: string; role: string }, e
       id: true,
       entidad: true,
       shiftId: true,
+      fechaDevengo: true,
       estado: true,
       importe: true,
       aplicaciones: { select: { id: true } },
@@ -539,6 +575,7 @@ export async function deleteCurrentExpense(user: { id: string; role: string }, e
   if (!expense || !expense.shiftId || expense.estado === "ANULADO") {
     throw new PaymentDomainError("Gasto corriente no encontrado", 404, "DOCUMENT_NOT_FOUND")
   }
+  await requireOpenAccountingPeriod(prisma, expense.entidad, expense.fechaDevengo)
   if (expense.aplicaciones.length > 0) {
     throw new PaymentDomainError("No se puede eliminar un gasto con pagos aplicados", 409, "EXPENSE_HAS_PAYMENTS")
   }

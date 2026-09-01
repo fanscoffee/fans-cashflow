@@ -2,7 +2,10 @@ import { NextResponse } from "next/server"
 import { prisma } from "@/lib/prisma"
 import { withAuth } from "@/lib/with-auth"
 
-export const GET = withAuth(async (req, _session, context) => {
+export const GET = withAuth(async (req, session, context) => {
+  if (session.user.role !== "ADMIN" && session.user.role !== "SOCIO") {
+    return NextResponse.json({ error: "No autorizado" }, { status: 403 })
+  }
   const { id } = await context.params
 
   const inventario = await prisma.inventarioFisico.findUnique({

@@ -1,11 +1,30 @@
 import { NextResponse } from "next/server"
+import { z } from "zod"
 import { prisma } from "@/lib/prisma"
 import { withAuth } from "@/lib/with-auth"
 
-export const GET = withAuth(async (req) => {
+const physicalInventorySchema = z.object({
+  notas: z.string().trim().max(1000).nullable().optional(),
+  lineas: z.array(z.object({
+    productoId: z.string().min(1),
+    cantidadUm1: z.coerce.number().finite().nonnegative().max(1_000_000_000),
+    cantidadUm2: z.coerce.number().finite().nonnegative().max(1_000_000_000),
+  }).strict()).min(1).max(10_000).superRefine((lineas, context) => {
+    if (new Set(lineas.map((linea) => linea.productoId)).size !== lineas.length) {
+      context.addIssue({ code: "custom", message: "No puedes repetir un producto en el conteo" })
+    }
+  }),
+}).strict()
+
+export const GET = withAuth(async (req, session) => {
+  if (session.user.role !== "ADMIN" && session.user.role !== "SOCIO") {
+    return NextResponse.json({ error: "No autorizado" }, { status: 403 })
+  }
   const { searchParams } = new URL(req.url)
-  const page = parseInt(searchParams.get("page") || "1")
-  const pageSize = parseInt(searchParams.get("pageSize") || "20")
+  const requestedPage = Number(searchParams.get("page") || "1")
+  const requestedPageSize = Number(searchParams.get("pageSize") || "20")
+  const page = Number.isInteger(requestedPage) ? Math.max(1, requestedPage) : 1
+  const pageSize = Number.isInteger(requestedPageSize) ? Math.min(100, Math.max(1, requestedPageSize)) : 20
 
   const [inventarios, total] = await Promise.all([
     prisma.inventarioFisico.findMany({
@@ -29,15 +48,7 @@ export const POST = withAuth(async (req, session) => {
   }
 
   try {
-    const body = await req.json()
-    const { notas, lineas } = body
-
-    if (!lineas?.length) {
-      return NextResponse.json(
-        { error: "Debe incluir al menos una línea de producto" },
-        { status: 400 }
-      )
-    }
+    const { notas, lineas } = physicalInventorySchema.parse(await req.json())
 
     const now = new Date()
     const currentYear = now.getFullYear()
@@ -112,6 +123,9 @@ export const POST = withAuth(async (req, session) => {
 
     return NextResponse.json(inventario, { status: 201 })
   } catch (error) {
+    if (error instanceof z.ZodError) {
+      return NextResponse.json({ error: error.issues[0]?.message || "Datos no válidos" }, { status: 400 })
+    }
     const message =
       error instanceof Error ? error.message : "Error al crear inventario"
     return NextResponse.json({ error: message }, { status: 500 })

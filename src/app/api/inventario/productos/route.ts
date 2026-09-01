@@ -9,6 +9,7 @@ import {
 } from "@/lib/product-code"
 import { getProductTypeBehavior } from "@/lib/product-types"
 import { calculateProductPricing } from "@/lib/product-pricing"
+import { pickProductFields, validateProductInput } from "@/lib/product-input"
 
 export const GET = withAuth(async (req) => {
   const { searchParams } = new URL(req.url)
@@ -18,8 +19,10 @@ export const GET = withAuth(async (req) => {
   const seccion = searchParams.get("seccion") || ""
   const estado = searchParams.get("estado") || ""
   const claseAbc = searchParams.get("claseAbc") || ""
-  const page = parseInt(searchParams.get("page") || "1", 10)
-  const pageSize = parseInt(searchParams.get("pageSize") || "50", 10)
+  const requestedPage = Number(searchParams.get("page") || "1")
+  const requestedPageSize = Number(searchParams.get("pageSize") || "50")
+  const page = Number.isInteger(requestedPage) ? Math.max(1, requestedPage) : 1
+  const pageSize = Number.isInteger(requestedPageSize) ? Math.min(100, Math.max(1, requestedPageSize)) : 50
 
   const where: Record<string, unknown> = {}
 
@@ -62,6 +65,11 @@ export const POST = withAuth(async (req, session) => {
 
   try {
     const body = await req.json()
+    if (!body || typeof body !== "object" || Array.isArray(body)) {
+      return NextResponse.json({ error: "Datos no válidos" }, { status: 400 })
+    }
+    const inputError = validateProductInput(body)
+    if (inputError) return NextResponse.json({ error: inputError }, { status: 400 })
     const tipoArticulo = String(body.tipoArticulo || "").trim().toUpperCase()
     const behavior = getProductTypeBehavior(tipoArticulo)
     if (!behavior) {
@@ -84,8 +92,7 @@ export const POST = withAuth(async (req, session) => {
       )
     }
 
-    const productData = { ...body }
-    delete productData.confirmarDuplicado
+    const productData = pickProductFields(body)
     const pricing = calculateProductPricing({
       costeSinIva: body.costeUmBase,
       ivaCompraPct: body.ivaCompraPct,
@@ -122,7 +129,7 @@ export const POST = withAuth(async (req, session) => {
         )
         const producto = await prisma.producto.create({
           data: {
-            ...productData,
+            ...(productData as Prisma.ProductoUncheckedCreateInput),
             codigo,
             createdById: session.user.id,
           },

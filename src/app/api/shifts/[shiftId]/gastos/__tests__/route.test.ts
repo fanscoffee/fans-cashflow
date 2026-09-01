@@ -10,6 +10,7 @@ vi.mock("@/lib/prisma", () => ({
     gastoCorriente: { aggregate: vi.fn(), create: vi.fn() },
     eventoAuditoria: { create: vi.fn() },
     asignacionPagoUsuario: { findFirst: vi.fn() },
+    cierreMensual: { findUnique: vi.fn().mockResolvedValue(null) },
   },
 }))
 
@@ -39,6 +40,7 @@ describe("/api/shifts/[shiftId]/gastos", () => {
     vi.mocked(prisma.expense.aggregate).mockResolvedValue({ _sum: { importe: 0 } } as any)
     vi.mocked(prisma.gastoCorriente.aggregate).mockResolvedValue({ _sum: { importe: 0 } } as any)
     vi.mocked(prisma.shift.update).mockResolvedValue({ id: "shift-1", fondoFinal: 500 } as any)
+    vi.mocked(prisma.asignacionPagoUsuario.findFirst).mockResolvedValue({ id: "assignment-1" } as any)
   })
 
   it("allows the employee who owns an open shift to create a current expense", async () => {

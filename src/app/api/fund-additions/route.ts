@@ -1,14 +1,19 @@
 import { NextResponse } from "next/server"
 import { z } from "zod"
+import { Prisma } from "@/generated/prisma/client"
 import { prisma } from "@/lib/prisma"
 import { withAuth } from "@/lib/with-auth"
 
 const fundAdditionSchema = z.object({
-  amount: z.number().min(0.01, "El monto debe ser mayor a 0"),
-  description: z.string().optional(),
+  amount: z.number().finite().min(0.01, "El monto debe ser mayor a 0").max(1_000_000_000),
+  description: z.string().trim().max(500).optional(),
 })
 
-export const GET = withAuth(async () => {
+export const GET = withAuth(async (_req, session) => {
+  if (session.user.role !== "SOCIO" && session.user.role !== "ADMIN") {
+    return NextResponse.json({ error: "No autorizado" }, { status: 403 })
+  }
+
   const additions = await prisma.fundAddition.findMany({
     include: { createdBy: { select: { name: true, email: true } } },
     orderBy: { createdAt: "desc" },
@@ -26,27 +31,31 @@ export const POST = withAuth(async (req, session) => {
     const body = await req.json()
     const data = fundAdditionSchema.parse(body)
 
-    const addition = await prisma.fundAddition.create({
-      data: {
-        amount: data.amount,
-        description: data.description || null,
-        createdById: session.user.id,
-      },
-      include: { createdBy: { select: { name: true, email: true } } },
-    })
-
-    const openShift = await prisma.shift.findFirst({
-      where: { status: "ABIERTO" },
-    })
-    if (openShift) {
-      await prisma.shift.update({
-        where: { id: openShift.id },
+    const addition = await prisma.$transaction(async (tx) => {
+      await tx.$queryRaw(Prisma.sql`SELECT pg_advisory_xact_lock(6432101)`)
+      const created = await tx.fundAddition.create({
         data: {
-          fondoInicial: { increment: data.amount },
-          fondoFinal: { increment: data.amount },
+          amount: data.amount,
+          description: data.description || null,
+          createdById: session.user.id,
         },
+        include: { createdBy: { select: { name: true, email: true } } },
       })
-    }
+
+      const openShift = await tx.shift.findFirst({
+        where: { status: "ABIERTO" },
+      })
+      if (openShift) {
+        await tx.shift.update({
+          where: { id: openShift.id },
+          data: {
+            fondoInicial: { increment: data.amount },
+            fondoFinal: { increment: data.amount },
+          },
+        })
+      }
+      return created
+    })
 
     return NextResponse.json(addition, { status: 201 })
   } catch (error) {

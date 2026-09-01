@@ -22,6 +22,7 @@ vi.mock("@/lib/prisma", () => ({
     movimientoFondos: { create: vi.fn() },
     movimientoExtracto: { count: vi.fn() },
     aprobacionPago: { create: vi.fn() },
+    cierreMensual: { findUnique: vi.fn() },
   },
 }))
 
@@ -50,6 +51,7 @@ import { Prisma } from "@/generated/prisma/client"
 function makePaymentTransaction() {
   const transaction = {
     $queryRaw: vi.fn().mockResolvedValue([]),
+    cierreMensual: { findUnique: vi.fn().mockResolvedValue(null) },
     asignacionPagoUsuario: { findFirst: vi.fn().mockResolvedValue(null) },
     medioPago: {
       findUnique: vi.fn().mockResolvedValue({
@@ -358,6 +360,7 @@ describe("reglas del módulo de pagos", () => {
     vi.mocked(prisma.shift.findUnique)
       .mockResolvedValueOnce({ id: "shift-1", status: "ABIERTO", createdById: "user-1" } as any)
       .mockResolvedValueOnce({ fondoInicial: 500 } as any)
+    vi.mocked(prisma.asignacionPagoUsuario.findFirst).mockResolvedValue({ id: "assignment-1" } as any)
     vi.mocked(prisma.categoriaGasto.findUnique).mockResolvedValue({ id: "cat-personal", codigo: "PER", activo: true } as any)
     vi.mocked(prisma.gastoCorriente.create).mockResolvedValue({ id: "shift-expense" } as any)
     vi.mocked(prisma.expense.aggregate).mockResolvedValue({ _sum: { importe: 10 } } as any)
@@ -395,6 +398,7 @@ describe("reglas del módulo de pagos", () => {
       id: "advance-1",
       entidad: "OBRADOR",
       solicitadoPorId: "requester-1",
+      fecha: new Date("2026-08-23"),
       estado: "PENDIENTE_AUTORIZACION",
       importe: 100,
     } as any)
@@ -436,10 +440,11 @@ describe("reglas del módulo de pagos", () => {
       aprobar: true,
     })).rejects.toMatchObject({ code: "DOCUMENT_NOT_FOUND" })
 
-    vi.mocked(prisma.anticipo.findUnique).mockResolvedValue({
+      vi.mocked(prisma.anticipo.findUnique).mockResolvedValue({
       id: "advance-1",
       entidad: "OBRADOR",
       solicitadoPorId: "authorizer-1",
+      fecha: new Date("2026-08-23"),
       estado: "PAGADO",
       importe: 100,
     } as any)
@@ -458,6 +463,7 @@ describe("reglas del módulo de pagos", () => {
       id: "gasto-1",
       entidad: "OBRADOR",
       solicitanteId: "user-1",
+      fechaDevengo: new Date("2026-08-23"),
       estado: "PENDIENTE_AUTORIZACION",
       categoria: { codigo: "SUM" },
     } as any)
@@ -469,6 +475,7 @@ describe("reglas del módulo de pagos", () => {
       id: "gasto-1",
       entidad: "CAFETERIA",
       solicitanteId: "employee-1",
+      fechaDevengo: new Date("2026-08-23"),
       estado: "PENDIENTE_AUTORIZACION",
       importe: 125.5,
       categoria: { codigo: "PER" },
@@ -488,6 +495,7 @@ describe("reglas del módulo de pagos", () => {
       id: "gasto-1",
       entidad: "CAFETERIA",
       shiftId: "shift-1",
+      fechaDevengo: new Date("2026-08-23"),
       estado: "PENDIENTE_AUTORIZACION",
       importe: 125.5,
       aplicaciones: [],
@@ -511,6 +519,7 @@ describe("reglas del módulo de pagos", () => {
       id: "gasto-1",
       entidad: "CAFETERIA",
       shiftId: "shift-1",
+      fechaDevengo: new Date("2026-08-23"),
       estado: "PAGADO",
       importe: 125.5,
       aplicaciones: [{ id: "application-1" }],
@@ -603,7 +612,9 @@ describe("reglas del módulo de pagos", () => {
     vi.mocked(prisma.cuentaFondos.findUnique).mockResolvedValue({ id: "BCO-OBR-01", estado: "ACTIVA", entidad: "OBRADOR", tipo: "BANCO" } as any)
     vi.mocked((prisma as any).acreedor.findUnique).mockResolvedValue({ id: "acr-1", estado: "ACTIVO" })
     vi.mocked((prisma as any).$transaction).mockImplementation(async (callback: (tx: unknown) => unknown) => callback({
+      $queryRaw: vi.fn().mockResolvedValue([]),
       asignacionPagoUsuario: { findFirst: vi.fn().mockResolvedValue(null) },
+      cierreMensual: { findUnique: vi.fn().mockResolvedValue(null) },
       medioPago: prisma.medioPago,
       cuentaFondos: prisma.cuentaFondos,
       acreedor: (prisma as any).acreedor,
@@ -637,7 +648,7 @@ describe("reglas del módulo de pagos", () => {
       aplicaciones: [{ tipoDestino: "FACTURA", destinoId: "fac-1", importeAplicado: 100 }],
     })).resolves.toMatchObject({ id: "payment-1" })
 
-    expect(transaction.$queryRaw).toHaveBeenCalledTimes(1)
+    expect(transaction.$queryRaw).toHaveBeenCalledTimes(2)
     expect(transaction.secuenciaPago.upsert).toHaveBeenCalledWith({
       where: { entidad: "OBRADOR" },
       create: { entidad: "OBRADOR", ultimoNumero: 1 },
@@ -741,7 +752,7 @@ describe("reglas del módulo de pagos", () => {
     }
   })
 
-  it("supports an authorized excess with a different authorizer", async () => {
+  it("rejects caller-supplied excess approvals", async () => {
     const transaction = makePaymentTransaction()
     vi.mocked(transaction.asignacionPagoUsuario.findFirst).mockResolvedValue({ id: "assignment-1" } as any)
     vi.mocked(transaction.pagoAplicacion.aggregate)
@@ -752,15 +763,8 @@ describe("reglas del módulo de pagos", () => {
       aplicaciones: [{ tipoDestino: "FACTURA", destinoId: "fac-1", importeAplicado: 120 }],
       excesoAutorizadoPorId: "authorizer-1",
       motivoExceso: "Ajuste aprobado por dirección",
-    }))).resolves.toMatchObject({ id: "payment-1" })
-    expect(transaction.aprobacionPago.create).toHaveBeenCalledWith({
-      data: {
-        pagoId: "payment-1",
-        usuarioId: "authorizer-1",
-        tipo: "EXCESO_CONFORMADO",
-        motivo: "Ajuste aprobado por dirección",
-      },
-    })
+    }))).rejects.toMatchObject({ code: "EXCESS_APPROVAL_REQUIRED" })
+    expect(transaction.pago.create).not.toHaveBeenCalled()
   })
 
   it("rejects unavailable payment methods and malformed payment dates", async () => {

@@ -2,7 +2,7 @@ import { NextResponse } from "next/server"
 import { z } from "zod"
 import { withAuth } from "@/lib/with-auth"
 import { prisma } from "@/lib/prisma"
-import { auditPaymentEvent, requirePaymentFunction } from "@/lib/pagos"
+import { auditPaymentEvent, PaymentDomainError, requireOpenAccountingPeriod, requirePaymentFunction } from "@/lib/pagos"
 import { paymentErrorResponse, parseEntity } from "@/lib/pagos-http"
 
 const cashSchema = z.discriminatedUnion("action", [
@@ -18,7 +18,7 @@ const cashSchema = z.discriminatedUnion("action", [
   z.object({
     action: z.literal("REPONER"),
     cuentaFondosId: z.string().min(1),
-    arqueoId: z.string().optional(),
+    arqueoId: z.string().min(1),
     importe: z.coerce.number().finite().positive(),
     importeJustificado: z.coerce.number().finite().positive(),
   }),
@@ -51,6 +51,7 @@ export const POST = withAuth(async (req, session) => {
       if (account.responsableId !== input.custodioId) return NextResponse.json({ error: "El custodio no coincide con el responsable de la caja" }, { status: 409 })
       const date = new Date(input.fecha)
       if (!Number.isFinite(date.getTime())) return NextResponse.json({ error: "Fecha de arqueo no válida" }, { status: 400 })
+      await requireOpenAccountingPeriod(prisma, account.entidad, date)
       const fund = Number(account.fondoFijo || 0)
       const difference = Number((input.efectivoContado + input.justificantes - fund).toFixed(2))
       const count = await prisma.arqueoCaja.create({ data: { cuentaFondosId: account.id, fecha: date, custodioId: input.custodioId, verificadorId: session.user.id, efectivoContado: input.efectivoContado, justificantes: input.justificantes, fondoFijo: fund, diferencia: difference, estado: difference === 0 ? "VALIDADO" : "INCIDENCIA", observaciones: input.observaciones || null } })
@@ -59,11 +60,12 @@ export const POST = withAuth(async (req, session) => {
     }
 
     if (Math.abs(input.importe - input.importeJustificado) > 0.009) return NextResponse.json({ error: "La reposición debe coincidir exactamente con lo justificado" }, { status: 409 })
-    if (input.arqueoId) {
-      const count = await prisma.arqueoCaja.findUnique({ where: { id: input.arqueoId } })
-      if (!count || count.cuentaFondosId !== account.id || count.estado !== "VALIDADO") return NextResponse.json({ error: "El arqueo no es válido para reponer" }, { status: 409 })
-    }
+    const count = await prisma.arqueoCaja.findUnique({ where: { id: input.arqueoId } })
+    if (!count || count.cuentaFondosId !== account.id || count.estado !== "VALIDADO") return NextResponse.json({ error: "El arqueo no es válido para reponer" }, { status: 409 })
+    await requireOpenAccountingPeriod(prisma, account.entidad, count.fecha)
     const replenishment = await prisma.$transaction(async (tx) => {
+      const existingReplenishment = await tx.reposicionCaja.findUnique({ where: { arqueoId: input.arqueoId }, select: { id: true } })
+      if (existingReplenishment) throw new PaymentDomainError("El arqueo ya tiene una reposición ejecutada", 409, "CASH_COUNT_ALREADY_REPLENISHED")
       const created = await tx.reposicionCaja.create({ data: { cuentaFondosId: account.id, arqueoId: input.arqueoId || null, importe: input.importe, importeJustificado: input.importeJustificado, estado: "EJECUTADA", creadaPorId: session.user.id, ejecutadaAt: new Date() } })
       await tx.movimientoFondos.create({ data: { cuentaFondosId: account.id, entidad: account.entidad, tipo: "REPOSICION_CAJA", importe: input.importe, descripcion: "Reposición de caja chica", origenTipo: "REPOSICION_CAJA", origenId: created.id, creadoPorId: session.user.id } })
       await tx.cuentaFondos.update({ where: { id: account.id }, data: { saldoTeorico: { increment: input.importe } } })

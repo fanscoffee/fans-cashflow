@@ -6,9 +6,9 @@ describe("pagos-http", () => {
   it("parses only supported payment entities", () => {
     expect(parseEntity(undefined)).toBeUndefined()
     expect(parseEntity(null)).toBeUndefined()
-    expect(parseEntity("")).toBeUndefined()
     expect(parseEntity("OBRADOR")).toBe("OBRADOR")
-    expect(parseEntity("INVALID")).toBeUndefined()
+    expect(() => parseEntity("")).toThrow("Entidad no válida")
+    expect(() => parseEntity("INVALID")).toThrow("Entidad no válida")
   })
 
   it("serializes domain errors into an HTTP response", async () => {

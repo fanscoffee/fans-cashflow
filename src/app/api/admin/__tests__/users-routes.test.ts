@@ -101,7 +101,7 @@ describe("admin user routes", () => {
     await expect(response.json()).resolves.toEqual({ ok: true })
     expect(prisma.user.update).toHaveBeenCalledWith({
       where: { id: "user-2" },
-      data: { password: "hashed-password" },
+      data: { password: "hashed-password", authVersion: { increment: 1 } },
     })
 
     vi.mocked(auth).mockResolvedValue({ user: { id: "employee-1", role: "EMPLEADO" } } as any)
