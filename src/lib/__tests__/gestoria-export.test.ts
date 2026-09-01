@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest"
 import ExcelJS from "exceljs"
-import { buildGestoriaRows, buildGestoriaWorkbook } from "../gestoria-export"
+import { buildCapturedGestoriaRows, buildGestoriaRows, buildGestoriaWorkbook } from "../gestoria-export"
 
 const invoice = {
   serie: "",
@@ -62,5 +62,30 @@ describe("gestoria-export", () => {
     expect(sheet.getRow(3).getCell(1).value).toBe("TOTAL")
     expect(sheet.getRow(3).getCell(8).value).toBe(100)
     expect(sheet.getRow(3).getCell(19).value).toBe(121)
+  })
+
+  it("maps standalone gestoría captures to the same worksheet layout", () => {
+    const rows = buildCapturedGestoriaRows([{
+      fecha: new Date("2026-07-15T00:00:00.000Z"),
+      facturaNumero: "CAP-1",
+      proveedorAcreedor: "Proveedor independiente",
+      nif: "B12345678",
+      concepto: "SERVICIO",
+      baseExenta: 0,
+      base21: 100,
+      iva21: 21,
+      base10: 0,
+      iva10: 0,
+      base4: 0,
+      iva4: 0,
+      base2: 0,
+      iva2: 0,
+      totalBase: 100,
+      totalIva: 21,
+      irpf: 0,
+      totalFactura: 121,
+      formaPago: "BANCO",
+    }])
+    expect(rows[0]).toMatchObject({ numero: 1, facturaNumero: "CAP-1", proveedor: "Proveedor independiente", base21: 100, iva21: 21, totalFactura: 121 })
   })
 })

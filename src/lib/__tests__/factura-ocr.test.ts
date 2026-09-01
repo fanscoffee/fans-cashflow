@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest"
 import { parseFacturaText } from "../factura-ocr"
+import { facturaDraftToGestoria } from "../gestoria-facturas"
 
 describe("parseFacturaText", () => {
   it("parses Yolmar PDF layout with invoice number and all product lines", () => {
@@ -79,7 +80,6 @@ describe("parseFacturaText", () => {
     ].join("\n")
 
     const draft = parseFacturaText(text)
-
     expect(draft.serie).toBe("FAC-2026")
     expect(draft.numero).toBe("8740")
     expect(draft.fechaExpedicion).toBe("2026-08-11")
@@ -142,6 +142,54 @@ describe("parseFacturaText", () => {
     expect(draft.totalNeto).toBe("74.34")
     expect(draft.totalIva).toBe("15.59")
     expect(draft.importeTotal).toBe("89.93")
+  })
+
+  it("parses IKEA tax rows when OCR misreads IMP and IVA in the header", () => {
+    const draft = parseFacturaText([
+      "FACTURA ORDINARIA",
+      "TREA IBERICA S.A.",
+      "N° FACTURA: ORD_081_2026/0021751",
+      "FECHA FACTURA: 22/05/2026",
+      "ART/ EA 00536247 17103",
+      "ROSENMANDEL CONT OPAC 20 135X300",
+      "29,99 0",
+      "TOTAL 89,93",
+      "CÓDIGO TIPO BASE INP. VA",
+      "0 21,0 % 74,34 15,59",
+      "N°. CAJERO: 118 1",
+    ].join("\n"))
+
+    expect(draft.impuestos).toEqual([{ tipo: "IVA", porcentaje: "21.00", baseImponible: "74.34", cuota: "15.59" }])
+    expect(draft.totalNeto).toBe("74.34")
+    expect(draft.totalIva).toBe("15.59")
+  })
+
+  it("parses Coca-Cola invoices with plain invoice numbers, dotted dates and SEPA payment", () => {
+    const draft = parseFacturaText([
+      "Número de cuenta de Coca-Cola EP: 19120357 Número factura: 2723824287",
+      "ENV/2023/000003130",
+      "RAZÓN SOCIAL DIRECCIÓN DE ENVÍO",
+      "FANS COFFEE FRIENDS, S.L.L FANS COFFEE FRIENDS, S.L.L",
+      "CIF/NIF: B09711078",
+      "DOCUMENTO NÚMERO FECHA FORMA DE PAGO GRUPO DE COBRO FECHA VTO PÁG",
+      "Factura 2723824287 06.07.2026 SEPA DOMI RECIBOS CLIENTES 13.07.2026 1/1",
+      "CÓDIGO EAN ART. DESCRIPCIÓN CANTIDAD PRECIO BASE DTO IMPORTE T",
+      "5449000000996 350080 COCACOLA LATA33 C24 2,00 39,36 78,72",
+      "TOTAL PRODUCTOS 64,54",
+      "TIPO BASE IMPONIBLE % IMPUESTOS IMPORTE",
+      "64,89 IVA 21 % 13,63",
+      "TOTAL BASES: 64,89 TOTAL IMPUESTOS: 13,63 TOTAL: 78,52 EUROS",
+      "C.I.F. B-86561412",
+    ].join("\n"))
+
+    expect(draft.numero).toBe("2723824287")
+    expect(draft.fechaExpedicion).toBe("2026-07-06")
+    expect(draft.formaPago).toBe("SEPA DOMI")
+    expect(draft.totalNeto).toBe("64.89")
+    expect(draft.totalIva).toBe("13.63")
+    expect(draft.importeTotal).toBe("78.52")
+    expect(draft.impuestos).toEqual([{ tipo: "IVA", porcentaje: "21.00", baseImponible: "64.89", cuota: "13.63" }])
+    expect(facturaDraftToGestoria(draft, "")).toMatchObject({ base21: "64.89", iva21: "13.63", proveedorAcreedor: "" })
   })
 
   it("covers OCR fallback branches and alternate value layouts", () => {
