@@ -144,7 +144,7 @@ export function facturaDraftToGestoria(draft: FacturaDraft, textoOCR: string): G
     ...form,
     fecha: draft.fechaExpedicion,
     facturaNumero: [draft.serie, draft.numero].filter(Boolean).join("/"),
-    proveedorAcreedor: "",
+    proveedorAcreedor: draft.razonSocialEmisor.trim(),
     nif: draft.nifEmisor,
     concepto: draft.lineas.some((linea) => linea.descripcion.trim()) ? "COMPRA" : "GASTO",
     baseExenta: textMoney(baseExenta),

@@ -23,7 +23,7 @@ describe("gestoria-facturas", () => {
     expect(facturaDraftToGestoria(draft, "texto OCR")).toMatchObject({
       fecha: "2026-07-15",
       facturaNumero: "FAC/100",
-      proveedorAcreedor: "",
+      proveedorAcreedor: "Proveedor SA",
       nif: "B12345678",
       concepto: "COMPRA",
       base21: "100.00",
@@ -45,6 +45,12 @@ describe("gestoria-facturas", () => {
     const result = facturaDraftToGestoria(draft, "")
     expect(result.baseExenta).toBe("50.00")
     expect(result.totalBase).toBe("50.00")
+  })
+
+  it("keeps the supplier empty when OCR did not identify one", () => {
+    const draft = emptyFacturaDraft()
+    draft.razonSocialEmisor = "  "
+    expect(facturaDraftToGestoria(draft, "").proveedorAcreedor).toBe("")
   })
 
   it("warns about inconsistent totals without rejecting them", () => {
