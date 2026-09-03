@@ -34,7 +34,7 @@ export default auth((req) => {
     }
 
     const normalizedRole = normalizeRole(role)
-    const allowedPrefix = `/${normalizedRole?.toLowerCase() || ""}`
+    const allowedPrefix = ROLE_REDIRECT[normalizedRole || ""] || `/${normalizedRole?.toLowerCase() || ""}`
 
     if (!pathname.startsWith(allowedPrefix)) {
       return NextResponse.redirect(new URL(allowedPrefix, req.url))
