@@ -50,18 +50,26 @@ describe("AppHeader", () => {
     expect(logo).toHaveAttribute("height", "84")
   })
 
-  it("renders nav links for ADMIN role", () => {
+  it("renders grouped nav links for ADMIN role", () => {
     render(<AppHeader title="Fans Cashflow" />)
     expect(screen.getByRole("link", { name: "Dashboard" })).toBeInTheDocument()
+    expect(screen.getByRole("link", { name: "Admin" })).toBeInTheDocument()
+
+    fireEvent.click(screen.getByRole("button", { name: "Operativa" }))
     expect(screen.getByRole("link", { name: "Fondo" })).toBeInTheDocument()
     expect(screen.getByRole("link", { name: "Historial de Turnos" })).toBeInTheDocument()
     expect(screen.getByRole("link", { name: "Efectivo" })).toBeInTheDocument()
-    expect(screen.getByRole("link", { name: "Encargos" })).toBeInTheDocument()
     expect(screen.getByRole("link", { name: "Turno" })).toBeInTheDocument()
-    expect(screen.getByRole("link", { name: "Admin" })).toBeInTheDocument()
+
+    fireEvent.click(screen.getByRole("button", { name: "Gestión" }))
+    expect(screen.getByRole("link", { name: "Inventario" })).toBeInTheDocument()
+    expect(screen.getByRole("link", { name: "Facturas" })).toBeInTheDocument()
+    expect(screen.getByRole("link", { name: "Gestoría" })).toBeInTheDocument()
+    expect(screen.getByRole("link", { name: "Pagos" })).toBeInTheDocument()
+    expect(screen.getByRole("link", { name: "Encargos" })).toBeInTheDocument()
   })
 
-  it("renders limited nav links for EMPLEADO role", () => {
+  it("renders limited nav links for EMPLOYEE role", () => {
     vi.mocked(useSession).mockReturnValue({
       data: { user: { role: "EMPLEADO" } },
       status: "authenticated",
@@ -83,7 +91,7 @@ describe("AppHeader", () => {
     expect(screen.queryByRole("link", { name: "Dashboard" })).not.toBeInTheDocument()
   })
 
-  it("calls signOut when Salir is clicked", () => {
+  it("calls signOut when the exit control is clicked", () => {
     render(<AppHeader title="Fans Cashflow" />)
     fireEvent.click(screen.getByText("Salir"))
     expect(signOut).toHaveBeenCalledWith({ callbackUrl: "/login" })
