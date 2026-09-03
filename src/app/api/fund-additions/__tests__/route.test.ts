@@ -69,7 +69,7 @@ describe("Fund Additions API /api/fund-additions", () => {
       expect(res.status).toBe(401)
     })
 
-    it("returns 403 for EMPLEADO role", async () => {
+  it("returns 403 for EMPLOYEE role", async () => {
       vi.mocked(auth).mockResolvedValue({
         user: { id: "2", role: "EMPLEADO" },
       } as any)
@@ -80,7 +80,7 @@ describe("Fund Additions API /api/fund-additions", () => {
       expect(res.status).toBe(403)
     })
 
-    it("creates addition for SOCIO role", async () => {
+  it("creates addition for PARTNER role", async () => {
       vi.mocked(auth).mockResolvedValue({
         user: { id: "3", role: "SOCIO" },
       } as any)

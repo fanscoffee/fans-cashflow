@@ -10,15 +10,18 @@ import {
 import { getProductTypeBehavior } from "@/lib/product-types"
 import { calculateProductPricing } from "@/lib/product-pricing"
 import { pickProductFields, validateProductInput } from "@/lib/product-input"
+import { UserRole } from "@/lib/database-enums"
+import { hasAnyRole } from "@/lib/roles"
+import { getFirstSearchParam } from "@/lib/request-params"
 
 export const GET = withAuth(async (req) => {
   const { searchParams } = new URL(req.url)
   const search = searchParams.get("search") || ""
-  const tipo = searchParams.get("tipo") || ""
-  const familia = searchParams.get("familia") || ""
-  const seccion = searchParams.get("seccion") || ""
-  const estado = searchParams.get("estado") || ""
-  const claseAbc = searchParams.get("claseAbc") || ""
+  const type = getFirstSearchParam(searchParams, "itemType", "tipo") || ""
+  const family = getFirstSearchParam(searchParams, "family", "familia") || ""
+  const section = getFirstSearchParam(searchParams, "section", "seccion") || ""
+  const status = getFirstSearchParam(searchParams, "status", "estado") || ""
+  const abcClass = getFirstSearchParam(searchParams, "abcClass", "claseAbc") || ""
   const requestedPage = Number(searchParams.get("page") || "1")
   const requestedPageSize = Number(searchParams.get("pageSize") || "50")
   const page = Number.isInteger(requestedPage) ? Math.max(1, requestedPage) : 1
@@ -28,38 +31,38 @@ export const GET = withAuth(async (req) => {
 
   if (search) {
     where.OR = [
-      { codigo: { contains: search, mode: "insensitive" } },
-      { descripcionTpv: { contains: search, mode: "insensitive" } },
-      { descripcionCompleta: { contains: search, mode: "insensitive" } },
+      { code: { contains: search, mode: "insensitive" } },
+      { posDescription: { contains: search, mode: "insensitive" } },
+      { fullDescription: { contains: search, mode: "insensitive" } },
     ]
   }
-  if (tipo) where.tipoArticulo = tipo
-  if (familia) where.familia = familia
-  if (seccion) where.seccion = seccion
-  if (estado) where.estado = estado
-  if (claseAbc) where.claseAbc = claseAbc
-  const [productos, total] = await Promise.all([
-    prisma.producto.findMany({
+  if (type) where.itemType = type
+  if (family) where.family = family
+  if (section) where.section = section
+  if (status) where.status = status
+  if (abcClass) where.abcClass = abcClass
+  const [products, total] = await Promise.all([
+    prisma.product.findMany({
       where,
-      orderBy: { codigo: "asc" },
+      orderBy: { code: "asc" },
       skip: (page - 1) * pageSize,
       take: pageSize,
       include: {
-        proveedores: {
-          where: { esPrincipal: true },
-          include: { proveedor: { select: { id: true, razonSocial: true } } },
+        suppliers: {
+          where: { isPrimary: true },
+          include: { supplier: { select: { id: true, legalName: true } } },
           take: 1,
         },
       },
     }),
-    prisma.producto.count({ where }),
+    prisma.product.count({ where }),
   ])
 
-  return NextResponse.json({ productos, total, page, pageSize })
+  return NextResponse.json({ products, total, page, pageSize })
 })
 
 export const POST = withAuth(async (req, session) => {
-  if (session.user.role !== "ADMIN" && session.user.role !== "SOCIO") {
+  if (!hasAnyRole(session.user.role, [UserRole.ADMIN, UserRole.PARTNER])) {
     return NextResponse.json({ error: "No autorizado" }, { status: 403 })
   }
 
@@ -70,19 +73,20 @@ export const POST = withAuth(async (req, session) => {
     }
     const inputError = validateProductInput(body)
     if (inputError) return NextResponse.json({ error: inputError }, { status: 400 })
-    const tipoArticulo = String(body.tipoArticulo || "").trim().toUpperCase()
-    const behavior = getProductTypeBehavior(tipoArticulo)
+    const itemType = String(body.itemType || "").trim().toUpperCase()
+    const behavior = getProductTypeBehavior(itemType)
     if (!behavior) {
       return NextResponse.json({ error: "Tipo de artículo no soportado" }, { status: 400 })
     }
 
     const duplicados = await findPotentialProductDuplicates(prisma, {
-      descripcionTpv: body.descripcionTpv,
-      descripcionCompleta: body.descripcionCompleta,
-      codBarrasEan: body.codBarrasEan,
+      posDescription: body.posDescription,
+      fullDescription: body.fullDescription,
+      eanBarcode: body.eanBarcode,
     })
 
-    if (duplicados.length > 0 && body.confirmarDuplicado !== true) {
+    const confirmDuplicate = body.confirmDuplicate ?? body.confirmDuplicado
+    if (duplicados.length > 0 && confirmDuplicate !== true) {
       return NextResponse.json(
         {
           error: "Hay productos que podrían ser duplicados. Revísalos antes de continuar.",
@@ -94,48 +98,48 @@ export const POST = withAuth(async (req, session) => {
 
     const productData = pickProductFields(body)
     const pricing = calculateProductPricing({
-      costeSinIva: body.costeUmBase,
-      ivaCompraPct: body.ivaCompraPct,
-      ivaVentaPct: body.ivaVentaPct,
-      ivaPct: body.ivaPct,
-      metodoPrecio: body.metodoPrecio,
-      margenObjetivoPct: body.margenObjetivoPct,
-      pvpVentaConIva: body.pvpAplicadoConIva,
+      costSinVat: body.baseUnitCost,
+      purchaseVatPercentage: body.purchaseVatPercentage,
+      salesVatPercentage: body.salesVatPercentage,
+      vatPercentage: body.vatPercentage,
+      pricingMethod: body.pricingMethod,
+      targetMarginPercentage: body.targetMarginPercentage,
+      retailPriceIncludingVat: body.appliedRetailPriceIncludingVat,
     })
     Object.assign(productData, {
-      tipoArticulo,
+      itemType,
       ...behavior,
-      ivaCompraPct: pricing.ivaCompraPct,
-      ivaVentaPct: pricing.ivaVentaPct,
-      ivaPct: pricing.ivaPct,
-      costeConIva: pricing.costeConIva,
-      pvpObjetivoConIva: pricing.pvpObjetivoConIva,
-      pvpFijoConIva: pricing.pvpFijoConIva,
-      pvpAplicadoConIva: pricing.pvpAplicadoConIva,
-      pvpAplicadoSinIva: pricing.pvpVentaSinIva,
-      gananciaEurUd: pricing.gananciaEurUd,
-      margenRealPct: pricing.margenRealPct,
-      desviacionPp: pricing.desviacionPp,
-      diferenciaEurUd: pricing.diferenciaEurUd,
-      diagnosticoPrecio: pricing.diagnosticoPrecio,
+      purchaseVatPercentage: pricing.purchaseVatPercentage,
+      salesVatPercentage: pricing.salesVatPercentage,
+      vatPercentage: pricing.vatPercentage,
+      costIncludingVat: pricing.costIncludingVat,
+      targetRetailPriceIncludingVat: pricing.targetRetailPriceIncludingVat,
+      fixedRetailPriceIncludingVat: pricing.fixedRetailPriceIncludingVat,
+      appliedRetailPriceIncludingVat: pricing.appliedRetailPriceIncludingVat,
+      appliedRetailPriceExcludingVat: pricing.retailPriceExcludingVat,
+      profitPerUnit: pricing.profitPerUnit,
+      actualMarginPercentage: pricing.actualMarginPercentage,
+      percentagePointDeviation: pricing.percentagePointDeviation,
+      unitDifference: pricing.unitDifference,
+      pricingDiagnosis: pricing.pricingDiagnosis,
     })
 
     for (let attempt = 0; attempt < 3; attempt++) {
       try {
-        const codigo = await getNextProductCode(
+        const code = await getNextProductCode(
           prisma,
-          tipoArticulo,
-          String(body.familia || ""),
+          itemType,
+          String(body.family || ""),
         )
-        const producto = await prisma.producto.create({
+        const product = await prisma.product.create({
           data: {
-            ...(productData as Prisma.ProductoUncheckedCreateInput),
-            codigo,
+            ...(productData as Prisma.ProductUncheckedCreateInput),
+            code,
             createdById: session.user.id,
           },
         })
 
-        return NextResponse.json(producto, { status: 201 })
+        return NextResponse.json(product, { status: 201 })
       } catch (error) {
         if (!(error instanceof Prisma.PrismaClientKnownRequestError) || error.code !== "P2002" || attempt === 2) {
           throw error

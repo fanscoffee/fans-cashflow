@@ -1,6 +1,6 @@
 import { describe, expect, it, vi, beforeEach } from "vitest"
 import { render, screen, fireEvent, waitFor } from "@testing-library/react"
-import TurnosPage from "../page"
+import ShiftsPage from "../page"
 
 vi.mock("next-auth/react", () => ({
   useSession: vi.fn(),
@@ -30,35 +30,35 @@ const mockShifts = [
   {
     id: "s1",
     date: "2026-07-22T00:00:00.000Z",
-    turno: "mañana",
+    shift: "mañana",
     status: "CERRADO",
-    efectivo: 100,
-    caixa: 50,
-    santander: 30,
-    fondoInicial: 200,
-    fondoFinal: 280,
-    expenses: [{ id: "e1", proveedor: "Frutas", importe: 25 }],
-    gastosCorrientes: [{ id: "current-1", entidad: "CAFETERIA", concepto: "Horas extras empleado", fechaDevengo: "2026-07-22", importe: 125.5, justificante: "SIN_JUSTIFICANTE", estado: "PENDIENTE_AUTORIZACION", categoria: { codigo: "PER", nombre: "Personal" }, solicitante: { name: "Juan", email: "juan@test.com" } }],
+    cash: 100,
+    caixaBankAmount: 50,
+    santanderAmount: 30,
+    openingFund: 200,
+    closingFund: 280,
+    expenses: [{ id: "e1", supplier: "Frutas", amount: 25 }],
+    currentExpenses: [{ id: "current-1", entity: "CAFETERIA", concept: "Horas extras empleado", accrualDate: "2026-07-22", amount: 125.5, receipt: "SIN_JUSTIFICANTE", status: "PENDIENTE_AUTORIZACION", category: { code: "PER", name: "Personal" }, requester: { name: "Juan", email: "juan@test.com" } }],
     createdAt: "2026-07-22T08:00:00.000Z",
     createdBy: { name: "Juan", email: "juan@test.com" },
   },
   {
     id: "s2",
     date: "2026-07-22T00:00:00.000Z",
-    turno: "tarde",
+    shift: "tarde",
     status: "ABIERTO",
-    efectivo: 80,
-    caixa: 40,
-    santander: 20,
-    fondoInicial: 280,
-    fondoFinal: 340,
+    cash: 80,
+    caixaBankAmount: 40,
+    santanderAmount: 20,
+    openingFund: 280,
+    closingFund: 340,
     expenses: [],
     createdAt: "2026-07-22T15:00:00.000Z",
     createdBy: { name: "Ana", email: "ana@test.com" },
   },
 ]
 
-describe("TurnosPage", () => {
+describe("ShiftsPage", () => {
   beforeEach(() => {
     vi.clearAllMocks()
     vi.mocked(useSession).mockReturnValue({
@@ -74,19 +74,19 @@ describe("TurnosPage", () => {
   })
 
   it("renders loading state initially", () => {
-    render(<TurnosPage />)
+    render(<ShiftsPage />)
     expect(screen.getByText("Cargando...")).toBeInTheDocument()
   })
 
   it("renders shifts after loading", async () => {
-    render(<TurnosPage />)
+    render(<ShiftsPage />)
     await waitFor(() => {
       expect(screen.getAllByText("Historial de Turnos").length).toBeGreaterThan(0)
     })
   })
 
   it("renders filter controls", async () => {
-    render(<TurnosPage />)
+    render(<ShiftsPage />)
     await waitFor(() => {
       expect(screen.getByText("Desde")).toBeInTheDocument()
       expect(screen.getByText("Hasta")).toBeInTheDocument()
@@ -96,8 +96,8 @@ describe("TurnosPage", () => {
     })
   })
 
-  it("filters by turno", async () => {
-    render(<TurnosPage />)
+  it("filters by shift", async () => {
+    render(<ShiftsPage />)
     await waitFor(() => {
       expect(screen.getByText("Mostrando 2 de 2 turnos")).toBeInTheDocument()
     })
@@ -113,7 +113,7 @@ describe("TurnosPage", () => {
   })
 
   it("filters by status", async () => {
-    render(<TurnosPage />)
+    render(<ShiftsPage />)
     await waitFor(() => {
       expect(screen.getByText("Mostrando 2 de 2 turnos")).toBeInTheDocument()
     })
@@ -129,7 +129,7 @@ describe("TurnosPage", () => {
   })
 
   it("filters by persona", async () => {
-    render(<TurnosPage />)
+    render(<ShiftsPage />)
     await waitFor(() => {
       expect(screen.getByText("Mostrando 2 de 2 turnos")).toBeInTheDocument()
     })
@@ -144,7 +144,7 @@ describe("TurnosPage", () => {
   })
 
   it("resets filters when Limpiar is clicked", async () => {
-    render(<TurnosPage />)
+    render(<ShiftsPage />)
     await waitFor(() => {
       expect(screen.getByText("Mostrando 2 de 2 turnos")).toBeInTheDocument()
     })
@@ -170,14 +170,14 @@ describe("TurnosPage", () => {
       json: () => Promise.resolve([]),
     } as any)
 
-    render(<TurnosPage />)
+    render(<ShiftsPage />)
     await waitFor(() => {
       expect(screen.getByText("No hay turnos registrados.")).toBeInTheDocument()
     })
   })
 
   it("renders per-shift total badge with correct sum", async () => {
-    render(<TurnosPage />)
+    render(<ShiftsPage />)
     await waitFor(() => {
       expect(screen.getByText("180.00 €")).toBeInTheDocument()
       expect(screen.getByText("140.00 €")).toBeInTheDocument()
@@ -185,7 +185,7 @@ describe("TurnosPage", () => {
   })
 
   it("renders current expenses linked to the shift", async () => {
-    render(<TurnosPage />)
+    render(<ShiftsPage />)
 
     await waitFor(() => {
       expect(screen.getByText(/Horas extras empleado · PER · Pendiente de autorización/)).toBeInTheDocument()
@@ -193,7 +193,7 @@ describe("TurnosPage", () => {
   })
 
   it("per-shift total badge has green styling", async () => {
-    render(<TurnosPage />)
+    render(<ShiftsPage />)
     await waitFor(() => {
       const badges = screen.getAllByText(/\d+\.\d+ €/)
       const greenBadge = badges.find((el) =>
@@ -204,7 +204,7 @@ describe("TurnosPage", () => {
   })
 
   it("per-shift total badge appears after the person name", async () => {
-    render(<TurnosPage />)
+    render(<ShiftsPage />)
     await waitFor(() => {
       const juanName = screen.getByText("— Juan")
       const badges = juanName.parentElement?.querySelectorAll("span")

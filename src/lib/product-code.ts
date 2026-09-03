@@ -5,19 +5,19 @@ const PRODUCT_CODE_PATTERN = /^([A-Z]{2})-([A-Z]{3})-(\d{3})$/
 const MAX_CORRELATIVE = 999
 
 type ProductCodeDatabase = {
-  catalogo: Pick<PrismaClient["catalogo"], "findFirst">
-  producto: Pick<PrismaClient["producto"], "findMany">
+  catalog: Pick<PrismaClient["catalog"], "findFirst">
+  product: Pick<PrismaClient["product"], "findMany">
 }
 
 export type ProductDuplicate = {
   id: string
-  codigo: string
-  codBarrasEan: string | null
-  descripcionTpv: string
-  descripcionCompleta: string
-  tipoArticulo: string
-  familia: string
-  estado: string
+  code: string
+  eanBarcode: string | null
+  posDescription: string
+  fullDescription: string
+  itemType: string
+  family: string
+  status: string
 }
 
 export class ProductCodeError extends Error {
@@ -31,8 +31,8 @@ function cleanText(value: unknown) {
   return typeof value === "string" ? value.trim().replace(/\s+/g, " ") : ""
 }
 
-function validateTipo(tipo: string) {
-  const value = cleanText(tipo).toUpperCase()
+function validateType(type: string) {
+  const value = cleanText(type).toUpperCase()
   if (!/^[A-Z]{2}$/.test(value)) {
     throw new ProductCodeError("El tipo de artículo debe tener 2 letras mayúsculas")
   }
@@ -52,42 +52,42 @@ function validatePrefix(prefix: unknown) {
 
 export async function getNextProductCode(
   db: ProductCodeDatabase,
-  tipo: string,
-  familia: string,
+  type: string,
+  family: string,
 ) {
-  const tipoValue = validateTipo(tipo)
-  const familiaValue = cleanText(familia)
-  if (!familiaValue) throw new ProductCodeError("La familia es obligatoria")
+  const typeValue = validateType(type)
+  const familyValue = cleanText(family)
+  if (!familyValue) throw new ProductCodeError("La familia es obligatoria")
 
-  const [tipoCatalogo, familiaCatalogo] = await Promise.all([
-    db.catalogo.findFirst({
-      where: { tipo: "TIPO_ARTICULO", valor: tipoValue, activo: true },
-      select: { valor: true },
+  const [typeCatalog, familyCatalog] = await Promise.all([
+    db.catalog.findFirst({
+      where: { type: "TIPO_ARTICULO", value: typeValue, active: true },
+      select: { value: true },
     }),
-    db.catalogo.findFirst({
-      where: { tipo: "FAMILIA", valor: familiaValue, activo: true },
-      select: { valor: true, prefijoCodigo: true },
+    db.catalog.findFirst({
+      where: { type: "FAMILIA", value: familyValue, active: true },
+      select: { value: true, codePrefix: true },
     }),
   ])
 
-  if (!tipoCatalogo) throw new ProductCodeError("Tipo de artículo no válido o inactivo")
-  if (!familiaCatalogo) throw new ProductCodeError("Familia no válida o inactiva")
+  if (!typeCatalog) throw new ProductCodeError("Tipo de artículo no válido o inactivo")
+  if (!familyCatalog) throw new ProductCodeError("Familia no válida o inactiva")
 
-  const prefijo = validatePrefix(familiaCatalogo.prefijoCodigo)
-  if (tipoValue === "SE" && prefijo !== "SEM") {
+  const prefijo = validatePrefix(familyCatalog.codePrefix)
+  if (typeValue === "SE" && prefijo !== "SEM") {
     throw new ProductCodeError("Los semielaborados solo pueden usar familia SEM")
   }
 
-  const base = `${tipoValue}-${prefijo}`
-  const productos = await db.producto.findMany({
-    where: { codigo: { startsWith: `${base}-` } },
-    select: { codigo: true },
+  const base = `${typeValue}-${prefijo}`
+  const products = await db.product.findMany({
+    where: { code: { startsWith: `${base}-` } },
+    select: { code: true },
   })
 
   let highest = 0
-  for (const producto of productos) {
-    const match = PRODUCT_CODE_PATTERN.exec(producto.codigo)
-    if (!match || match[1] !== tipoValue || match[2] !== prefijo) continue
+  for (const product of products) {
+    const match = PRODUCT_CODE_PATTERN.exec(product.code)
+    if (!match || match[1] !== typeValue || match[2] !== prefijo) continue
     highest = Math.max(highest, Number(match[3]))
   }
 
@@ -101,43 +101,43 @@ export async function getNextProductCode(
 export async function findPotentialProductDuplicates(
   db: ProductCodeDatabase,
   input: {
-    descripcionTpv?: unknown
-    descripcionCompleta?: unknown
-    codBarrasEan?: unknown
+    posDescription?: unknown
+    fullDescription?: unknown
+    eanBarcode?: unknown
     excludeId?: string
   },
 ) {
-  const descripcionTpv = cleanText(input.descripcionTpv)
-  const descripcionCompleta = cleanText(input.descripcionCompleta)
-  const codBarrasEan = cleanText(input.codBarrasEan)
+  const posDescription = cleanText(input.posDescription)
+  const fullDescription = cleanText(input.fullDescription)
+  const eanBarcode = cleanText(input.eanBarcode)
   const conditions = [
-    ...(descripcionTpv.length >= 3
-      ? [{ descripcionTpv: { contains: descripcionTpv, mode: "insensitive" as const } }]
+    ...(posDescription.length >= 3
+      ? [{ posDescription: { contains: posDescription, mode: "insensitive" as const } }]
       : []),
-    ...(descripcionCompleta.length >= 3
-      ? [{ descripcionCompleta: { contains: descripcionCompleta, mode: "insensitive" as const } }]
+    ...(fullDescription.length >= 3
+      ? [{ fullDescription: { contains: fullDescription, mode: "insensitive" as const } }]
       : []),
-    ...(codBarrasEan.length >= 3 ? [{ codBarrasEan }] : []),
+    ...(eanBarcode.length >= 3 ? [{ eanBarcode }] : []),
   ]
 
   if (conditions.length === 0) return [] as ProductDuplicate[]
 
-  return db.producto.findMany({
+  return db.product.findMany({
     where: {
       OR: conditions,
       ...(input.excludeId ? { id: { not: input.excludeId } } : {}),
     },
     select: {
       id: true,
-      codigo: true,
-      codBarrasEan: true,
-      descripcionTpv: true,
-      descripcionCompleta: true,
-      tipoArticulo: true,
-      familia: true,
-      estado: true,
+      code: true,
+      eanBarcode: true,
+      posDescription: true,
+      fullDescription: true,
+      itemType: true,
+      family: true,
+      status: true,
     },
-    orderBy: { codigo: "asc" },
+    orderBy: { code: "asc" },
     take: 10,
   })
 }

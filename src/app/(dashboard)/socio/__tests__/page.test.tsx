@@ -25,22 +25,22 @@ vi.mock("@/components/app-header", () => ({
   ),
 }))
 
-import SocioPage from "../page"
+import PartnerPage from "../page"
 
-describe("SocioPage", () => {
+describe("PartnerPage", () => {
   it("renders page title and subtitle", () => {
-    render(<SocioPage />)
+    render(<PartnerPage />)
     expect(screen.getByText("Fans Cashflow")).toBeInTheDocument()
     expect(screen.getByText(/Socio/)).toBeInTheDocument()
   })
 
   it("renders Dashboard component", () => {
-    render(<SocioPage />)
+    render(<PartnerPage />)
     expect(screen.getByTestId("dashboard")).toBeInTheDocument()
   })
 
   it("renders PasskeyManager component", () => {
-    render(<SocioPage />)
+    render(<PartnerPage />)
     expect(screen.getByTestId("passkey-manager")).toBeInTheDocument()
   })
 })

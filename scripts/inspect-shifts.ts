@@ -18,7 +18,7 @@ async function main() {
     orderBy: { createdAt: "asc" },
   })
 
-  console.log("=== FUND ADDITIONS ===")
+    console.log("=== FUND ADDITIONS ===")
   for (const a of additions) {
     console.log(
       `[${a.createdAt.toISOString()}] +${toN(a.amount)} (${a.description || "-"}) id=${a.id}`
@@ -29,22 +29,22 @@ async function main() {
   for (let i = 0; i < shifts.length; i++) {
     const s = shifts[i]
     const prev = shifts[i - 1] ?? null
-    const totalExpenses = s.expenses.reduce((sum, e) => sum + toN(e.importe), 0)
-    const expectedFinal = toN(s.fondoInicial) - totalExpenses
-    const additionsSincePrev = prev
+    const totalExpenses = s.expenses.reduce((sum, e) => sum + toN(e.amount), 0)
+    const expectedFinal = toN(s.openingFund) - totalExpenses
+    const additionsSincePrevious = prev
       ? additions.filter((a) => a.createdAt > prev.createdAt && a.createdAt <= s.createdAt).reduce((sum, a) => sum + toN(a.amount), 0)
       : additions.filter((a) => a.createdAt <= s.createdAt).reduce((sum, a) => sum + toN(a.amount), 0)
 
     console.log(`---`)
-    console.log(`Turno ${i + 1}: ${s.turno} ${s.date.toISOString().slice(0, 10)} status=${s.status}`)
+    console.log(`Shift ${i + 1}: ${s.shift} ${s.date.toISOString().slice(0, 10)} status=${s.status}`)
     console.log(`  createdAt=${s.createdAt.toISOString()}`)
-    console.log(`  fondoInicial=${toN(s.fondoInicial)} fondoFinal(BD)=${toN(s.fondoFinal)}`)
-    console.log(`  gastos=${totalExpenses.toFixed(2)} | fondoInicial - gastos = ${expectedFinal.toFixed(2)}`)
+    console.log(`  openingFund=${toN(s.openingFund)} closingFund(DB)=${toN(s.closingFund)}`)
+    console.log(`  expenses=${totalExpenses.toFixed(2)} | openingFund - expenses = ${expectedFinal.toFixed(2)}`)
     if (prev) {
       console.log(`  [prev createdAt=${prev.createdAt.toISOString()}]`)
-      console.log(`  additions entre prev y este turno: ${additionsSincePrev.toFixed(2)}`)
-      console.log(`  prev.fondoFinal + additions = ${(toN(prev.fondoFinal) + additionsSincePrev).toFixed(2)}`)
-      console.log(`  ¿coincide con fondoInicial? ${(toN(prev.fondoFinal) + additionsSincePrev).toFixed(2) === toN(s.fondoInicial).toFixed(2) ? "SÍ" : "NO ← AQUÍ HAY DIFERENCIA"}`)
+      console.log(`  additions between previous and current shift: ${additionsSincePrevious.toFixed(2)}`)
+      console.log(`  previous.closingFund + additions = ${(toN(prev.closingFund) + additionsSincePrevious).toFixed(2)}`)
+      console.log(`  matches openingFund? ${(toN(prev.closingFund) + additionsSincePrevious).toFixed(2) === toN(s.openingFund).toFixed(2) ? "YES" : "NO - DIFFERENCE FOUND"}`)
     }
   }
 }

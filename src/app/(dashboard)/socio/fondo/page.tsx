@@ -25,11 +25,11 @@ interface FundAddition {
 
 const PAGE_SIZE = 10
 
-export default function FondoPage() {
+export default function FundPage() {
   const { status } = useSession()
   const [additions, setAdditions] = useState<FundAddition[]>([])
   const [loadingData, setLoadingData] = useState(true)
-  const [fondo, setFondo] = useState<number | null>(null)
+  const [fund, setFund] = useState<number | null>(null)
   const [error, setError] = useState<string | null>(null)
   const [success, setSuccess] = useState<string | null>(null)
 
@@ -58,7 +58,7 @@ export default function FondoPage() {
     ]).then(([additionsData, fundData]) => {
       if (!cancelled) {
         setAdditions(additionsData)
-        setFondo(fundData.fondo)
+        setFund(fundData.fund)
         setLoadingData(false)
       }
     }).catch(() => { if (!cancelled) setLoadingData(false) })
@@ -115,7 +115,7 @@ export default function FondoPage() {
         fetch("/api/fund"),
       ])
       if (addRes.ok) setAdditions(await addRes.json())
-      if (fundRes.ok) setFondo((await fundRes.json()).fondo)
+      if (fundRes.ok) setFund((await fundRes.json()).fund)
     } catch {
       setError("Error al conectar con el servidor")
     }
@@ -150,7 +150,7 @@ export default function FondoPage() {
             <div className="flex items-center gap-2 rounded-md bg-blue-50 px-3 py-2 sm:hidden">
               <span className="text-xs text-gray-600">Fondo:</span>
               <span className="text-sm font-bold text-blue-700">
-                {fondo !== null ? `${toFixed(fondo)} €` : "..."}
+                {fund !== null ? `${toFixed(fund)} €` : "..."}
               </span>
             </div>
             <div>
@@ -177,7 +177,7 @@ export default function FondoPage() {
             <div className="hidden items-center gap-2 rounded-md bg-blue-50 px-3 py-2 sm:flex">
               <span className="text-xs text-gray-600">Fondo:</span>
               <span className="text-sm font-bold text-blue-700">
-                {fondo !== null ? `${toFixed(fondo)} €` : "..."}
+                {fund !== null ? `${toFixed(fund)} €` : "..."}
               </span>
             </div>
             <button

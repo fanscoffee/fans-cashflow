@@ -2,10 +2,10 @@
 
 import { useSession } from "next-auth/react"
 import AppHeader from "@/components/app-header"
-import InventarioPage from "@/components/inventario/inventario-page"
+import InventoryPage from "@/components/inventory/inventory-page"
 import { canDeleteInventoryItems } from "@/lib/inventory-permissions"
 
-export default function SocioInventarioPage() {
+export default function PartnerInventoryPage() {
   const { data: session, status } = useSession()
 
   if (status === "loading") {
@@ -23,7 +23,7 @@ export default function SocioInventarioPage() {
         subtitle={`Inventario — ${session?.user?.name || session?.user?.email}`}
       />
       <main className="mx-auto max-w-6xl px-4 py-6 pb-24 sm:pb-6">
-         <InventarioPage canDeleteProductsAndSuppliers={canDeleteInventoryItems(session?.user)} />
+         <InventoryPage canDeleteProductsAndSuppliers={canDeleteInventoryItems(session?.user)} />
       </main>
     </div>
   )

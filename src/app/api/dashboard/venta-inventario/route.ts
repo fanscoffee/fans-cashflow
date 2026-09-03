@@ -2,6 +2,8 @@ import { NextResponse } from "next/server"
 import { prisma } from "@/lib/prisma"
 import { toN } from "@/lib/money"
 import { withAuth } from "@/lib/with-auth"
+import { UserRole } from "@/lib/database-enums"
+import { hasAnyRole } from "@/lib/roles"
 
 function monthBounds(year: number, month: number) {
   return {
@@ -10,8 +12,47 @@ function monthBounds(year: number, month: number) {
   }
 }
 
+type InventoryDashboardPayload = {
+  state: "OK" | "INCOMPLETE"
+  period: { month: number; year: number }
+  counts: {
+    current: { id: string; countedAt: Date } | null
+    previous: { id: string; countedAt: Date } | null
+  }
+  summary: {
+    theoreticalSales: number
+    actualSales: number
+    variance: number | null
+    variancePct: number | null
+    shiftsWithClose: number
+    shiftsWithoutClose: number
+    productsValued: number
+    pendingProducts: number
+    inventoryAdjustments: number
+  }
+  warnings: string[]
+}
+
+function respond(payload: InventoryDashboardPayload) {
+  return NextResponse.json({
+    ...payload,
+    status: payload.state === "INCOMPLETE" ? "INCOMPLETO" : payload.state,
+    periodo: payload.period,
+    conteos: {
+      actual: payload.counts.current,
+      anterior: payload.counts.previous,
+    },
+    resumen: {
+      ...payload.summary,
+      shiftsConClose: payload.summary.shiftsWithClose,
+      productsValorizados: payload.summary.productsValued,
+      productsPendientes: payload.summary.pendingProducts,
+    },
+  })
+}
+
 export const GET = withAuth(async (req, session) => {
-  if (session.user.role !== "ADMIN" && session.user.role !== "SOCIO") {
+  if (!hasAnyRole(session.user.role, [UserRole.ADMIN, UserRole.PARTNER])) {
     return NextResponse.json({ error: "No autorizado" }, { status: 403 })
   }
 
@@ -21,23 +62,23 @@ export const GET = withAuth(async (req, session) => {
   const year = Number(searchParams.get("year") || now.getFullYear())
   const { start, end } = monthBounds(year, month)
 
-  const [conteoActual, turnos] = await Promise.all([
-    prisma.inventarioFisico.findFirst({
-      where: { fechaConteo: { gte: start, lt: end } },
-      orderBy: { fechaConteo: "desc" },
+  const [currentInventory, shifts] = await Promise.all([
+    prisma.physicalInventory.findFirst({
+      where: { countedAt: { gte: start, lt: end } },
+      orderBy: { countedAt: "desc" },
       include: {
-        lineas: {
+        lines: {
           include: {
-            producto: {
+            product: {
               select: {
                 id: true,
-                esVendible: true,
-                pvpAplicadoSinIva: true,
-                factorVentaABase: true,
-                factorCompraABase: true,
-                umCompra: true,
-                umBaseStock: true,
-                umVenta: true,
+                isSellable: true,
+                appliedRetailPriceExcludingVat: true,
+                salesToBaseFactor: true,
+                purchaseToBaseFactor: true,
+                purchaseUnit: true,
+                baseStockUnit: true,
+                salesUnit: true,
               },
             },
           },
@@ -46,89 +87,89 @@ export const GET = withAuth(async (req, session) => {
     }),
     prisma.shift.findMany({
       where: { date: { gte: start, lt: end }, status: "CERRADO" },
-      select: { cierreTurno: { select: { ventasNetas: true } } },
+      select: { shiftClose: { select: { netSales: true } } },
     }),
   ])
 
-  const ventaReal = turnos.reduce((total, shift) => {
-    return total + (shift.cierreTurno ? toN(shift.cierreTurno.ventasNetas) : 0)
+  const actualSales = shifts.reduce((total, shift) => {
+    return total + (shift.shiftClose ? toN(shift.shiftClose.netSales) : 0)
   }, 0)
-  const turnosConCierre = turnos.filter((shift) => shift.cierreTurno).length
-  const turnosSinCierre = turnos.length - turnosConCierre
+  const shiftsWithClose = shifts.filter((shift) => shift.shiftClose).length
+  const shiftsWithoutClose = shifts.length - shiftsWithClose
 
-  if (!conteoActual) {
-    return NextResponse.json({
-      estado: "INCOMPLETO",
-      periodo: { month, year },
-      conteos: { actual: null, anterior: null },
-      resumen: {
-        ventaTeorica: 0,
-        ventaReal,
-        diferencia: null,
-        diferenciaPct: null,
-        turnosConCierre,
-        turnosSinCierre,
-        productosValorizados: 0,
-        productosPendientes: 0,
-        ajustesInventario: 0,
+  if (!currentInventory) {
+    return respond({
+      state: "INCOMPLETE",
+      period: { month, year },
+      counts: { current: null, previous: null },
+      summary: {
+        theoreticalSales: 0,
+        actualSales,
+        variance: null,
+        variancePct: null,
+        shiftsWithClose,
+        shiftsWithoutClose,
+        productsValued: 0,
+        pendingProducts: 0,
+        inventoryAdjustments: 0,
       },
-      advertencias: ["No existe un conteo físico registrado para este mes."],
+      warnings: ["No existe un conteo físico registrado para este mes."],
     })
   }
 
-  const conteoAnterior = await prisma.inventarioFisico.findFirst({
-    where: { fechaConteo: { lt: conteoActual.fechaConteo } },
-    orderBy: { fechaConteo: "desc" },
+  const previousInventory = await prisma.physicalInventory.findFirst({
+    where: { countedAt: { lt: currentInventory.countedAt } },
+    orderBy: { countedAt: "desc" },
     include: {
-      lineas: { select: { productoId: true, cantidadUm2: true } },
+      lines: { select: { productId: true, quantityUnit2: true } },
     },
   })
 
-  if (!conteoAnterior) {
-    return NextResponse.json({
-      estado: "INCOMPLETO",
-      periodo: { month, year },
-      conteos: {
-        actual: { id: conteoActual.id, fechaConteo: conteoActual.fechaConteo },
-        anterior: null,
+  if (!previousInventory) {
+    return respond({
+      state: "INCOMPLETE",
+      period: { month, year },
+      counts: {
+        current: { id: currentInventory.id, countedAt: currentInventory.countedAt },
+        previous: null,
       },
-      resumen: {
-        ventaTeorica: 0,
-        ventaReal,
-        diferencia: null,
-        diferenciaPct: null,
-        turnosConCierre,
-        turnosSinCierre,
-        productosValorizados: 0,
-        productosPendientes: 0,
-        ajustesInventario: 0,
+      summary: {
+        theoreticalSales: 0,
+        actualSales,
+        variance: null,
+        variancePct: null,
+        shiftsWithClose,
+        shiftsWithoutClose,
+        productsValued: 0,
+        pendingProducts: 0,
+        inventoryAdjustments: 0,
       },
-      advertencias: ["No existe un conteo físico anterior para comparar."],
+      warnings: ["No existe un conteo físico anterior para comparar."],
     })
   }
 
   const previousByProduct = new Map(
-    conteoAnterior.lineas.map((linea) => [linea.productoId, toN(linea.cantidadUm2)])
+    previousInventory.lines.map((line) => [line.productId, toN(line.quantityUnit2)])
   )
-  const productIds = conteoActual.lineas.map((linea) => linea.productoId)
-  const recepciones = await prisma.recepcionLinea.findMany({
+  const productIds = currentInventory.lines.map((line) => line.productId)
+  const receipts = await prisma.receiptLine.findMany({
     where: {
-      productoId: { in: productIds },
-      recepcion: {
-        fechaRecepcion: {
-          gt: conteoAnterior.fechaConteo,
-          lte: conteoActual.fechaConteo,
+      productId: { in: productIds },
+      receipt: {
+        receivedAt: {
+          gt: previousInventory.countedAt,
+          lte: currentInventory.countedAt,
         },
       },
     },
     select: {
-      productoId: true,
-      cantidadRecibida: true,
-      producto: {
+      productId: true,
+      receivedQuantity: true,
+      product: {
         select: {
-          factorCompraABase: true,
-          umCompra: true,
-          umBaseStock: true,
+          purchaseToBaseFactor: true,
+          purchaseUnit: true,
+          baseStockUnit: true,
         },
       },
     },
@@ -136,79 +177,79 @@ export const GET = withAuth(async (req, session) => {
 
   const receivedByProduct = new Map<string, number>()
   const receiptConversionMissing = new Set<string>()
-  for (const recepcion of recepciones) {
-    const sameUnit = recepcion.producto.umCompra === recepcion.producto.umBaseStock
-    const factor = toN(recepcion.producto.factorCompraABase) || (sameUnit ? 1 : 0)
+  for (const receipt of receipts) {
+    const sameUnit = receipt.product.purchaseUnit === receipt.product.baseStockUnit
+    const factor = toN(receipt.product.purchaseToBaseFactor) || (sameUnit ? 1 : 0)
     if (factor <= 0) {
-      receiptConversionMissing.add(recepcion.productoId)
+      receiptConversionMissing.add(receipt.productId)
       continue
     }
     receivedByProduct.set(
-      recepcion.productoId,
-      (receivedByProduct.get(recepcion.productoId) || 0) + toN(recepcion.cantidadRecibida) * factor
+      receipt.productId,
+      (receivedByProduct.get(receipt.productId) || 0) + toN(receipt.receivedQuantity) * factor
     )
   }
 
-  let ventaTeorica = 0
-  let productosValorizados = 0
-  let productosPendientes = 0
-  let ajustesInventario = 0
+  let theoreticalSales = 0
+  let productsValued = 0
+  let pendingProducts = 0
+  let inventoryAdjustments = 0
 
-  for (const linea of conteoActual.lineas) {
-    if (!linea.producto.esVendible) continue
+  for (const line of currentInventory.lines) {
+    if (!line.product.isSellable) continue
 
-    const pvpSinIva = toN(linea.producto.pvpAplicadoSinIva)
-    const factorVenta = toN(linea.producto.factorVentaABase)
-    const sameSaleUnit = linea.producto.umVenta === linea.producto.umBaseStock
-    const validFactorVenta = factorVenta > 0 || sameSaleUnit
-    const hasReceiptIssue = receiptConversionMissing.has(linea.productoId)
-    if (pvpSinIva <= 0 || !validFactorVenta || hasReceiptIssue) {
-      productosPendientes += 1
+    const retailPriceSinVat = toN(line.product.appliedRetailPriceExcludingVat)
+    const salesFactor = toN(line.product.salesToBaseFactor)
+    const sameSaleUnit = line.product.salesUnit === line.product.baseStockUnit
+    const validSalesFactor = salesFactor > 0 || sameSaleUnit
+    const hasReceiptIssue = receiptConversionMissing.has(line.productId)
+    if (retailPriceSinVat <= 0 || !validSalesFactor || hasReceiptIssue) {
+      pendingProducts += 1
       continue
     }
 
-    const current = toN(linea.cantidadUm2)
-    const previous = previousByProduct.get(linea.productoId) || 0
-    const received = receivedByProduct.get(linea.productoId) || 0
-    const salidaBase = previous + received - current
-    if (salidaBase < 0) ajustesInventario += 1
+    const current = toN(line.quantityUnit2)
+    const previous = previousByProduct.get(line.productId) || 0
+    const received = receivedByProduct.get(line.productId) || 0
+    const outflowBase = previous + received - current
+    if (outflowBase < 0) inventoryAdjustments += 1
 
-    const unitsPerSale = factorVenta > 0 ? factorVenta : 1
-    ventaTeorica += Math.max(0, salidaBase / unitsPerSale) * pvpSinIva
-    productosValorizados += 1
-  }
-
-  const diferencia = ventaReal - ventaTeorica
-  const diferenciaPct = ventaTeorica > 0 ? (diferencia / ventaTeorica) * 100 : null
-  const advertencias: string[] = []
-  if (productosPendientes > 0) {
-    advertencias.push(`${productosPendientes} producto(s) vendible(s) no tienen configuración suficiente para valorarse.`)
-  }
-  if (ajustesInventario > 0) {
-    advertencias.push(`${ajustesInventario} producto(s) tienen un aumento de inventario no explicado por recepciones.`)
-  }
-  if (turnosSinCierre > 0) {
-    advertencias.push(`${turnosSinCierre} turno(s) cerrado(s) no tienen ticket confirmado y no se han incluido en la venta real.`)
+    const unitsPerSale = salesFactor > 0 ? salesFactor : 1
+    theoreticalSales += Math.max(0, outflowBase / unitsPerSale) * retailPriceSinVat
+    productsValued += 1
   }
 
-  return NextResponse.json({
-    estado: "OK",
-    periodo: { month, year },
-    conteos: {
-      actual: { id: conteoActual.id, fechaConteo: conteoActual.fechaConteo },
-      anterior: { id: conteoAnterior.id, fechaConteo: conteoAnterior.fechaConteo },
+  const variance = actualSales - theoreticalSales
+  const variancePct = theoreticalSales > 0 ? (variance / theoreticalSales) * 100 : null
+  const warnings: string[] = []
+  if (pendingProducts > 0) {
+    warnings.push(`${pendingProducts} producto(s) vendible(s) no tienen configuración suficiente para valorarse.`)
+  }
+  if (inventoryAdjustments > 0) {
+    warnings.push(`${inventoryAdjustments} producto(s) tienen un aumento de inventario no explicado por recepciones.`)
+  }
+  if (shiftsWithoutClose > 0) {
+    warnings.push(`${shiftsWithoutClose} turno(s) cerrado(s) no tienen ticket confirmado y no se han incluido en la venta real.`)
+  }
+
+  return respond({
+    state: "OK",
+    period: { month, year },
+    counts: {
+      current: { id: currentInventory.id, countedAt: currentInventory.countedAt },
+      previous: { id: previousInventory.id, countedAt: previousInventory.countedAt },
     },
-    resumen: {
-      ventaTeorica,
-      ventaReal,
-      diferencia,
-      diferenciaPct,
-      turnosConCierre,
-      turnosSinCierre,
-      productosValorizados,
-      productosPendientes,
-      ajustesInventario,
+    summary: {
+      theoreticalSales,
+      actualSales,
+      variance,
+      variancePct,
+      shiftsWithClose,
+      shiftsWithoutClose,
+      productsValued,
+      pendingProducts,
+      inventoryAdjustments,
     },
-    advertencias,
+    warnings,
   })
 })

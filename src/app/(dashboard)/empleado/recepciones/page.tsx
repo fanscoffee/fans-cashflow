@@ -1,7 +1,7 @@
 import AppHeader from "@/components/app-header"
-import RecepcionesPanel from "@/components/inventario/recepciones-panel"
+import ReceiptsPanel from "@/components/inventory/receipts-panel"
 
-export default function EmpleadoRecepcionesPage() {
+export default function EmployeeReceiptsPage() {
   return (
     <div className="min-h-screen bg-gray-50">
       <AppHeader title="Fans Cashflow" subtitle="Recepción de mercancía" />
@@ -15,7 +15,7 @@ export default function EmpleadoRecepcionesPage() {
           </p>
         </section>
 
-        <RecepcionesPanel canDelete={false} initialView="create" />
+        <ReceiptsPanel canDelete={false} initialView="create" />
       </main>
     </div>
   )

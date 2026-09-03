@@ -43,7 +43,7 @@ describe("Cash Tracking API /api/cash-tracking", () => {
       expect(res.status).toBe(401)
     })
 
-    it("returns 403 for EMPLEADO role", async () => {
+  it("returns 403 for EMPLOYEE role", async () => {
       vi.mocked(auth).mockResolvedValue({
         user: { id: "2", role: "EMPLEADO" },
       } as any)
@@ -57,7 +57,7 @@ describe("Cash Tracking API /api/cash-tracking", () => {
         user: { id: "1", role: "ADMIN" },
       } as any)
       vi.mocked(prisma.shift.findMany).mockResolvedValue([
-        { id: "s1", efectivo: 100 },
+        { id: "s1", cash: 100 },
       ] as any)
 
       const res = await GET(mockRequest("http://localhost/api/cash-tracking?month=7&year=2026"))
@@ -83,7 +83,7 @@ describe("Cash Tracking API /api/cash-tracking", () => {
       expect(res.status).toBe(401)
     })
 
-    it("returns 403 for EMPLEADO role", async () => {
+  it("returns 403 for EMPLOYEE role", async () => {
       vi.mocked(auth).mockResolvedValue({
         user: { id: "2", role: "EMPLEADO" },
       } as any)

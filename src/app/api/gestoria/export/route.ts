@@ -1,8 +1,8 @@
 import { NextResponse } from "next/server"
 import { prisma } from "@/lib/prisma"
 import { withAuth } from "@/lib/with-auth"
-import { buildCapturedGestoriaRows, buildGestoriaWorkbook, type GestoriaCapturedSource } from "@/lib/gestoria-export"
-import { canAccessGestoria } from "@/lib/gestoria-facturas"
+import { buildCapturedAccountingRows, buildAccountingWorkbook, type AccountingCapturedSource } from "@/lib/accounting-export"
+import { canAccessAccounting } from "@/lib/accounting-invoices"
 
 function parsePeriod(request: Request) {
   const { searchParams } = new URL(request.url)
@@ -21,38 +21,38 @@ function parsePeriod(request: Request) {
 export const runtime = "nodejs"
 
 export const GET = withAuth(async (request, session) => {
-  if (!canAccessGestoria(session.user.role)) return NextResponse.json({ error: "No autorizado" }, { status: 403 })
+  if (!canAccessAccounting(session.user.role)) return NextResponse.json({ error: "No autorizado" }, { status: 403 })
   const period = parsePeriod(request)
   if (!period) return NextResponse.json({ error: "Periodo no válido" }, { status: 400 })
 
   try {
-    const facturas = await prisma.facturaGestoria.findMany({
-      where: { fecha: { gte: period.startDate, lt: period.endDate } },
+    const invoices = await prisma.accountingInvoice.findMany({
+      where: { date: { gte: period.startDate, lt: period.endDate } },
       select: {
-        fecha: true,
-        facturaNumero: true,
-        proveedorAcreedor: true,
-        nif: true,
-        concepto: true,
-        baseExenta: true,
+        date: true,
+        invoiceNumber: true,
+        supplierOrCreditor: true,
+        taxId: true,
+        concept: true,
+        exemptBase: true,
         base21: true,
-        iva21: true,
+        vat21: true,
         base10: true,
-        iva10: true,
+        vat10: true,
         base4: true,
-        iva4: true,
+        vat4: true,
         base2: true,
-        iva2: true,
+        vat2: true,
         totalBase: true,
-        totalIva: true,
-        irpf: true,
-        totalFactura: true,
-        formaPago: true,
+        totalVat: true,
+        withholdingTax: true,
+        invoiceTotal: true,
+        paymentMethod: true,
       },
-      orderBy: [{ fecha: "asc" }, { createdAt: "asc" }],
+      orderBy: [{ date: "asc" }, { createdAt: "asc" }],
     })
-    const rows = buildCapturedGestoriaRows(facturas as unknown as GestoriaCapturedSource[])
-    const workbook = await buildGestoriaWorkbook(rows)
+    const rows = buildCapturedAccountingRows(invoices as unknown as AccountingCapturedSource[])
+    const workbook = await buildAccountingWorkbook(rows)
     const filename = `fans-cashflow-gestoria-capturadas-${period.year}-${String(period.month).padStart(2, "0")}.xlsx`
     return new NextResponse(workbook, {
       headers: {

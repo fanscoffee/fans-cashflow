@@ -2,26 +2,26 @@ import { beforeEach, describe, expect, it, vi } from "vitest"
 import type { NextRequest } from "next/server"
 
 const tx = {
-  recepcion: { updateMany: vi.fn() },
-  factura: { delete: vi.fn(), update: vi.fn() },
+  receipt: { updateMany: vi.fn() },
+  invoice: { delete: vi.fn(), update: vi.fn() },
 }
 
 vi.mock("@/lib/prisma", () => ({
   prisma: {
-    factura: { findUnique: vi.fn(), findFirst: vi.fn() },
-    proveedor: { findUnique: vi.fn() },
-    recepcion: { findMany: vi.fn() },
-    producto: { findMany: vi.fn() },
+    invoice: { findUnique: vi.fn(), findFirst: vi.fn() },
+    supplier: { findUnique: vi.fn() },
+    receipt: { findMany: vi.fn() },
+    product: { findMany: vi.fn() },
     $transaction: vi.fn(),
   },
 }))
 
-vi.mock("@/lib/pagos", () => ({
+vi.mock("@/lib/payments", () => ({
   auditPaymentEvent: vi.fn(),
-  ensureAcreedorForProveedor: vi.fn(),
+  ensureCreditorForSupplier: vi.fn(),
 }))
 
-vi.mock("@/lib/pagos-storage", () => ({
+vi.mock("@/lib/payments-storage", () => ({
   getPaymentStorage: vi.fn(),
   paymentStorageBucket: "payment-documents",
 }))
@@ -33,8 +33,8 @@ vi.mock("@/lib/auth", () => ({
 import { DELETE, GET, PATCH } from "../route"
 import { prisma } from "@/lib/prisma"
 import { auth } from "@/lib/auth"
-import { auditPaymentEvent, ensureAcreedorForProveedor } from "@/lib/pagos"
-import { getPaymentStorage } from "@/lib/pagos-storage"
+import { auditPaymentEvent, ensureCreditorForSupplier } from "@/lib/payments"
+import { getPaymentStorage } from "@/lib/payments-storage"
 
 const context = { params: Promise.resolve({ id: "invoice-1" }) }
 const request = new Request("http://localhost/api/inventario/facturas/invoice-1", { method: "DELETE" }) as unknown as NextRequest
@@ -49,36 +49,36 @@ function patchRequest(body: unknown) {
 
 function validPatchBody(overrides: Record<string, unknown> = {}) {
   return {
-    proveedorId: "provider-1",
-    entidad: "OBRADOR",
-    tipoDocumento: "COMPRA_MERCANCIA",
-    cifReceptor: "B09711078",
-    serie: "A",
-    numero: "42",
-    fechaExpedicion: "2026-08-01",
-    razonSocialEmisor: "Proveedor",
-    nifEmisor: "B12345678",
-    domicilioFiscalEmisor: "Calle Mayor 1",
-    totalNeto: 10,
-    totalDescuento: 0,
-    totalIva: 2.1,
-    totalRecargo: 0,
-    totalRetenciones: 0,
-    importeTotal: 12.1,
-    recepcionIds: [],
-    lineas: [{
-      productoId: "product-1",
-      tipoLinea: "PRODUCTO",
-      descripcion: "Harina",
-      cantidad: 2,
-      descuentoImporte: 0,
-      precioUnitario: 5,
-      precioUnitarioNeto: 5,
-      baseImponible: 10,
-      cuotaIva: 2.1,
-      totalLinea: 12.1,
+    supplierId: "provider-1",
+    entity: "OBRADOR",
+    documentType: "COMPRA_MERCANCIA",
+    recipientTaxId: "B09711078",
+    series: "A",
+    number: "42",
+    issueDate: "2026-08-01",
+    issuerLegalName: "Proveedor",
+    issuerTaxId: "B12345678",
+    issuerBillingAddress: "Calle Mayor 1",
+    netTotal: 10,
+    discountTotal: 0,
+    totalVat: 2.1,
+    surchargeTotal: 0,
+    withholdingTotal: 0,
+    totalAmount: 12.1,
+    receiptIds: [],
+    lines: [{
+      productId: "product-1",
+      lineType: "PRODUCTO",
+      description: "Harina",
+      quantity: 2,
+      discountAmount: 0,
+      unitPrice: 5,
+      netUnitPrice: 5,
+      taxableBase: 10,
+      vatAmount: 2.1,
+      lineTotal: 12.1,
     }],
-    impuestos: [],
+    taxes: [],
     ...overrides,
   }
 }
@@ -88,18 +88,18 @@ describe("GET/PATCH /api/inventario/facturas/[id]", () => {
     vi.clearAllMocks()
     vi.mocked(auth).mockResolvedValue({ user: { id: "admin-1", role: "ADMIN" } } as any)
     vi.mocked(prisma.$transaction).mockImplementation(async (callback: any) => callback(tx))
-    vi.mocked(ensureAcreedorForProveedor).mockResolvedValue({ id: "creditor-1" } as any)
-    vi.mocked(tx.recepcion.updateMany).mockResolvedValue({ count: 1 } as any)
-    vi.mocked(tx.factura.update).mockResolvedValue({ id: "invoice-1" } as any)
+    vi.mocked(ensureCreditorForSupplier).mockResolvedValue({ id: "creditor-1" } as any)
+    vi.mocked(tx.receipt.updateMany).mockResolvedValue({ count: 1 } as any)
+    vi.mocked(tx.invoice.update).mockResolvedValue({ id: "invoice-1" } as any)
   })
 
-  it("allows ADMIN and SOCIO to read an invoice and rejects other roles", async () => {
+  it("allows ADMIN and PARTNER to read an invoice and rejects other roles", async () => {
     const readRequest = new Request("http://localhost/api/inventario/facturas/invoice-1") as unknown as NextRequest
-    vi.mocked(prisma.factura.findUnique).mockResolvedValue({ id: "invoice-1", numero: "42" } as any)
+    vi.mocked(prisma.invoice.findUnique).mockResolvedValue({ id: "invoice-1", number: "42" } as any)
 
     const response = await GET(readRequest, context)
     expect(response.status).toBe(200)
-    await expect(response.json()).resolves.toMatchObject({ id: "invoice-1", numero: "42" })
+    await expect(response.json()).resolves.toMatchObject({ id: "invoice-1", number: "42" })
 
     vi.mocked(auth).mockResolvedValue({ user: { id: "employee-1", role: "EMPLEADO" } } as any)
     const forbidden = await GET(readRequest, context)
@@ -107,7 +107,7 @@ describe("GET/PATCH /api/inventario/facturas/[id]", () => {
   })
 
   it("returns 404 when the invoice to read does not exist", async () => {
-    vi.mocked(prisma.factura.findUnique).mockResolvedValue(null)
+    vi.mocked(prisma.invoice.findUnique).mockResolvedValue(null)
 
     const response = await GET(new Request("http://localhost/api/inventario/facturas/missing") as unknown as NextRequest, context)
 
@@ -116,24 +116,24 @@ describe("GET/PATCH /api/inventario/facturas/[id]", () => {
   })
 
   it("updates a draft invoice, links its products and resets its circuit state", async () => {
-    vi.mocked(prisma.factura.findUnique)
-      .mockResolvedValueOnce({ id: "invoice-1", estadoCircuito: "BORRADOR" } as any)
-    vi.mocked(prisma.proveedor.findUnique).mockResolvedValue({ id: "provider-1", cifNif: "B-12345678" } as any)
-    vi.mocked(prisma.factura.findFirst).mockResolvedValue(null)
-    vi.mocked(prisma.producto.findMany).mockResolvedValue([{ id: "product-1" }] as any)
+    vi.mocked(prisma.invoice.findUnique)
+      .mockResolvedValueOnce({ id: "invoice-1", workflowStatus: "BORRADOR" } as any)
+    vi.mocked(prisma.supplier.findUnique).mockResolvedValue({ id: "provider-1", taxId: "B-12345678" } as any)
+    vi.mocked(prisma.invoice.findFirst).mockResolvedValue(null)
+    vi.mocked(prisma.product.findMany).mockResolvedValue([{ id: "product-1" }] as any)
 
-    const response = await PATCH(patchRequest(validPatchBody({ nifEmisor: "B 12345678" })), context)
+    const response = await PATCH(patchRequest(validPatchBody({ issuerTaxId: "B 12345678" })), context)
 
     expect(response.status).toBe(200)
-    await expect(response.json()).resolves.toMatchObject({ factura: { id: "invoice-1" }, alertas: [] })
-    expect(ensureAcreedorForProveedor).toHaveBeenCalledWith(tx, {
+    await expect(response.json()).resolves.toMatchObject({ invoice: { id: "invoice-1" }, alerts: [] })
+    expect(ensureCreditorForSupplier).toHaveBeenCalledWith(tx, {
       id: "provider-1",
-      razonSocial: "Proveedor",
-      cifNif: "B 12345678",
+      legalName: "Proveedor",
+      taxId: "B 12345678",
     }, "admin-1")
-    expect(tx.factura.update).toHaveBeenCalledWith(expect.objectContaining({
+    expect(tx.invoice.update).toHaveBeenCalledWith(expect.objectContaining({
       where: { id: "invoice-1" },
-      data: expect.objectContaining({ estadoCircuito: "BORRADOR", proveedorId: "provider-1" }),
+      data: expect.objectContaining({ workflowStatus: "DRAFT", supplierId: "provider-1" }),
     }))
   })
 
@@ -142,38 +142,38 @@ describe("GET/PATCH /api/inventario/facturas/[id]", () => {
     expect((await PATCH(patchRequest(validPatchBody()), context)).status).toBe(403)
 
     vi.mocked(auth).mockResolvedValue({ user: { id: "admin-1", role: "ADMIN" } } as any)
-    vi.mocked(prisma.factura.findUnique).mockResolvedValueOnce({ id: "invoice-1", estadoCircuito: "CONFORMADA" } as any)
+    vi.mocked(prisma.invoice.findUnique).mockResolvedValueOnce({ id: "invoice-1", workflowStatus: "CONFORMADA" } as any)
     expect((await PATCH(patchRequest(validPatchBody()), context)).status).toBe(409)
 
-    vi.mocked(prisma.factura.findUnique).mockResolvedValueOnce(null)
+    vi.mocked(prisma.invoice.findUnique).mockResolvedValueOnce(null)
     expect((await PATCH(patchRequest({}), context)).status).toBe(404)
 
-    vi.mocked(prisma.factura.findUnique).mockResolvedValueOnce({ id: "invoice-1", estadoCircuito: "BORRADOR" } as any)
+    vi.mocked(prisma.invoice.findUnique).mockResolvedValueOnce({ id: "invoice-1", workflowStatus: "BORRADOR" } as any)
     expect((await PATCH(patchRequest({}), context)).status).toBe(400)
   })
 
   it("rejects a provider mismatch, duplicate invoice or unavailable reception", async () => {
-    vi.mocked(prisma.factura.findUnique).mockResolvedValue({ id: "invoice-1", estadoCircuito: "BORRADOR" } as any)
-    vi.mocked(prisma.proveedor.findUnique).mockResolvedValue({ id: "provider-1", cifNif: "B-99999999" } as any)
+    vi.mocked(prisma.invoice.findUnique).mockResolvedValue({ id: "invoice-1", workflowStatus: "BORRADOR" } as any)
+    vi.mocked(prisma.supplier.findUnique).mockResolvedValue({ id: "provider-1", taxId: "B-99999999" } as any)
     expect((await PATCH(patchRequest(validPatchBody()), context)).status).toBe(400)
 
-    vi.mocked(prisma.proveedor.findUnique).mockResolvedValue({ id: "provider-1", cifNif: "B12345678" } as any)
-    vi.mocked(prisma.factura.findFirst).mockResolvedValue({ id: "other-invoice" } as any)
+    vi.mocked(prisma.supplier.findUnique).mockResolvedValue({ id: "provider-1", taxId: "B12345678" } as any)
+    vi.mocked(prisma.invoice.findFirst).mockResolvedValue({ id: "other-invoice" } as any)
     expect((await PATCH(patchRequest(validPatchBody()), context)).status).toBe(409)
 
-    vi.mocked(prisma.factura.findFirst).mockResolvedValue(null)
-    vi.mocked(prisma.recepcion.findMany).mockResolvedValue([])
-    expect((await PATCH(patchRequest(validPatchBody({ recepcionIds: ["reception-1"] })), context)).status).toBe(409)
+    vi.mocked(prisma.invoice.findFirst).mockResolvedValue(null)
+    vi.mocked(prisma.receipt.findMany).mockResolvedValue([])
+    expect((await PATCH(patchRequest(validPatchBody({ receiptIds: ["reception-1"] })), context)).status).toBe(409)
   })
 
   it("rejects unknown catalog products and returns transaction errors", async () => {
-    vi.mocked(prisma.factura.findUnique).mockResolvedValue({ id: "invoice-1", estadoCircuito: "BORRADOR" } as any)
-    vi.mocked(prisma.proveedor.findUnique).mockResolvedValue({ id: "provider-1", cifNif: "B12345678" } as any)
-    vi.mocked(prisma.factura.findFirst).mockResolvedValue(null)
-    vi.mocked(prisma.producto.findMany).mockResolvedValue([])
+    vi.mocked(prisma.invoice.findUnique).mockResolvedValue({ id: "invoice-1", workflowStatus: "BORRADOR" } as any)
+    vi.mocked(prisma.supplier.findUnique).mockResolvedValue({ id: "provider-1", taxId: "B12345678" } as any)
+    vi.mocked(prisma.invoice.findFirst).mockResolvedValue(null)
+    vi.mocked(prisma.product.findMany).mockResolvedValue([])
     expect((await PATCH(patchRequest(validPatchBody()), context)).status).toBe(400)
 
-    vi.mocked(prisma.producto.findMany).mockResolvedValue([{ id: "product-1" }] as any)
+    vi.mocked(prisma.product.findMany).mockResolvedValue([{ id: "product-1" }] as any)
     vi.mocked(prisma.$transaction).mockRejectedValue(new Error("transaction failed"))
     const response = await PATCH(patchRequest(validPatchBody()), context)
     expect(response.status).toBe(500)
@@ -186,50 +186,50 @@ describe("DELETE /api/inventario/facturas/[id]", () => {
     vi.clearAllMocks()
     vi.mocked(auth).mockResolvedValue({ user: { id: "admin-1", role: "ADMIN" } } as any)
     vi.mocked(prisma.$transaction).mockImplementation(async (callback: any) => callback(tx))
-    vi.mocked(prisma.factura.findUnique).mockResolvedValue({
+    vi.mocked(prisma.invoice.findUnique).mockResolvedValue({
       id: "invoice-1",
-      entidad: "OBRADOR",
-      serie: "A",
-      numero: "42",
-      estado: "CONFIRMADA",
-      estadoPago: "PENDIENTE",
-      estadoCircuito: "BORRADOR",
-      importePagado: null,
-      importeTotal: 121,
-      adjuntos: [],
-      _count: { aplicaciones: 0 },
+      entity: "OBRADOR",
+      series: "A",
+      number: "42",
+      status: "CONFIRMADA",
+      paymentStatus: "PENDIENTE",
+      workflowStatus: "BORRADOR",
+      paidAmount: null,
+      totalAmount: 121,
+      attachments: [],
+      _count: { applications: 0 },
     } as any)
-    vi.mocked(tx.recepcion.updateMany).mockResolvedValue({ count: 1 } as any)
-    vi.mocked(tx.factura.delete).mockResolvedValue({ id: "invoice-1" } as any)
+    vi.mocked(tx.receipt.updateMany).mockResolvedValue({ count: 1 } as any)
+    vi.mocked(tx.invoice.delete).mockResolvedValue({ id: "invoice-1" } as any)
     vi.mocked(auditPaymentEvent).mockResolvedValue(undefined as any)
     vi.mocked(getPaymentStorage).mockReturnValue(null)
   })
 
-  it("only allows ADMIN and SOCIO to delete invoices", async () => {
+  it("only allows ADMIN and PARTNER to delete invoices", async () => {
     vi.mocked(auth).mockResolvedValue({ user: { id: "employee-1", role: "EMPLEADO" } } as any)
 
     const response = await DELETE(request, context)
 
     expect(response.status).toBe(403)
-    expect(prisma.factura.findUnique).not.toHaveBeenCalled()
+    expect(prisma.invoice.findUnique).not.toHaveBeenCalled()
   })
 
-  it("allows SOCIO to delete an invoice", async () => {
+  it("allows PARTNER to delete an invoice", async () => {
     vi.mocked(auth).mockResolvedValue({ user: { id: "partner-1", role: "SOCIO" } } as any)
 
     const response = await DELETE(request, context)
 
     expect(response.status).toBe(200)
-    expect(tx.factura.delete).toHaveBeenCalledWith({ where: { id: "invoice-1" } })
+    expect(tx.invoice.delete).toHaveBeenCalledWith({ where: { id: "invoice-1" } })
   })
 
   it("blocks invoices with payments", async () => {
-    vi.mocked(prisma.factura.findUnique).mockResolvedValue({
+    vi.mocked(prisma.invoice.findUnique).mockResolvedValue({
       id: "invoice-1",
-      estadoPago: "PAGADA",
-      importePagado: 121,
-      _count: { aplicaciones: 1 },
-      adjuntos: [],
+      paymentStatus: "PAGADA",
+      paidAmount: 121,
+      _count: { applications: 1 },
+      attachments: [],
     } as any)
 
     const response = await DELETE(request, context)
@@ -240,7 +240,7 @@ describe("DELETE /api/inventario/facturas/[id]", () => {
   })
 
   it("returns not found when the invoice cannot be deleted", async () => {
-    vi.mocked(prisma.factura.findUnique).mockResolvedValue(null)
+    vi.mocked(prisma.invoice.findUnique).mockResolvedValue(null)
 
     const response = await DELETE(request, context)
 
@@ -260,18 +260,18 @@ describe("DELETE /api/inventario/facturas/[id]", () => {
 
   it("deletes the invoice, unlinks receptions and removes storage attachments", async () => {
     const remove = vi.fn().mockResolvedValue({ error: null })
-    vi.mocked(prisma.factura.findUnique).mockResolvedValue({
+    vi.mocked(prisma.invoice.findUnique).mockResolvedValue({
       id: "invoice-1",
-      entidad: "OBRADOR",
-      serie: "A",
-      numero: "42",
-      estado: "CONFIRMADA",
-      estadoPago: "PENDIENTE",
-      estadoCircuito: "BORRADOR",
-      importePagado: null,
-      importeTotal: 121,
-      adjuntos: [{ storageKey: "obrador/facturas/invoice-1/file.pdf" }],
-      _count: { aplicaciones: 0 },
+      entity: "OBRADOR",
+      series: "A",
+      number: "42",
+      status: "CONFIRMADA",
+      paymentStatus: "PENDIENTE",
+      workflowStatus: "BORRADOR",
+      paidAmount: null,
+      totalAmount: 121,
+      attachments: [{ storageKey: "obrador/facturas/invoice-1/file.pdf" }],
+      _count: { applications: 0 },
     } as any)
     vi.mocked(getPaymentStorage).mockReturnValue({
       storage: { from: vi.fn().mockReturnValue({ remove }) },
@@ -281,9 +281,9 @@ describe("DELETE /api/inventario/facturas/[id]", () => {
 
     expect(response.status).toBe(200)
     await expect(response.json()).resolves.toMatchObject({ ok: true, id: "invoice-1" })
-    expect(tx.recepcion.updateMany).toHaveBeenCalledWith({ where: { facturaId: "invoice-1" }, data: { facturaId: null } })
-    expect(tx.factura.delete).toHaveBeenCalledWith({ where: { id: "invoice-1" } })
-    expect(auditPaymentEvent).toHaveBeenCalledWith(expect.anything(), expect.objectContaining({ accion: "FACTURA_ELIMINADA", registroId: "invoice-1" }))
+    expect(tx.receipt.updateMany).toHaveBeenCalledWith({ where: { invoiceId: "invoice-1" }, data: { invoiceId: null } })
+    expect(tx.invoice.delete).toHaveBeenCalledWith({ where: { id: "invoice-1" } })
+    expect(auditPaymentEvent).toHaveBeenCalledWith(expect.anything(), expect.objectContaining({ action: "FACTURA_ELIMINADA", recordId: "invoice-1" }))
     expect(remove).toHaveBeenCalledWith(["obrador/facturas/invoice-1/file.pdf"])
   })
 })

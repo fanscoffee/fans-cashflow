@@ -3,7 +3,7 @@ import type { NextRequest } from "next/server"
 
 vi.mock("@/lib/prisma", () => ({
   prisma: {
-    producto: {
+    product: {
       findMany: vi.fn(),
     },
   },
@@ -28,36 +28,36 @@ describe("GET /api/inventario/recepciones/productos", () => {
   })
 
   it("returns only active purchasable products assigned to the selected provider", async () => {
-    vi.mocked(prisma.producto.findMany).mockResolvedValue([
-      { id: "product-1", codigo: "MP-HAR-001" },
+    vi.mocked(prisma.product.findMany).mockResolvedValue([
+      { id: "product-1", code: "MP-HAR-001" },
     ] as any)
 
     const response = await GET(getRequest("http://localhost/api/inventario/recepciones/productos?proveedorId=provider-1"))
 
     expect(response.status).toBe(200)
-    expect(prisma.producto.findMany).toHaveBeenCalledWith({
+    expect(prisma.product.findMany).toHaveBeenCalledWith({
       where: {
-        esComprable: true,
-        estado: "Activo",
-        proveedores: { some: { proveedorId: "provider-1" } },
+        isPurchasable: true,
+        status: "Activo",
+        suppliers: { some: { supplierId: "provider-1" } },
       },
       select: {
         id: true,
-        codigo: true,
-        descripcionTpv: true,
-        umCompra: true,
-        costeUmBase: true,
+        code: true,
+        posDescription: true,
+        purchaseUnit: true,
+        baseUnitCost: true,
       },
-      orderBy: { codigo: "asc" },
+      orderBy: { code: "asc" },
     })
-    await expect(response.json()).resolves.toEqual({ productos: [{ id: "product-1", codigo: "MP-HAR-001" }] })
+    await expect(response.json()).resolves.toEqual({ products: [{ id: "product-1", code: "MP-HAR-001" }] })
   })
 
   it("returns no products until a provider is selected", async () => {
     const response = await GET(getRequest("http://localhost/api/inventario/recepciones/productos"))
 
     expect(response.status).toBe(200)
-    expect(prisma.producto.findMany).not.toHaveBeenCalled()
-    await expect(response.json()).resolves.toEqual({ productos: [] })
+    expect(prisma.product.findMany).not.toHaveBeenCalled()
+    await expect(response.json()).resolves.toEqual({ products: [] })
   })
 })

@@ -3,21 +3,21 @@ import { prisma } from "@/lib/prisma"
 import { withAuth } from "@/lib/with-auth"
 
 export const GET = withAuth(async () => {
-  const productos = await prisma.producto.findMany({
+  const products = await prisma.product.findMany({
     where: {
-      esComprable: true,
-      estado: "Activo",
+      isPurchasable: true,
+      status: "Activo",
     },
     select: {
       id: true,
-      codigo: true,
-      descripcionTpv: true,
-      umCompra: true,
-      umBaseStock: true,
-      factorCompraABase: true,
+      code: true,
+      posDescription: true,
+      purchaseUnit: true,
+      baseStockUnit: true,
+      purchaseToBaseFactor: true,
     },
-    orderBy: { codigo: "asc" },
+    orderBy: { code: "asc" },
   })
 
-  return NextResponse.json({ productos })
+  return NextResponse.json({ products })
 })

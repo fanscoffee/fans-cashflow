@@ -7,13 +7,13 @@ const auditPaymentEvent = vi.hoisted(() => vi.fn())
 vi.mock("@/lib/auth", () => ({ auth: vi.fn() }))
 vi.mock("@/lib/prisma", () => ({
   prisma: {
-    cambioCuentaAcreedor: { findMany: vi.fn(), create: vi.fn(), findUnique: vi.fn() },
-    acreedor: { findUnique: vi.fn(), update: vi.fn() },
+    creditorAccountChange: { findMany: vi.fn(), create: vi.fn(), findUnique: vi.fn() },
+    creditor: { findUnique: vi.fn(), update: vi.fn() },
     $transaction: vi.fn(),
   },
 }))
-vi.mock("@/lib/pagos", async () => {
-  const actual = await vi.importActual<typeof import("@/lib/pagos")>("@/lib/pagos")
+vi.mock("@/lib/payments", async () => {
+  const actual = await vi.importActual<typeof import("@/lib/payments")>("@/lib/payments")
   return { ...actual, requirePaymentFunction, auditPaymentEvent }
 })
 
@@ -24,8 +24,8 @@ import { prisma } from "@/lib/prisma"
 const context = { params: Promise.resolve({ id: "creditor-1" }) }
 const changeContext = { params: Promise.resolve({ id: "change-1" }) }
 const tx = {
-  cambioCuentaAcreedor: { update: vi.fn() },
-  acreedor: { update: vi.fn() },
+  creditorAccountChange: { update: vi.fn() },
+  creditor: { update: vi.fn() },
 }
 
 function request(method: string, body?: unknown) {
@@ -46,38 +46,38 @@ describe("acreedor account change route", () => {
   })
 
   it("lists requested account changes", async () => {
-    vi.mocked(prisma.cambioCuentaAcreedor.findMany).mockResolvedValue([{ id: "change-1" }] as any)
+    vi.mocked(prisma.creditorAccountChange.findMany).mockResolvedValue([{ id: "change-1" }] as any)
 
     const response = await GET(request("GET"), context)
 
     expect(response.status).toBe(200)
     await expect(response.json()).resolves.toEqual([{ id: "change-1" }])
-    expect(prisma.cambioCuentaAcreedor.findMany).toHaveBeenCalledWith(expect.objectContaining({ where: { acreedorId: "creditor-1" } }))
+    expect(prisma.creditorAccountChange.findMany).toHaveBeenCalledWith(expect.objectContaining({ where: { creditorId: "creditor-1" } }))
   })
 
   it("validates and records a requested account change", async () => {
-    expect((await POST(request("POST", { cuentaNueva4: "12", motivo: "Cambio" }), context)).status).toBe(400)
+    expect((await POST(request("POST", { newAccountLast4: "12", reason: "Cambio" }), context)).status).toBe(400)
 
-    vi.mocked(prisma.acreedor.findUnique).mockResolvedValue(null)
-    expect((await POST(request("POST", { cuentaNueva4: "1234", motivo: "Cambio de cuenta" }), context)).status).toBe(409)
+    vi.mocked(prisma.creditor.findUnique).mockResolvedValue(null)
+    expect((await POST(request("POST", { newAccountLast4: "1234", reason: "Cambio de cuenta" }), context)).status).toBe(409)
 
-    vi.mocked(prisma.acreedor.findUnique).mockResolvedValue({
+    vi.mocked(prisma.creditor.findUnique).mockResolvedValue({
       id: "creditor-1",
-      entidadHabitual: "OBRADOR",
-      cuentaDestinoUltimos4: "0000",
-      estado: "ACTIVO",
+      defaultEntity: "OBRADOR",
+      destinationAccountLast4: "0000",
+      status: "ACTIVO",
     } as any)
-    vi.mocked(prisma.cambioCuentaAcreedor.create).mockResolvedValue({ id: "change-1" } as any)
-    const response = await POST(request("POST", { cuentaNueva4: "1234", motivo: "Cambio de cuenta" }), context)
+    vi.mocked(prisma.creditorAccountChange.create).mockResolvedValue({ id: "change-1" } as any)
+    const response = await POST(request("POST", { newAccountLast4: "1234", reason: "Cambio de cuenta" }), context)
 
     expect(response.status).toBe(201)
-    expect(prisma.cambioCuentaAcreedor.create).toHaveBeenCalledWith({
+    expect(prisma.creditorAccountChange.create).toHaveBeenCalledWith({
       data: {
-        acreedorId: "creditor-1",
-        cuentaAnterior4: "0000",
-        cuentaNueva4: "1234",
-        motivo: "Cambio de cuenta",
-        solicitadoPorId: "admin-1",
+        creditorId: "creditor-1",
+        previousAccountLast4: "0000",
+        newAccountLast4: "1234",
+        reason: "Cambio de cuenta",
+        requestedById: "admin-1",
       },
     })
   })
@@ -85,45 +85,45 @@ describe("acreedor account change route", () => {
   it("requires a second authorized person to approve a pending change", async () => {
     expect((await PATCH(request("PATCH", {}), changeContext)).status).toBe(400)
 
-    vi.mocked(prisma.cambioCuentaAcreedor.findUnique).mockResolvedValue(null)
-    expect((await PATCH(request("PATCH", { accion: "AUTORIZAR", confirmacionCanal: "Teléfono" }), changeContext)).status).toBe(404)
+    vi.mocked(prisma.creditorAccountChange.findUnique).mockResolvedValue(null)
+    expect((await PATCH(request("PATCH", { action: "AUTORIZAR", confirmationChannel: "Teléfono" }), changeContext)).status).toBe(404)
 
-    vi.mocked(prisma.cambioCuentaAcreedor.findUnique).mockResolvedValue({
+    vi.mocked(prisma.creditorAccountChange.findUnique).mockResolvedValue({
       id: "change-1",
-      acreedorId: "creditor-1",
-      solicitadoPorId: "admin-1",
-      estado: "PENDIENTE",
-      cuentaNueva4: "1234",
-      acreedor: { entidadHabitual: "OBRADOR" },
+      creditorId: "creditor-1",
+      requestedById: "admin-1",
+      status: "PENDIENTE",
+      newAccountLast4: "1234",
+      creditor: { defaultEntity: "OBRADOR" },
     } as any)
-    expect((await PATCH(request("PATCH", { accion: "AUTORIZAR", confirmacionCanal: "Teléfono" }), changeContext)).status).toBe(409)
+    expect((await PATCH(request("PATCH", { action: "AUTORIZAR", confirmationChannel: "Teléfono" }), changeContext)).status).toBe(409)
 
-    vi.mocked(prisma.cambioCuentaAcreedor.findUnique).mockResolvedValue({
+    vi.mocked(prisma.creditorAccountChange.findUnique).mockResolvedValue({
       id: "change-1",
-      acreedorId: "creditor-1",
-      solicitadoPorId: "requester-1",
-      estado: "AUTORIZADO",
-      cuentaNueva4: "1234",
-      acreedor: { entidadHabitual: "OBRADOR" },
+      creditorId: "creditor-1",
+      requestedById: "requester-1",
+      status: "AUTORIZADO",
+      newAccountLast4: "1234",
+      creditor: { defaultEntity: "OBRADOR" },
     } as any)
-    expect((await PATCH(request("PATCH", { accion: "AUTORIZAR", confirmacionCanal: "Teléfono" }), changeContext)).status).toBe(409)
+    expect((await PATCH(request("PATCH", { action: "AUTORIZAR", confirmationChannel: "Teléfono" }), changeContext)).status).toBe(409)
 
-    vi.mocked(prisma.cambioCuentaAcreedor.findUnique).mockResolvedValue({
+    vi.mocked(prisma.creditorAccountChange.findUnique).mockResolvedValue({
       id: "change-1",
-      acreedorId: "creditor-1",
-      solicitadoPorId: "requester-1",
-      estado: "PENDIENTE",
-      cuentaNueva4: "1234",
-      acreedor: { entidadHabitual: "OBRADOR" },
+      creditorId: "creditor-1",
+      requestedById: "requester-1",
+      status: "PENDIENTE",
+      newAccountLast4: "1234",
+      creditor: { defaultEntity: "OBRADOR" },
     } as any)
-    vi.mocked(tx.cambioCuentaAcreedor.update).mockResolvedValue({ id: "change-1", estado: "AUTORIZADO" } as any)
-    const response = await PATCH(request("PATCH", { accion: "AUTORIZAR", confirmacionCanal: "Teléfono" }), changeContext)
+    vi.mocked(tx.creditorAccountChange.update).mockResolvedValue({ id: "change-1", status: "AUTORIZADO" } as any)
+    const response = await PATCH(request("PATCH", { action: "AUTORIZAR", confirmationChannel: "Teléfono" }), changeContext)
 
     expect(response.status).toBe(200)
-    expect(tx.cambioCuentaAcreedor.update).toHaveBeenCalledWith(expect.objectContaining({
+    expect(tx.creditorAccountChange.update).toHaveBeenCalledWith(expect.objectContaining({
       where: { id: "change-1" },
-      data: expect.objectContaining({ estado: "AUTORIZADO", confirmacionCanal: "Teléfono" }),
+      data: expect.objectContaining({ status: "AUTORIZADO", confirmationChannel: "Teléfono" }),
     }))
-    expect(tx.acreedor.update).toHaveBeenCalledWith({ where: { id: "creditor-1" }, data: { cuentaDestinoUltimos4: "1234" } })
+    expect(tx.creditor.update).toHaveBeenCalledWith({ where: { id: "creditor-1" }, data: { destinationAccountLast4: "1234" } })
   })
 })

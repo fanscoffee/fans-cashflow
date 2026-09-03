@@ -54,7 +54,7 @@ describe("useOrders", () => {
     expect(global.fetch).toHaveBeenCalledWith("/api/encargos?month=7&year=2026")
   })
 
-  it("does not send month/year for EMPLEADO", async () => {
+  it("does not send month/year for EMPLOYEE", async () => {
     mockSession("EMPLEADO")
 
     const { result } = renderHook(() => useOrders({ month: 7, year: 2026 }))
@@ -63,14 +63,14 @@ describe("useOrders", () => {
     expect(global.fetch).toHaveBeenCalledWith("/api/encargos")
   })
 
-  it("canEdit is true for ADMIN and SOCIO", () => {
+  it("canEdit is true for ADMIN and PARTNER", () => {
     mockSession("ADMIN")
     const { result } = renderHook(() => useOrders())
     expect(result.current.canEdit).toBe(true)
     expect(result.current.canDelete).toBe(true)
   })
 
-  it("canEdit is false for EMPLEADO", () => {
+  it("canEdit is false for EMPLOYEE", () => {
     mockSession("EMPLEADO")
     const { result } = renderHook(() => useOrders())
     expect(result.current.canEdit).toBe(false)

@@ -3,10 +3,10 @@ import type { NextRequest } from "next/server"
 
 vi.mock("@/lib/prisma", () => ({
   prisma: {
-    catalogo: {
+    catalog: {
       findFirst: vi.fn(),
     },
-    producto: {
+    product: {
       findMany: vi.fn(),
       count: vi.fn(),
       create: vi.fn(),
@@ -41,74 +41,74 @@ describe("POST /api/inventario/productos", () => {
   })
 
   it("requires confirmation when possible duplicates are found", async () => {
-    vi.mocked(prisma.producto.findMany).mockResolvedValueOnce([
-      { id: "existing-1", codigo: "MP-HAR-001", descripcionTpv: "Harina", descripcionCompleta: "Harina trigo", codBarrasEan: null, tipoArticulo: "MP", familia: "Harinas y sémolas", estado: "Activo" },
+    vi.mocked(prisma.product.findMany).mockResolvedValueOnce([
+      { id: "existing-1", code: "MP-HAR-001", posDescription: "Harina", fullDescription: "Harina trigo", eanBarcode: null, itemType: "MP", family: "Harinas y sémolas", status: "Activo" },
     ] as any)
 
     const response = await POST(mockRequest({
-      tipoArticulo: "MP",
-      familia: "Harinas y sémolas",
-      descripcionTpv: "Harina",
-      descripcionCompleta: "Harina trigo",
+      itemType: "MP",
+      family: "Harinas y sémolas",
+      posDescription: "Harina",
+      fullDescription: "Harina trigo",
     }))
 
     expect(response.status).toBe(409)
-    expect(prisma.catalogo.findFirst).not.toHaveBeenCalled()
+    expect(prisma.catalog.findFirst).not.toHaveBeenCalled()
   })
 
   it("generates the code and derives flags on the server", async () => {
-    vi.mocked(prisma.producto.findMany)
+    vi.mocked(prisma.product.findMany)
       .mockResolvedValueOnce([])
       .mockResolvedValueOnce([])
-    vi.mocked(prisma.catalogo.findFirst)
-      .mockResolvedValueOnce({ valor: "MP" } as any)
-      .mockResolvedValueOnce({ valor: "Harinas y sémolas", prefijoCodigo: "HAR" } as any)
-    vi.mocked(prisma.producto.create).mockResolvedValue({ codigo: "MP-HAR-001" } as any)
+    vi.mocked(prisma.catalog.findFirst)
+      .mockResolvedValueOnce({ value: "MP" } as any)
+      .mockResolvedValueOnce({ value: "Harinas y sémolas", codePrefix: "HAR" } as any)
+    vi.mocked(prisma.product.create).mockResolvedValue({ code: "MP-HAR-001" } as any)
 
     const response = await POST(mockRequest({
-      tipoArticulo: "mp",
-      familia: "Harinas y sémolas",
-      descripcionTpv: "Harina nueva",
-      descripcionCompleta: "Harina nueva saco",
-      costeUmBase: 10,
-      ivaCompraPct: 21,
-      ivaVentaPct: 10,
-      metodoPrecio: "FIJO",
-      margenObjetivoPct: 70,
-      pvpAplicadoConIva: 20,
-      esComprable: false,
-      esElaborado: true,
-      esVendible: true,
-      llevaReceta: true,
-      confirmarDuplicado: true,
+      itemType: "mp",
+      family: "Harinas y sémolas",
+      posDescription: "Harina nueva",
+      fullDescription: "Harina nueva saco",
+      baseUnitCost: 10,
+      purchaseVatPercentage: 21,
+      salesVatPercentage: 10,
+      pricingMethod: "FIJO",
+      targetMarginPercentage: 70,
+      appliedRetailPriceIncludingVat: 20,
+      isPurchasable: false,
+      isPrepared: true,
+      isSellable: true,
+      hasRecipe: true,
+      confirmDuplicate: true,
     }))
 
     expect(response.status).toBe(201)
-    expect(prisma.producto.create).toHaveBeenCalledWith({
+    expect(prisma.product.create).toHaveBeenCalledWith({
       data: expect.objectContaining({
-        codigo: "MP-HAR-001",
-        tipoArticulo: "MP",
-        esComprable: true,
-        esElaborado: false,
-        esVendible: false,
-        llevaReceta: false,
-        ivaPct: 10,
-        ivaCompraPct: 21,
-        ivaVentaPct: 10,
-        costeConIva: 12.1,
-        pvpObjetivoConIva: 36.6667,
-        pvpFijoConIva: 20,
-        pvpAplicadoConIva: 20,
-        pvpAplicadoSinIva: 18.1818,
-        gananciaEurUd: 8.1818,
-        margenRealPct: 45,
-        desviacionPp: -25,
-        diferenciaEurUd: -16.6667,
-        diagnosticoPrecio: "MUY POR DEBAJO",
+        code: "MP-HAR-001",
+        itemType: "MP",
+        isPurchasable: true,
+        isPrepared: false,
+        isSellable: false,
+        hasRecipe: false,
+        vatPercentage: 10,
+        purchaseVatPercentage: 21,
+        salesVatPercentage: 10,
+        costIncludingVat: 12.1,
+        targetRetailPriceIncludingVat: 36.6667,
+        fixedRetailPriceIncludingVat: 20,
+        appliedRetailPriceIncludingVat: 20,
+        appliedRetailPriceExcludingVat: 18.1818,
+        profitPerUnit: 8.1818,
+        actualMarginPercentage: 45,
+        percentagePointDeviation: -25,
+        unitDifference: -16.6667,
+        pricingDiagnosis: "MUY POR DEBAJO",
         createdById: "user-1",
       }),
     })
-    const createCall = vi.mocked(prisma.producto.create).mock.calls[0]?.[0] as { data: Record<string, unknown> }
+    const createCall = vi.mocked(prisma.product.create).mock.calls[0]?.[0] as { data: Record<string, unknown> }
     expect(createCall.data).not.toHaveProperty("confirmarDuplicado")
   })
 })
@@ -120,29 +120,29 @@ describe("GET /api/inventario/productos", () => {
   })
 
   it("loads only the principal provider for the product table", async () => {
-    vi.mocked(prisma.producto.findMany).mockResolvedValue([
+    vi.mocked(prisma.product.findMany).mockResolvedValue([
       {
         id: "product-1",
-        codigo: "PT-SLD-002",
-        proveedores: [{ esPrincipal: true, proveedor: { id: "provider-1", razonSocial: "Proveedor principal" } }],
+        code: "PT-SLD-002",
+        suppliers: [{ isPrimary: true, supplier: { id: "provider-1", legalName: "Proveedor principal" } }],
       },
     ] as any)
-    vi.mocked(prisma.producto.count).mockResolvedValue(1)
+    vi.mocked(prisma.product.count).mockResolvedValue(1)
 
     const response = await GET(mockGetRequest())
 
     expect(response.status).toBe(200)
-    expect(prisma.producto.findMany).toHaveBeenCalledWith(expect.objectContaining({
+    expect(prisma.product.findMany).toHaveBeenCalledWith(expect.objectContaining({
       include: {
-        proveedores: {
-          where: { esPrincipal: true },
-          include: { proveedor: { select: { id: true, razonSocial: true } } },
+        suppliers: {
+          where: { isPrimary: true },
+          include: { supplier: { select: { id: true, legalName: true } } },
           take: 1,
         },
       },
     }))
     await expect(response.json()).resolves.toMatchObject({
-      productos: [{ codigo: "PT-SLD-002", proveedores: [{ proveedor: { razonSocial: "Proveedor principal" } }] }],
+      products: [{ code: "PT-SLD-002", suppliers: [{ supplier: { legalName: "Proveedor principal" } }] }],
       total: 1,
     })
   })

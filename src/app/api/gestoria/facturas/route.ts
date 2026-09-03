@@ -3,36 +3,36 @@ import { Prisma } from "@/generated/prisma/client"
 import { prisma } from "@/lib/prisma"
 import { withAuth } from "@/lib/with-auth"
 import {
-  buildGestoriaAmountWarnings,
-  canAccessGestoria,
-  facturaGestoriaSchema,
-  gestoriaDbData,
-  normalizeGestoriaFacturaNumero,
-  normalizeGestoriaNif,
-} from "@/lib/gestoria-facturas"
+  buildAccountingAmountWarnings,
+  canAccessAccounting,
+  accountingInvoiceSchema,
+  accountingDbData,
+  normalizeAccountingInvoiceNumber,
+  normalizeAccountingTaxId,
+} from "@/lib/accounting-invoices"
 import { toN } from "@/lib/money"
 
 const decimalFields = [
-  "baseExenta", "base21", "iva21", "base10", "iva10", "base4", "iva4", "base2", "iva2",
-  "totalBase", "totalIva", "irpf", "totalFactura",
+  "exemptBase", "base21", "vat21", "base10", "vat10", "base4", "vat4", "base2", "vat2",
+  "totalBase", "totalVat", "withholdingTax", "invoiceTotal",
 ] as const
 
-function serializeFactura(factura: Record<string, unknown>) {
-  const result: Record<string, unknown> = { ...factura }
-  if (factura.fecha instanceof Date) result.fecha = factura.fecha.toISOString()
-  for (const field of decimalFields) result[field] = toN(factura[field])
+function serializeInvoice(invoice: Record<string, unknown>) {
+  const result: Record<string, unknown> = { ...invoice }
+  if (invoice.date instanceof Date) result.date = invoice.date.toISOString()
+  for (const field of decimalFields) result[field] = toN(invoice[field])
   return result
 }
 
-async function alertsFor(input: ReturnType<typeof facturaGestoriaSchema.parse>, excludeId?: string) {
-  const alerts = [...buildGestoriaAmountWarnings(input)]
-  const nif = normalizeGestoriaNif(input.nif)
-  const facturaNumero = normalizeGestoriaFacturaNumero(input.facturaNumero)
-  if (nif && facturaNumero) {
-    const duplicate = await prisma.facturaGestoria.findFirst({
+async function alertsFor(input: ReturnType<typeof accountingInvoiceSchema.parse>, excludeId?: string) {
+  const alerts = [...buildAccountingAmountWarnings(input)]
+  const taxId = normalizeAccountingTaxId(input.taxId)
+  const invoiceNumber = normalizeAccountingInvoiceNumber(input.invoiceNumber)
+  if (taxId && invoiceNumber) {
+    const duplicate = await prisma.accountingInvoice.findFirst({
       where: {
-        nif,
-        facturaNumero,
+        taxId,
+        invoiceNumber,
         ...(excludeId ? { NOT: { id: excludeId } } : {}),
       },
       select: { id: true },
@@ -43,7 +43,7 @@ async function alertsFor(input: ReturnType<typeof facturaGestoriaSchema.parse>, 
 }
 
 export const GET = withAuth(async (request, session) => {
-  if (!canAccessGestoria(session.user.role)) return NextResponse.json({ error: "No autorizado" }, { status: 403 })
+  if (!canAccessAccounting(session.user.role)) return NextResponse.json({ error: "No autorizado" }, { status: 403 })
 
   const { searchParams } = new URL(request.url)
   const search = searchParams.get("search")?.trim() || ""
@@ -51,37 +51,37 @@ export const GET = withAuth(async (request, session) => {
   const pageSize = Math.min(100, Math.max(1, Number(searchParams.get("pageSize") || 20) || 20))
   const where = search ? {
     OR: [
-      { facturaNumero: { contains: search, mode: "insensitive" as const } },
-      { proveedorAcreedor: { contains: search, mode: "insensitive" as const } },
-      { nif: { contains: search, mode: "insensitive" as const } },
-      { concepto: { contains: search, mode: "insensitive" as const } },
+      { invoiceNumber: { contains: search, mode: "insensitive" as const } },
+      { supplierOrCreditor: { contains: search, mode: "insensitive" as const } },
+      { taxId: { contains: search, mode: "insensitive" as const } },
+      { concept: { contains: search, mode: "insensitive" as const } },
     ],
   } : {}
 
-  const [facturas, total] = await Promise.all([
-    prisma.facturaGestoria.findMany({
+  const [invoices, total] = await Promise.all([
+    prisma.accountingInvoice.findMany({
       where,
       skip: (page - 1) * pageSize,
       take: pageSize,
-      orderBy: [{ fecha: "desc" }, { createdAt: "desc" }],
-      include: { creadoPor: { select: { name: true, email: true } } },
+      orderBy: [{ date: "desc" }, { createdAt: "desc" }],
+      include: { createdBy: { select: { name: true, email: true } } },
     }),
-    prisma.facturaGestoria.count({ where }),
+    prisma.accountingInvoice.count({ where }),
   ])
 
-  return NextResponse.json({ facturas: facturas.map((factura) => serializeFactura(factura as unknown as Record<string, unknown>)), total, page, pageSize })
+  return NextResponse.json({ invoices: invoices.map((invoice) => serializeInvoice(invoice as unknown as Record<string, unknown>)), total, page, pageSize })
 })
 
 export const POST = withAuth(async (request, session) => {
-  if (!canAccessGestoria(session.user.role)) return NextResponse.json({ error: "No autorizado" }, { status: 403 })
+  if (!canAccessAccounting(session.user.role)) return NextResponse.json({ error: "No autorizado" }, { status: 403 })
 
   try {
-    const parsed = facturaGestoriaSchema.safeParse(await request.json())
+    const parsed = accountingInvoiceSchema.safeParse(await request.json())
     if (!parsed.success) return NextResponse.json({ error: parsed.error.issues[0]?.message || "Datos no válidos" }, { status: 400 })
     const input = parsed.data
-    const alertas = await alertsFor(input)
-    const factura = await prisma.facturaGestoria.create({ data: { ...gestoriaDbData(input, session.user.id, alertas), alertas: alertas.length ? alertas : Prisma.JsonNull } })
-    return NextResponse.json({ factura: serializeFactura(factura as unknown as Record<string, unknown>), alertas }, { status: 201 })
+    const alerts = await alertsFor(input)
+    const invoice = await prisma.accountingInvoice.create({ data: { ...accountingDbData(input, session.user.id, alerts), alerts: alerts.length ? alerts : Prisma.JsonNull } })
+    return NextResponse.json({ invoice: serializeInvoice(invoice as unknown as Record<string, unknown>), alerts }, { status: 201 })
   } catch (error) {
     return NextResponse.json({ error: error instanceof Error ? error.message : "No se pudo guardar la factura" }, { status: 500 })
   }

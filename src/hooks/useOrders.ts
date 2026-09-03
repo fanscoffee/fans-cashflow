@@ -3,6 +3,8 @@
 import { useState, useEffect, useCallback } from "react"
 import { useSession } from "next-auth/react"
 import type { Order } from "@/types/order"
+import { UserRole } from "@/lib/database-enums"
+import { hasAnyRole } from "@/lib/roles"
 
 interface UseOrdersOptions {
   month?: number
@@ -17,14 +19,14 @@ export function useOrders({ month, year }: UseOrdersOptions = {}) {
   const [success, setSuccess] = useState<string | null>(null)
 
   const role = session?.user?.role
-  const canEdit = role === "ADMIN" || role === "SOCIO"
+  const canEdit = hasAnyRole(role, [UserRole.ADMIN, UserRole.PARTNER])
   const canDelete = canEdit
 
   const fetchOrders = useCallback(async () => {
     setLoading(true)
     setError(null)
     try {
-      const isAll = role === "ADMIN" || role === "SOCIO"
+      const isAll = hasAnyRole(role, [UserRole.ADMIN, UserRole.PARTNER])
       const params = new URLSearchParams()
       if (isAll && month && year) {
         params.set("month", String(month))

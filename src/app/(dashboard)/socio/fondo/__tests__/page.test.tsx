@@ -1,6 +1,6 @@
 import { describe, expect, it, vi, beforeEach } from "vitest"
 import { render, screen, fireEvent, waitFor } from "@testing-library/react"
-import FondoPage from "../page"
+import FundPage from "../page"
 
 vi.mock("next-auth/react", () => ({
   useSession: vi.fn(),
@@ -36,7 +36,7 @@ const mockAdditions = [
   },
 ]
 
-function setupFetch(additions = mockAdditions, fondo = 500) {
+function setupFetch(additions = mockAdditions, fund = 500) {
   const spy = vi.spyOn(global, "fetch")
   spy.mockImplementation((url: string | URL | Request) => {
     const u = typeof url === "string" ? url : ""
@@ -44,13 +44,13 @@ function setupFetch(additions = mockAdditions, fondo = 500) {
       return Promise.resolve({ ok: true, json: () => Promise.resolve(additions) } as any)
     }
     if (u.includes("/api/fund")) {
-      return Promise.resolve({ ok: true, json: () => Promise.resolve({ fondo }) } as any)
+      return Promise.resolve({ ok: true, json: () => Promise.resolve({ fund }) } as any)
     }
     return Promise.resolve({ ok: true, json: () => Promise.resolve(null) } as any)
   })
 }
 
-describe("FondoPage", () => {
+describe("FundPage", () => {
   beforeEach(() => {
     vi.clearAllMocks()
     vi.mocked(useSession).mockReturnValue({
@@ -64,19 +64,19 @@ describe("FondoPage", () => {
 
   it("renders loading state initially", () => {
     vi.mocked(global.fetch).mockImplementation(() => new Promise(() => {}))
-    render(<FondoPage />)
+    render(<FundPage />)
     expect(screen.getByText("Cargando...")).toBeInTheDocument()
   })
 
-  it("renders fondo amount after loading", async () => {
-    render(<FondoPage />)
+  it("renders fund amount after loading", async () => {
+    render(<FundPage />)
     await waitFor(() => {
       expect(screen.getAllByText("500.00 €").length).toBeGreaterThan(0)
     })
   })
 
   it("filters additions by date from", async () => {
-    render(<FondoPage />)
+    render(<FundPage />)
     await waitFor(() => {
       expect(screen.getByText("Test deposit")).toBeInTheDocument()
     })
@@ -90,7 +90,7 @@ describe("FondoPage", () => {
   })
 
   it("filters additions by date to", async () => {
-    render(<FondoPage />)
+    render(<FundPage />)
     await waitFor(() => {
       expect(screen.getByText("Test deposit")).toBeInTheDocument()
     })
@@ -113,7 +113,7 @@ describe("FondoPage", () => {
       createdBy: { name: "Admin", email: "admin@test.com" },
     }))
     setupFetch(manyAdditions, 500)
-    render(<FondoPage />)
+    render(<FundPage />)
     await waitFor(() => {
       expect(screen.getByText("Mostrando 10 de 15 depósitos")).toBeInTheDocument()
     })
@@ -135,7 +135,7 @@ describe("FondoPage", () => {
       createdBy: { name: "Admin", email: "admin@test.com" },
     }))
     setupFetch(manyAdditions, 500)
-    render(<FondoPage />)
+    render(<FundPage />)
     await waitFor(() => {
       expect(screen.getByText("Mostrando 10 de 15 depósitos")).toBeInTheDocument()
     })
@@ -155,21 +155,21 @@ describe("FondoPage", () => {
   })
 
   it("renders deposit form", async () => {
-    render(<FondoPage />)
+    render(<FundPage />)
     await waitFor(() => {
       expect(screen.getAllByText("Depositar").length).toBeGreaterThan(0)
     })
   })
 
   it("renders additions history", async () => {
-    render(<FondoPage />)
+    render(<FundPage />)
     await waitFor(() => {
       expect(screen.getAllByText("Test deposit").length).toBeGreaterThan(0)
     })
   })
 
   it("filters additions by search text", async () => {
-    render(<FondoPage />)
+    render(<FundPage />)
     await waitFor(() => {
       expect(screen.getByText("Test deposit")).toBeInTheDocument()
     })
@@ -185,7 +185,7 @@ describe("FondoPage", () => {
 
   it("shows empty state when no additions", async () => {
     setupFetch([], 0)
-    render(<FondoPage />)
+    render(<FundPage />)
     await waitFor(() => {
       expect(screen.getByText("No hay depósitos registrados.")).toBeInTheDocument()
     })

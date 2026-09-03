@@ -4,41 +4,42 @@ import { z } from "zod"
 import { Prisma } from "@/generated/prisma/client"
 import { withAuth } from "@/lib/with-auth"
 import { prisma } from "@/lib/prisma"
-import { auditPaymentEvent, requireOpenAccountingPeriod, requirePaymentFunction } from "@/lib/pagos"
-import { paymentErrorResponse } from "@/lib/pagos-http"
+import { auditPaymentEvent, requireOpenAccountingPeriod, requirePaymentFunction } from "@/lib/payments"
+import { paymentErrorResponse } from "@/lib/payments-http"
+import { FundsAccountStatus, PaymentFunction, statementMovementDirectionSchema } from "@/lib/database-enums"
 
 const importSchema = z.object({
-  cuentaFondosId: z.string().min(1),
-  nombreArchivo: z.string().trim().min(1).max(200),
-  movimientos: z.array(z.object({
-    fechaValor: z.string().min(1),
-    descripcion: z.string().trim().min(1).max(200),
-    referenciaExterna: z.string().trim().max(100).optional(),
-    direccion: z.enum(["ENTRADA", "SALIDA"]),
-    importe: z.coerce.number().finite().positive(),
+  fundsAccountId: z.string().min(1),
+  fileName: z.string().trim().min(1).max(200),
+  movements: z.array(z.object({
+    valueDate: z.string().min(1),
+    description: z.string().trim().min(1).max(200),
+    externalReference: z.string().trim().max(100).optional(),
+    direction: statementMovementDirectionSchema,
+    amount: z.coerce.number().finite().positive(),
   }).strict()).min(1).max(2_000),
 }).strict()
 
 export const POST = withAuth(async (req, session) => {
   try {
     const input = importSchema.parse(await req.json())
-    const account = await prisma.cuentaFondos.findUnique({ where: { id: input.cuentaFondosId }, select: { id: true, entidad: true, estado: true } })
-    if (!account || account.estado !== "ACTIVA") return NextResponse.json({ error: "Cuenta no disponible" }, { status: 409 })
-    await requirePaymentFunction(session.user.id, "CONCILIAR", account.entidad, session.user.role)
-    const dates = input.movimientos.map((item) => new Date(item.fechaValor)).filter((date) => Number.isFinite(date.getTime()))
-    if (dates.length !== input.movimientos.length) return NextResponse.json({ error: "Hay fechas de extracto no válidas" }, { status: 400 })
-    const canonicalMovements = input.movimientos
+    const account = await prisma.fundsAccount.findUnique({ where: { id: input.fundsAccountId }, select: { id: true, entity: true, status: true } })
+    if (!account || account.status !== FundsAccountStatus.ACTIVE) return NextResponse.json({ error: "Cuenta no disponible" }, { status: 409 })
+    await requirePaymentFunction(session.user.id, PaymentFunction.RECONCILE, account.entity, session.user.role)
+    const dates = input.movements.map((item) => new Date(item.valueDate)).filter((date) => Number.isFinite(date.getTime()))
+    if (dates.length !== input.movements.length) return NextResponse.json({ error: "Hay fechas de extracto no válidas" }, { status: 400 })
+    const canonicalMovements = input.movements
       .map((item) => ({
-        fechaValor: new Date(item.fechaValor).toISOString(),
-        descripcion: item.descripcion,
-        referenciaExterna: item.referenciaExterna || null,
-        direccion: item.direccion,
-        importe: item.importe,
+        valueDate: new Date(item.valueDate).toISOString(),
+        description: item.description,
+        externalReference: item.externalReference || null,
+        direction: item.direction,
+        amount: item.amount,
       }))
       .sort((left, right) => JSON.stringify(left).localeCompare(JSON.stringify(right)))
-    const hashArchivo = createHash("sha256").update(JSON.stringify(canonicalMovements)).digest("hex")
-    const existingImport = await prisma.importacionExtracto.findFirst({
-      where: { cuentaFondosId: account.id, hashArchivo },
+    const fileHash = createHash("sha256").update(JSON.stringify(canonicalMovements)).digest("hex")
+    const existingImport = await prisma.statementImport.findFirst({
+      where: { fundsAccountId: account.id, fileHash },
       select: { id: true },
     })
     if (existingImport) return NextResponse.json({ error: "Este extracto ya fue importado", code: "STATEMENT_ALREADY_IMPORTED" }, { status: 409 })
@@ -47,21 +48,21 @@ export const POST = withAuth(async (req, session) => {
     const imported = await prisma.$transaction(async (tx) => {
       for (const period of periods) {
         const [year, month] = period.split("-").map(Number)
-        await requireOpenAccountingPeriod(tx, account.entidad, new Date(Date.UTC(year, month - 1, 1)))
+        await requireOpenAccountingPeriod(tx, account.entity, new Date(Date.UTC(year, month - 1, 1)))
       }
-      const created = await tx.importacionExtracto.create({
+      const created = await tx.statementImport.create({
         data: {
-          cuentaFondosId: account.id,
-          nombreArchivo: input.nombreArchivo,
-          hashArchivo,
-          fechaDesde: new Date(Math.min(...dates.map((date) => date.getTime()))),
-          fechaHasta: new Date(Math.max(...dates.map((date) => date.getTime()))),
-          creadaPorId: session.user.id,
-          movimientos: { create: input.movimientos.map((item) => ({ fechaValor: new Date(item.fechaValor), descripcion: item.descripcion, referenciaExterna: item.referenciaExterna || null, direccion: item.direccion, importe: item.importe, cuentaFondos: { connect: { id: account.id } } })) },
+          fundsAccountId: account.id,
+          fileName: input.fileName,
+          fileHash,
+          startDate: new Date(Math.min(...dates.map((date) => date.getTime()))),
+          endDate: new Date(Math.max(...dates.map((date) => date.getTime()))),
+          createdById: session.user.id,
+          movements: { create: input.movements.map((item) => ({ valueDate: new Date(item.valueDate), description: item.description, externalReference: item.externalReference || null, direction: item.direction, amount: item.amount, fundsAccount: { connect: { id: account.id } } })) },
         },
-        include: { movimientos: true },
+        include: { movements: true },
       })
-      await auditPaymentEvent(tx, { actorId: session.user.id, accion: "EXTRACTO_IMPORTADO", tipoRegistro: "ImportacionExtracto", registroId: created.id, entidad: account.entidad, despues: { movimientos: created.movimientos.length, nombreArchivo: input.nombreArchivo, hashArchivo } })
+      await auditPaymentEvent(tx, { actorId: session.user.id, action: "EXTRACTO_IMPORTADO", recordType: "ImportacionExtracto", recordId: created.id, entity: account.entity, after: { movements: created.movements.length, fileName: input.fileName, fileHash } })
       return created
     })
     return NextResponse.json(imported, { status: 201 })

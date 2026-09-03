@@ -1,18 +1,20 @@
 import { NextResponse } from "next/server"
 import { prisma } from "@/lib/prisma"
-import { calculateFondo } from "@/lib/fondo"
+import { calculateFund } from "@/lib/fund"
 import { withAuth } from "@/lib/with-auth"
 import { toJSON, toN } from "@/lib/money"
+import { UserRole } from "@/lib/database-enums"
+import { isRole } from "@/lib/roles"
 
 export const GET = withAuth(async (_req, session) => {
-  if (session.user.role === "OBRADOR") {
+  if (isRole(session.user.role, UserRole.BAKERY)) {
     return NextResponse.json({ error: "No autorizado" }, { status: 403 })
   }
   const openShift = await prisma.shift.findFirst({
     where: { status: "ABIERTO" },
   })
   if (openShift) {
-    return NextResponse.json({ fondo: toN(openShift.fondoFinal) })
+    return NextResponse.json({ fund: toN(openShift.closingFund) })
   }
 
   const lastShift = await prisma.shift.findFirst({
@@ -27,7 +29,7 @@ export const GET = withAuth(async (_req, session) => {
   })
 
   const additions = [{ amount: toJSON(additionsResult._sum.amount) }]
-  const fondo = calculateFondo(lastShift, additions)
+  const fund = calculateFund(lastShift, additions)
 
-  return NextResponse.json({ fondo })
+  return NextResponse.json({ fund })
 })

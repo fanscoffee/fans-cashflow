@@ -1,26 +1,28 @@
 import { NextResponse } from "next/server"
 import { prisma } from "@/lib/prisma"
 import { withAuth } from "@/lib/with-auth"
+import { UserRole } from "@/lib/database-enums"
+import { hasAnyRole } from "@/lib/roles"
 
 export const GET = withAuth(async (req, session, context) => {
-  if (session.user.role !== "ADMIN" && session.user.role !== "SOCIO") {
+  if (!hasAnyRole(session.user.role, [UserRole.ADMIN, UserRole.PARTNER])) {
     return NextResponse.json({ error: "No autorizado" }, { status: 403 })
   }
   const { id } = await context.params
 
-  const inventarioActual = await prisma.inventarioFisico.findUnique({
+  const inventoryActual = await prisma.physicalInventory.findUnique({
     where: { id },
     include: {
-      lineas: {
+      lines: {
         include: {
-          producto: {
+          product: {
             select: {
               id: true,
-              codigo: true,
-              descripcionTpv: true,
-              umCompra: true,
-              umBaseStock: true,
-              factorCompraABase: true,
+              code: true,
+              posDescription: true,
+              purchaseUnit: true,
+              baseStockUnit: true,
+              purchaseToBaseFactor: true,
             },
           },
         },
@@ -28,94 +30,99 @@ export const GET = withAuth(async (req, session, context) => {
     },
   })
 
-  if (!inventarioActual) {
+  if (!inventoryActual) {
     return NextResponse.json(
       { error: "Inventario no encontrado" },
       { status: 404 }
     )
   }
 
-  const inventarioAnterior = await prisma.inventarioFisico.findFirst({
-    where: { fechaConteo: { lt: inventarioActual.fechaConteo } },
-    orderBy: { fechaConteo: "desc" },
+  const previousInventory = await prisma.physicalInventory.findFirst({
+    where: { countedAt: { lt: inventoryActual.countedAt } },
+    orderBy: { countedAt: "desc" },
     include: {
-      lineas: {
+      lines: {
         select: {
-          productoId: true,
-          cantidadUm2: true,
+          productId: true,
+          quantityUnit2: true,
         },
       },
     },
   })
 
-  const mapaAnterior: Record<string, number> = {}
-  if (inventarioAnterior) {
-    for (const linea of inventarioAnterior.lineas) {
-      mapaAnterior[linea.productoId] = Number(linea.cantidadUm2)
+  const previousByProduct: Record<string, number> = {}
+  if (previousInventory) {
+    for (const line of previousInventory.lines) {
+      previousByProduct[line.productId] = Number(line.quantityUnit2)
     }
   }
 
-  const productoIds = inventarioActual.lineas.map((l) => l.producto.id)
-  const recepciones = await prisma.recepcionLinea.findMany({
+  const productIds = inventoryActual.lines.map((l) => l.product.id)
+  const receipts = await prisma.receiptLine.findMany({
     where: {
-      productoId: { in: productoIds },
-      recepcion: {
-        fechaRecepcion: {
-          gt: inventarioAnterior?.fechaConteo || new Date(0),
-          lte: inventarioActual.fechaConteo,
+      productId: { in: productIds },
+      receipt: {
+        receivedAt: {
+          gt: previousInventory?.countedAt || new Date(0),
+          lte: inventoryActual.countedAt,
         },
       },
     },
     select: {
-      productoId: true,
-      cantidadRecibida: true,
-      producto: {
+      productId: true,
+      receivedQuantity: true,
+      product: {
         select: {
-          factorCompraABase: true,
-          umCompra: true,
-          umBaseStock: true,
+          purchaseToBaseFactor: true,
+          purchaseUnit: true,
+          baseStockUnit: true,
         },
       },
     },
   })
 
-  const mapaRecibido: Record<string, number> = {}
-  for (const r of recepciones) {
-    const sameUnit = r.producto.umCompra === r.producto.umBaseStock
-    const factor = Number(r.producto.factorCompraABase) || (sameUnit ? 1 : 0)
-    mapaRecibido[r.productoId] = (mapaRecibido[r.productoId] || 0) + Number(r.cantidadRecibida) * factor
+  const receivedMap: Record<string, number> = {}
+  for (const r of receipts) {
+    const sameUnit = r.product.purchaseUnit === r.product.baseStockUnit
+    const factor = Number(r.product.purchaseToBaseFactor) || (sameUnit ? 1 : 0)
+    receivedMap[r.productId] = (receivedMap[r.productId] || 0) + Number(r.receivedQuantity) * factor
   }
 
-  const comparacion = inventarioActual.lineas.map((linea) => {
-    const anterior = mapaAnterior[linea.producto.id] || 0
-    const recibido = mapaRecibido[linea.producto.id] || 0
-    const actual = Number(linea.cantidadUm2)
-    const diferencia = anterior + recibido - actual
+  const comparison = inventoryActual.lines.map((line) => {
+    const previous = previousByProduct[line.product.id] || 0
+    const received = receivedMap[line.product.id] || 0
+    const actual = Number(line.quantityUnit2)
+    const variance = previous + received - actual
 
     return {
-      producto: linea.producto,
-      cantidadUm1: Number(linea.cantidadUm1),
-      cantidadUm2: Number(linea.cantidadUm2),
-      unidadBase: linea.producto.umBaseStock,
-      anterior,
-      recibido,
+      product: line.product,
+      quantityUnit1: Number(line.quantityUnit1),
+      quantityUnit2: Number(line.quantityUnit2),
+      baseUnit: line.product.baseStockUnit,
+      previous,
+      received,
       actual,
-      diferencia,
+      variance,
     }
   })
 
+  const previousInventorySummary = previousInventory
+    ? {
+        id: previousInventory.id,
+        countedAt: previousInventory.countedAt,
+      }
+    : null
+  const legacyComparison = comparison.map(({ previous, ...line }) => ({ ...line, anterior: previous }))
+
   return NextResponse.json({
-    inventario: {
-      id: inventarioActual.id,
-      fechaConteo: inventarioActual.fechaConteo,
-      notas: inventarioActual.notas,
+    inventory: {
+      id: inventoryActual.id,
+      countedAt: inventoryActual.countedAt,
+      notes: inventoryActual.notes,
     },
-    inventarioAnterior: inventarioAnterior
-      ? {
-          id: inventarioAnterior.id,
-          fechaConteo: inventarioAnterior.fechaConteo,
-        }
-      : null,
-    comparacion,
+    previousInventory: previousInventorySummary,
+    comparison,
+    inventoryAnterior: previousInventorySummary,
+    comparacion: legacyComparison,
   })
 })

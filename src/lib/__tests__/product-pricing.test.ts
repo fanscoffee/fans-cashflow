@@ -4,98 +4,98 @@ import { calculateProductPricing } from "../product-pricing"
 describe("calculateProductPricing", () => {
   it("calculates VAT-inclusive cost, net sale price, gain and margin", () => {
     expect(calculateProductPricing({
-      costeSinIva: 10,
-      ivaCompraPct: 21,
-      pvpVentaConIva: 20,
-      ivaVentaPct: 10,
+      costSinVat: 10,
+      purchaseVatPercentage: 21,
+      retailPriceIncludingVat: 20,
+      salesVatPercentage: 10,
     })).toEqual({
-      ivaCompraPct: 21,
-      ivaVentaPct: 10,
-      ivaPct: 10,
-      costeConIva: 12.1,
-      pvpObjetivoConIva: null,
-      pvpFijoConIva: null,
-      pvpAplicadoConIva: 20,
-      pvpVentaSinIva: 18.1818,
-      gananciaEurUd: 8.1818,
-      margenRealPct: 45,
-      desviacionPp: null,
-      diferenciaEurUd: null,
-      diagnosticoPrecio: "SIN OBJETIVO",
+      purchaseVatPercentage: 21,
+      salesVatPercentage: 10,
+      vatPercentage: 10,
+      costIncludingVat: 12.1,
+      targetRetailPriceIncludingVat: null,
+      fixedRetailPriceIncludingVat: null,
+      appliedRetailPriceIncludingVat: 20,
+      retailPriceExcludingVat: 18.1818,
+      profitPerUnit: 8.1818,
+      actualMarginPercentage: 45,
+      percentagePointDeviation: null,
+      unitDifference: null,
+      pricingDiagnosis: "SIN OBJETIVO",
     })
   })
 
   it("calculates the target and applied price for the margin method", () => {
     expect(calculateProductPricing({
-      costeSinIva: 10,
-      ivaCompraPct: 21,
-      ivaVentaPct: 10,
-      metodoPrecio: "MARGEN",
-      margenObjetivoPct: 70,
+      costSinVat: 10,
+      purchaseVatPercentage: 21,
+      salesVatPercentage: 10,
+      pricingMethod: "MARGEN",
+      targetMarginPercentage: 70,
     })).toMatchObject({
-      pvpObjetivoConIva: 36.6667,
-      pvpFijoConIva: null,
-      pvpAplicadoConIva: 36.6667,
-      pvpVentaSinIva: 33.3334,
-      gananciaEurUd: 23.3334,
-      margenRealPct: 70,
-      desviacionPp: 0,
-      diferenciaEurUd: 0,
-      diagnosticoPrecio: "EN OBJETIVO",
+      targetRetailPriceIncludingVat: 36.6667,
+      fixedRetailPriceIncludingVat: null,
+      appliedRetailPriceIncludingVat: 36.6667,
+      retailPriceExcludingVat: 33.3334,
+      profitPerUnit: 23.3334,
+      actualMarginPercentage: 70,
+      percentagePointDeviation: 0,
+      unitDifference: 0,
+      pricingDiagnosis: "EN OBJETIVO",
     })
   })
 
   it("uses the single sale price for the fixed method and diagnoses the deviation", () => {
     expect(calculateProductPricing({
-      costeSinIva: 10,
-      ivaVentaPct: 10,
-      metodoPrecio: "FIJO",
-      margenObjetivoPct: 70,
-      pvpVentaConIva: 20,
+      costSinVat: 10,
+      salesVatPercentage: 10,
+      pricingMethod: "FIJO",
+      targetMarginPercentage: 70,
+      retailPriceIncludingVat: 20,
     })).toMatchObject({
-      pvpObjetivoConIva: 36.6667,
-      pvpFijoConIva: 20,
-      pvpAplicadoConIva: 20,
-      desviacionPp: -25,
-      diferenciaEurUd: -16.6667,
-      diagnosticoPrecio: "MUY POR DEBAJO",
+      targetRetailPriceIncludingVat: 36.6667,
+      fixedRetailPriceIncludingVat: 20,
+      appliedRetailPriceIncludingVat: 20,
+      percentagePointDeviation: -25,
+      unitDifference: -16.6667,
+      pricingDiagnosis: "MUY POR DEBAJO",
     })
   })
 
   it("uses the legacy IVA when only ivaPct is available", () => {
     expect(calculateProductPricing({
-      costeSinIva: 0.74,
-      ivaPct: 4,
-      pvpVentaConIva: 1.2,
+      costSinVat: 0.74,
+      vatPercentage: 4,
+      retailPriceIncludingVat: 1.2,
     })).toMatchObject({
-      ivaCompraPct: 4,
-      ivaVentaPct: 4,
-      ivaPct: 4,
-      costeConIva: 0.7696,
-      pvpVentaSinIva: 1.1538,
+      purchaseVatPercentage: 4,
+      salesVatPercentage: 4,
+      vatPercentage: 4,
+      costIncludingVat: 0.7696,
+      retailPriceExcludingVat: 1.1538,
     })
   })
 
   it("does not replace an explicitly cleared IVA with the legacy value", () => {
     expect(calculateProductPricing({
-      costeSinIva: 10,
-      ivaPct: 21,
-      ivaCompraPct: "",
-      ivaVentaPct: 10,
-      pvpVentaConIva: 20,
+      costSinVat: 10,
+      vatPercentage: 21,
+      purchaseVatPercentage: "",
+      salesVatPercentage: 10,
+      retailPriceIncludingVat: 20,
     })).toMatchObject({
-      ivaCompraPct: null,
-      costeConIva: null,
-      ivaVentaPct: 10,
+      purchaseVatPercentage: null,
+      costIncludingVat: null,
+      salesVatPercentage: 10,
     })
   })
 
   it("leaves derived values empty until their inputs exist", () => {
-    expect(calculateProductPricing({ costeSinIva: 10 })).toMatchObject({
-      costeConIva: null,
-      pvpVentaSinIva: null,
-      gananciaEurUd: null,
-      margenRealPct: null,
+    expect(calculateProductPricing({ costSinVat: 10 })).toMatchObject({
+      costIncludingVat: null,
+      retailPriceExcludingVat: null,
+      profitPerUnit: null,
+      actualMarginPercentage: null,
     })
   })
 
@@ -104,32 +104,32 @@ describe("calculateProductPricing", () => {
     [17, "POR DEBAJO"],
     [19, "AJUSTADO"],
     [25, "POR ENCIMA"],
-  ])("diagnoses a fixed sale price of %s correctly", (pvpVentaConIva, diagnosticoPrecio) => {
+  ])("diagnoses a fixed sale price of %s correctly", (retailPriceIncludingVat, pricingDiagnosis) => {
     expect(calculateProductPricing({
-      costeSinIva: 10,
-      ivaCompraPct: 0,
-      ivaVentaPct: 0,
-      metodoPrecio: "FIJO",
-      margenObjetivoPct: 50,
-      pvpVentaConIva,
-    }).diagnosticoPrecio).toBe(diagnosticoPrecio)
+      costSinVat: 10,
+      purchaseVatPercentage: 0,
+      salesVatPercentage: 0,
+      pricingMethod: "FIJO",
+      targetMarginPercentage: 50,
+      retailPriceIncludingVat,
+    }).pricingDiagnosis).toBe(pricingDiagnosis)
   })
 
   it("returns missing data for invalid numeric inputs and impossible VAT rates", () => {
     expect(calculateProductPricing({
-      costeSinIva: "not-a-number",
-      ivaCompraPct: "not-a-number",
-      ivaVentaPct: -100,
-      metodoPrecio: " desconocido ",
-      margenObjetivoPct: 100,
-      pvpVentaConIva: "not-a-number",
+      costSinVat: "not-a-number",
+      purchaseVatPercentage: "not-a-number",
+      salesVatPercentage: -100,
+      pricingMethod: " desconocido ",
+      targetMarginPercentage: 100,
+      retailPriceIncludingVat: "not-a-number",
     })).toMatchObject({
-      ivaCompraPct: null,
-      ivaVentaPct: -100,
-      costeConIva: null,
-      pvpObjetivoConIva: null,
-      pvpVentaSinIva: null,
-      diagnosticoPrecio: "FALTAN DATOS",
+      purchaseVatPercentage: null,
+      salesVatPercentage: -100,
+      costIncludingVat: null,
+      targetRetailPriceIncludingVat: null,
+      retailPriceExcludingVat: null,
+      pricingDiagnosis: "FALTAN DATOS",
     })
   })
 })

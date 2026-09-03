@@ -55,7 +55,7 @@ describe("Shifts API /api/shifts", () => {
         user: { id: "1", role: "ADMIN" },
       } as any)
       vi.mocked(prisma.shift.findMany).mockResolvedValue([
-        { id: "s1", turno: "mañana" },
+        { id: "s1", shift: "mañana" },
       ] as any)
 
       const res = await GET(mockRequest("http://localhost/api/shifts"))
@@ -74,15 +74,15 @@ describe("Shifts API /api/shifts", () => {
       expect(res.status).toBe(200)
       expect(prisma.shift.findMany).toHaveBeenCalledWith(expect.objectContaining({
         include: expect.objectContaining({
-          gastosCorrientes: expect.objectContaining({
-            where: { estado: { not: "ANULADO" } },
+          currentExpenses: expect.objectContaining({
+            where: { status: { not: "VOID" } },
             orderBy: { createdAt: "asc" },
           }),
         }),
       }))
     })
 
-    it("returns open and last closed shift for EMPLEADO", async () => {
+    it("returns open and last closed shift for EMPLOYEE", async () => {
       vi.mocked(auth).mockResolvedValue({
         user: { id: "2", role: "EMPLEADO" },
       } as any)
@@ -109,7 +109,7 @@ describe("Shifts API /api/shifts", () => {
       vi.mocked(prisma.shift.findFirst).mockResolvedValue({ id: "open" } as any)
 
       const res = await POST(mockRequest("http://localhost/api/shifts", "POST", {
-        date: "2026-07-22", turno: "mañana",
+        date: "2026-07-22", shift: "mañana",
       }))
       expect(res.status).toBe(400)
     })
@@ -121,12 +121,12 @@ describe("Shifts API /api/shifts", () => {
       vi.mocked(prisma.shift.findFirst).mockResolvedValue(null)
 
       const res = await POST(mockRequest("http://localhost/api/shifts", "POST", {
-        date: "2026-07-22", turno: "invalid",
+        date: "2026-07-22", shift: "invalid",
       }))
       expect(res.status).toBe(400)
     })
 
-    it("returns 400 when shift already exists for same date/turno", async () => {
+    it("returns 400 when shift already exists for the same date and period", async () => {
       vi.mocked(auth).mockResolvedValue({
         user: { id: "1", role: "ADMIN" },
       } as any)
@@ -135,12 +135,12 @@ describe("Shifts API /api/shifts", () => {
         .mockResolvedValueOnce({ id: "existing" } as any) // existingShift check
 
       const res = await POST(mockRequest("http://localhost/api/shifts", "POST", {
-        date: "2026-07-22", turno: "mañana",
+        date: "2026-07-22", shift: "mañana",
       }))
       expect(res.status).toBe(400)
     })
 
-    it("creates shift with correct fondo", async () => {
+    it("creates shift with the correct fund", async () => {
       vi.mocked(auth).mockResolvedValue({
         user: { id: "1", role: "ADMIN" },
       } as any)
@@ -152,11 +152,11 @@ describe("Shifts API /api/shifts", () => {
         _sum: { amount: 200 },
       } as any)
       vi.mocked(prisma.shift.create).mockResolvedValue({
-        id: "new", fondoInicial: 200,
+        id: "new", openingFund: 200,
       } as any)
 
       const res = await POST(mockRequest("http://localhost/api/shifts", "POST", {
-        date: "2026-07-22", turno: "mañana",
+        date: "2026-07-22", shift: "mañana",
       }))
       expect(res.status).toBe(201)
       expect(prisma.shift.create).toHaveBeenCalled()

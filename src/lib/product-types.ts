@@ -1,11 +1,11 @@
 export const PRODUCT_TYPE_BEHAVIOR = {
-  MP: { esComprable: true, esElaborado: false, esVendible: false, llevaReceta: false },
-  IN: { esComprable: true, esElaborado: false, esVendible: false, llevaReceta: false },
-  SE: { esComprable: false, esElaborado: true, esVendible: false, llevaReceta: true },
-  PT: { esComprable: false, esElaborado: true, esVendible: true, llevaReceta: true },
-  RV: { esComprable: true, esElaborado: false, esVendible: true, llevaReceta: false },
+  MP: { isPurchasable: true, isPrepared: false, isSellable: false, hasRecipe: false },
+  IN: { isPurchasable: true, isPrepared: false, isSellable: false, hasRecipe: false },
+  SE: { isPurchasable: false, isPrepared: true, isSellable: false, hasRecipe: true },
+  PT: { isPurchasable: false, isPrepared: true, isSellable: true, hasRecipe: true },
+  RV: { isPurchasable: true, isPrepared: false, isSellable: true, hasRecipe: false },
 } as const
 
-export function getProductTypeBehavior(tipo: string) {
-  return PRODUCT_TYPE_BEHAVIOR[tipo as keyof typeof PRODUCT_TYPE_BEHAVIOR]
+export function getProductTypeBehavior(type: string) {
+  return PRODUCT_TYPE_BEHAVIOR[type as keyof typeof PRODUCT_TYPE_BEHAVIOR]
 }

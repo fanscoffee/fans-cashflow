@@ -33,7 +33,7 @@ describe("product code routes", () => {
     const response = await getCode(request("http://localhost/api/inventario/productos/codigo?tipo=MP&familia=Harinas"))
 
     expect(response.status).toBe(200)
-    await expect(response.json()).resolves.toEqual({ codigo: "MP-HAR-004" })
+    await expect(response.json()).resolves.toEqual({ code: "MP-HAR-004" })
     expect(getNextProductCode).toHaveBeenCalledWith(expect.anything(), "MP", "Harinas")
   })
 
@@ -64,16 +64,16 @@ describe("product duplicate route", () => {
   })
 
   it("returns duplicates using the supplied search criteria", async () => {
-    vi.mocked(findPotentialProductDuplicates).mockResolvedValue([{ id: "product-2", codigo: "MP-HAR-002" }] as any)
+    vi.mocked(findPotentialProductDuplicates).mockResolvedValue([{ id: "product-2", code: "MP-HAR-002" }] as any)
 
     const response = await getDuplicates(request("http://localhost/api/inventario/productos/duplicados?descripcionTpv=Harina&excludeId=product-1"))
 
     expect(response.status).toBe(200)
-    await expect(response.json()).resolves.toEqual({ productos: [{ id: "product-2", codigo: "MP-HAR-002" }] })
+    await expect(response.json()).resolves.toEqual({ products: [{ id: "product-2", code: "MP-HAR-002" }] })
     expect(findPotentialProductDuplicates).toHaveBeenCalledWith(expect.anything(), {
-      descripcionTpv: "Harina",
-      descripcionCompleta: null,
-      codBarrasEan: null,
+      posDescription: "Harina",
+      fullDescription: null,
+      eanBarcode: null,
       excludeId: "product-1",
     })
   })
