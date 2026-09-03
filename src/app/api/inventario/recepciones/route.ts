@@ -3,6 +3,7 @@ import { z } from "zod"
 import { prisma } from "@/lib/prisma"
 import { withAuth } from "@/lib/with-auth"
 import { canRegisterInventoryReception } from "@/lib/inventory-permissions"
+import { getFirstSearchParam } from "@/lib/request-params"
 
 const optionalDate = z.preprocess(
   (value) => value === "" || value === null ? undefined : value,
@@ -10,25 +11,25 @@ const optionalDate = z.preprocess(
 )
 
 const receptionSchema = z.object({
-  codigoAlbaran: z.string().trim().min(1).max(120),
-  proveedorId: z.string().min(1),
-  fechaRecepcion: z.string().min(1).refine((value) => Number.isFinite(new Date(value).getTime()), "Fecha no válida"),
-  notas: z.string().trim().max(1000).nullable().optional(),
-  lineas: z.array(z.object({
-    productoId: z.string().min(1),
-    cantidadRecibida: z.coerce.number().finite().positive().max(1_000_000),
-    precioUnitario: z.coerce.number().finite().nonnegative().max(1_000_000_000),
-    lote: z.string().trim().max(120).nullable().optional(),
-    fechaVencimiento: optionalDate,
+  deliveryNoteCode: z.string().trim().min(1).max(120),
+  supplierId: z.string().min(1),
+  receivedAt: z.string().min(1).refine((value) => Number.isFinite(new Date(value).getTime()), "Fecha no válida"),
+  notes: z.string().trim().max(1000).nullable().optional(),
+  lines: z.array(z.object({
+    productId: z.string().min(1),
+    receivedQuantity: z.coerce.number().finite().positive().max(1_000_000),
+    unitPrice: z.coerce.number().finite().nonnegative().max(1_000_000_000),
+    batch: z.string().trim().max(120).nullable().optional(),
+    dueDate: optionalDate,
   }).strict()).min(1).max(500),
 }).strict()
 
 export const GET = withAuth(async (req) => {
   const { searchParams } = new URL(req.url)
   const search = searchParams.get("search") || ""
-  const proveedorId = searchParams.get("proveedorId") || ""
-  const fechaDesde = searchParams.get("fechaDesde") || ""
-  const fechaHasta = searchParams.get("fechaHasta") || ""
+  const supplierId = getFirstSearchParam(searchParams, "supplierId", "proveedorId") || ""
+  const startDate = getFirstSearchParam(searchParams, "startDate", "fechaDesde") || ""
+  const endDate = getFirstSearchParam(searchParams, "endDate", "fechaHasta") || ""
   const requestedPage = Number(searchParams.get("page") || "1")
   const requestedPageSize = Number(searchParams.get("pageSize") || "20")
   const page = Number.isInteger(requestedPage) ? Math.max(1, requestedPage) : 1
@@ -37,34 +38,34 @@ export const GET = withAuth(async (req) => {
   const where: Record<string, unknown> = {}
 
   if (search) {
-    where.codigoAlbaran = { contains: search, mode: "insensitive" }
+    where.deliveryNoteCode = { contains: search, mode: "insensitive" }
   }
-  if (proveedorId) {
-    where.proveedorId = proveedorId
+  if (supplierId) {
+    where.supplierId = supplierId
   }
-  if (fechaDesde || fechaHasta) {
-    where.fechaRecepcion = {}
-    const f = where.fechaRecepcion as Record<string, Date>
-    if (fechaDesde) f.gte = new Date(fechaDesde)
-    if (fechaHasta) f.lte = new Date(fechaHasta + "T23:59:59.999Z")
+  if (startDate || endDate) {
+    where.receivedAt = {}
+    const f = where.receivedAt as Record<string, Date>
+    if (startDate) f.gte = new Date(startDate)
+    if (endDate) f.lte = new Date(endDate + "T23:59:59.999Z")
   }
 
-  const [recepciones, total] = await Promise.all([
-    prisma.recepcion.findMany({
+  const [receipts, total] = await Promise.all([
+    prisma.receipt.findMany({
       where,
       skip: (page - 1) * pageSize,
       take: pageSize,
-      orderBy: { fechaRecepcion: "desc" },
+      orderBy: { receivedAt: "desc" },
       include: {
-        proveedor: { select: { razonSocial: true } },
-        recibidoBy: { select: { name: true } },
-        _count: { select: { lineas: true } },
+        supplier: { select: { legalName: true } },
+        receivedBy: { select: { name: true } },
+        _count: { select: { lines: true } },
       },
     }),
-    prisma.recepcion.count({ where }),
+    prisma.receipt.count({ where }),
   ])
 
-  return NextResponse.json({ recepciones, total, page, pageSize })
+  return NextResponse.json({ receipts, total, page, pageSize })
 })
 
 export const POST = withAuth(async (req, session) => {
@@ -73,10 +74,10 @@ export const POST = withAuth(async (req, session) => {
   }
 
   try {
-    const { codigoAlbaran, proveedorId, fechaRecepcion, notas, lineas } = receptionSchema.parse(await req.json())
+    const { deliveryNoteCode, supplierId, receivedAt, notes, lines } = receptionSchema.parse(await req.json())
 
-    const existing = await prisma.recepcion.findUnique({
-      where: { codigoAlbaran_proveedorId: { codigoAlbaran, proveedorId } },
+    const existing = await prisma.receipt.findUnique({
+      where: { deliveryNoteCode_supplierId: { deliveryNoteCode, supplierId } },
     })
     if (existing) {
       return NextResponse.json(
@@ -85,17 +86,17 @@ export const POST = withAuth(async (req, session) => {
       )
     }
 
-    const productoIds = lineas.map((l) => l.productoId)
-    const productos = await prisma.producto.findMany({
+    const productIds = lines.map((l) => l.productId)
+    const products = await prisma.product.findMany({
       where: {
-        id: { in: productoIds },
-        esComprable: true,
-        proveedores: { some: { proveedorId } },
+        id: { in: productIds },
+        isPurchasable: true,
+        suppliers: { some: { supplierId } },
       },
       select: { id: true },
     })
-    const validIds = new Set(productos.map((p) => p.id))
-    const invalidIds = productoIds.filter((id: string) => !validIds.has(id))
+    const validIds = new Set(products.map((p) => p.id))
+    const invalidIds = productIds.filter((id: string) => !validIds.has(id))
     if (invalidIds.length > 0) {
       return NextResponse.json(
         { error: `Productos no válidos, no comprables o no asociados al proveedor: ${invalidIds.join(", ")}` },
@@ -103,34 +104,34 @@ export const POST = withAuth(async (req, session) => {
       )
     }
 
-    const recepcion = await prisma.$transaction(async (tx) => {
-      const rec = await tx.recepcion.create({
+    const receipt = await prisma.$transaction(async (tx) => {
+      const rec = await tx.receipt.create({
         data: {
-          codigoAlbaran,
-          proveedorId,
-          fechaRecepcion: new Date(fechaRecepcion),
-          recibidoById: session.user.id,
-          notas: notas || null,
-          lineas: {
-            create: lineas.map(
+          deliveryNoteCode,
+          supplierId,
+          receivedAt: new Date(receivedAt),
+          receivedById: session.user.id,
+          notes: notes || null,
+          lines: {
+            create: lines.map(
               (l) => ({
-                productoId: l.productoId,
-                cantidadRecibida: l.cantidadRecibida,
-                precioUnitario: l.precioUnitario,
-                lote: l.lote || null,
-                fechaVencimiento: l.fechaVencimiento
-                  ? new Date(l.fechaVencimiento)
+                productId: l.productId,
+                receivedQuantity: l.receivedQuantity,
+                unitPrice: l.unitPrice,
+                batch: l.batch || null,
+                dueDate: l.dueDate
+                  ? new Date(l.dueDate)
                   : null,
               })
             ),
           },
         },
         include: {
-          proveedor: { select: { razonSocial: true } },
-          lineas: {
+          supplier: { select: { legalName: true } },
+          lines: {
             include: {
-              producto: {
-                select: { codigo: true, descripcionTpv: true, umCompra: true },
+              product: {
+                select: { code: true, posDescription: true, purchaseUnit: true },
               },
             },
           },
@@ -139,7 +140,7 @@ export const POST = withAuth(async (req, session) => {
       return rec
     })
 
-    return NextResponse.json(recepcion, { status: 201 })
+    return NextResponse.json(receipt, { status: 201 })
   } catch (error) {
     if (error instanceof z.ZodError) {
       return NextResponse.json({ error: error.issues[0]?.message || "Datos no válidos" }, { status: 400 })

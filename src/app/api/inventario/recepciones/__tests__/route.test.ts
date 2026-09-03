@@ -3,12 +3,12 @@ import type { NextRequest } from "next/server"
 
 vi.mock("@/lib/prisma", () => ({
     prisma: {
-      recepcion: {
+      receipt: {
         findUnique: vi.fn(),
         findMany: vi.fn(),
         count: vi.fn(),
       },
-    producto: {
+    product: {
       findMany: vi.fn(),
     },
     $transaction: vi.fn(),
@@ -24,11 +24,11 @@ import { prisma } from "@/lib/prisma"
 import { auth } from "@/lib/auth"
 
 const requestBody = {
-  proveedorId: "provider-1",
-  codigoAlbaran: "ALB-001",
-  fechaRecepcion: "2026-09-01",
-  notas: "Recepción de prueba",
-  lineas: [{ productoId: "product-1", cantidadRecibida: 2, precioUnitario: 3.5 }],
+  supplierId: "provider-1",
+  deliveryNoteCode: "ALB-001",
+  receivedAt: "2026-09-01",
+  notes: "Recepción de prueba",
+  lines: [{ productId: "product-1", receivedQuantity: 2, unitPrice: 3.5 }],
 }
 
 function postRequest(body: unknown = requestBody) {
@@ -40,14 +40,14 @@ function postRequest(body: unknown = requestBody) {
 }
 
 describe("POST /api/inventario/recepciones", () => {
-  const transactionRecepcion = { create: vi.fn() }
+  const transactionReceipt = { create: vi.fn() }
 
   beforeEach(() => {
     vi.clearAllMocks()
-    vi.mocked(prisma.recepcion.findUnique).mockResolvedValue(null)
-    vi.mocked(prisma.producto.findMany).mockResolvedValue([{ id: "product-1" }] as any)
-    vi.mocked(prisma.$transaction).mockImplementation(async (callback: any) => callback({ recepcion: transactionRecepcion }))
-    transactionRecepcion.create.mockResolvedValue({ id: "reception-1" })
+    vi.mocked(prisma.receipt.findUnique).mockResolvedValue(null)
+    vi.mocked(prisma.product.findMany).mockResolvedValue([{ id: "product-1" }] as any)
+    vi.mocked(prisma.$transaction).mockImplementation(async (callback: any) => callback({ receipt: transactionReceipt }))
+    transactionReceipt.create.mockResolvedValue({ id: "reception-1" })
   })
 
   it("allows an EMPLEADO to register a reception and stores its user", async () => {
@@ -56,19 +56,19 @@ describe("POST /api/inventario/recepciones", () => {
     const response = await POST(postRequest())
 
     expect(response.status).toBe(201)
-    expect(prisma.producto.findMany).toHaveBeenCalledWith({
+    expect(prisma.product.findMany).toHaveBeenCalledWith({
       where: {
         id: { in: ["product-1"] },
-        esComprable: true,
-        proveedores: { some: { proveedorId: "provider-1" } },
+        isPurchasable: true,
+        suppliers: { some: { supplierId: "provider-1" } },
       },
       select: { id: true },
     })
-    expect(transactionRecepcion.create).toHaveBeenCalledWith(expect.objectContaining({
+    expect(transactionReceipt.create).toHaveBeenCalledWith(expect.objectContaining({
       data: expect.objectContaining({
-        proveedorId: "provider-1",
-        codigoAlbaran: "ALB-001",
-        recibidoById: "employee-1",
+        supplierId: "provider-1",
+        deliveryNoteCode: "ALB-001",
+        receivedById: "employee-1",
       }),
     }))
   })
@@ -79,35 +79,35 @@ describe("POST /api/inventario/recepciones", () => {
     const response = await POST(postRequest())
 
     expect(response.status).toBe(403)
-    expect(prisma.recepcion.findUnique).not.toHaveBeenCalled()
-    expect(transactionRecepcion.create).not.toHaveBeenCalled()
+    expect(prisma.receipt.findUnique).not.toHaveBeenCalled()
+    expect(transactionReceipt.create).not.toHaveBeenCalled()
   })
 
   it("rejects a product that is not assigned to the selected provider", async () => {
     vi.mocked(auth).mockResolvedValue({ user: { id: "employee-1", role: "EMPLEADO" } } as any)
-    vi.mocked(prisma.producto.findMany).mockResolvedValue([])
+    vi.mocked(prisma.product.findMany).mockResolvedValue([])
 
     const response = await POST(postRequest())
 
     expect(response.status).toBe(400)
     await expect(response.json()).resolves.toMatchObject({ error: expect.stringContaining("no asociados al proveedor") })
-    expect(transactionRecepcion.create).not.toHaveBeenCalled()
+    expect(transactionReceipt.create).not.toHaveBeenCalled()
   })
 
   it("filters and paginates reception history", async () => {
     vi.mocked(auth).mockResolvedValue({ user: { id: "employee-1", role: "EMPLEADO" } } as any)
-    vi.mocked(prisma.recepcion.findMany).mockResolvedValue([{ id: "reception-1" }] as any)
-    vi.mocked(prisma.recepcion.count).mockResolvedValue(7)
+    vi.mocked(prisma.receipt.findMany).mockResolvedValue([{ id: "reception-1" }] as any)
+    vi.mocked(prisma.receipt.count).mockResolvedValue(7)
 
     const response = await GET(new Request("http://localhost/api/inventario/recepciones?search=ALB&proveedorId=provider-1&fechaDesde=2026-08-01&fechaHasta=2026-08-31&page=2&pageSize=5") as unknown as NextRequest)
 
     expect(response.status).toBe(200)
-    await expect(response.json()).resolves.toMatchObject({ recepciones: [{ id: "reception-1" }], total: 7, page: 2, pageSize: 5 })
-    expect(prisma.recepcion.findMany).toHaveBeenCalledWith(expect.objectContaining({
+    await expect(response.json()).resolves.toMatchObject({ receipts: [{ id: "reception-1" }], total: 7, page: 2, pageSize: 5 })
+    expect(prisma.receipt.findMany).toHaveBeenCalledWith(expect.objectContaining({
       where: {
-        codigoAlbaran: { contains: "ALB", mode: "insensitive" },
-        proveedorId: "provider-1",
-        fechaRecepcion: {
+        deliveryNoteCode: { contains: "ALB", mode: "insensitive" },
+        supplierId: "provider-1",
+        receivedAt: {
           gte: new Date("2026-08-01"),
           lte: new Date("2026-08-31T23:59:59.999Z"),
         },
@@ -121,14 +121,14 @@ describe("POST /api/inventario/recepciones", () => {
     vi.mocked(auth).mockResolvedValue({ user: { id: "employee-1", role: "EMPLEADO" } } as any)
     expect((await POST(postRequest({}),)).status).toBe(400)
 
-    vi.mocked(prisma.recepcion.findUnique).mockResolvedValue({ id: "existing" } as any)
+    vi.mocked(prisma.receipt.findUnique).mockResolvedValue({ id: "existing" } as any)
     expect((await POST(postRequest(),)).status).toBe(400)
 
-    vi.mocked(prisma.recepcion.findUnique).mockResolvedValue(null)
+    vi.mocked(prisma.receipt.findUnique).mockResolvedValue(null)
     vi.mocked(prisma.$transaction).mockRejectedValue(new Error("reception insert failed"))
     const response = await POST(postRequest({
       ...requestBody,
-      lineas: [{ productoId: "product-1", cantidadRecibida: 2, precioUnitario: 3.5, lote: "LOT-1", fechaVencimiento: "2027-01-01" }],
+      lines: [{ productId: "product-1", receivedQuantity: 2, unitPrice: 3.5, batch: "LOT-1", dueDate: "2027-01-01" }],
     }))
     expect(response.status).toBe(500)
     await expect(response.json()).resolves.toEqual({ error: "reception insert failed" })

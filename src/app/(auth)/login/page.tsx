@@ -11,7 +11,7 @@ import {
   startAuthentication,
   browserSupportsWebAuthn,
 } from "@simplewebauthn/browser"
-import { ROLE_REDIRECT } from "@/lib/roles"
+import { normalizeRole, ROLE_REDIRECT } from "@/lib/roles"
 
 const loginSchema = z.object({
   email: z.string().email("Email no válido"),
@@ -58,7 +58,7 @@ export default function LoginPage() {
       const session = await res.json()
       const role = session?.user?.role
 
-      router.push(ROLE_REDIRECT[role] ?? "/empleado")
+      router.push(ROLE_REDIRECT[normalizeRole(role) || ""] ?? "/empleado")
     } catch {
       setError("Error al iniciar sesión")
     } finally {
@@ -114,7 +114,7 @@ export default function LoginPage() {
 
        const sessionRes = await fetch("/api/auth/session")
        const session = await sessionRes.json()
-       window.location.href = ROLE_REDIRECT[session?.user?.role] ?? "/empleado"
+       window.location.href = ROLE_REDIRECT[normalizeRole(session?.user?.role) || ""] ?? "/empleado"
     } catch {
       setPasskeyError("Error con Face ID / biometría")
     } finally {

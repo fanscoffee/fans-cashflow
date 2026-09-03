@@ -3,14 +3,16 @@
 import { useState, type FormEvent } from "react"
 import type { Shift } from "@/types/shift"
 import { toN } from "@/lib/money"
-import { calculateFondoFinal, calculateTotalExpenses } from "@/lib/fondo"
-import CierreTurnoModal, { type CierreTurnoFormData } from "@/components/cierre-turno-modal"
+import { calculateFundFinal, calculateTotalExpenses } from "@/lib/fund"
+import ShiftCloseModal, { type ShiftCloseFormData } from "@/components/shift-close-modal"
+import { UserRole } from "@/lib/database-enums"
+import { hasAnyRole, isRole } from "@/lib/roles"
 
 interface ShiftCardProps {
   shift: Shift
   userRole?: string
-  onSave: (shiftId: string, values: { efectivo: number; caixa: number; santander: number; fondoFinal: number }) => Promise<void>
-  onClose: (shiftId: string, data: CierreTurnoFormData) => Promise<boolean>
+  onSave: (shiftId: string, values: { cash: number; caixaBankAmount: number; santanderAmount: number; closingFund: number }) => Promise<void>
+  onClose: (shiftId: string, data: ShiftCloseFormData) => Promise<boolean>
   onReopen: (shiftId: string) => Promise<void>
   closingShift: string | null
   onRefresh: () => Promise<void>
@@ -18,30 +20,30 @@ interface ShiftCardProps {
 
 interface ExpenseCategoryOption {
   id: string
-  codigo: string
-  nombre: string
+  code: string
+  name: string
 }
 
 interface ExpenseCreditorOption {
   id: string
-  codigo: string
-  nombre: string
-  tipo: string
+  code: string
+  name: string
+  type: string
 }
 
 export function ShiftCard({ shift, userRole, onSave, onClose, onReopen, closingShift, onRefresh }: ShiftCardProps) {
   const isOpen = shift.status === "ABIERTO"
-  const canManageExpenses = userRole === "ADMIN" || userRole === "SOCIO"
+  const canManageExpenses = hasAnyRole(userRole, [UserRole.ADMIN, UserRole.PARTNER])
   const canEditShift = canManageExpenses || isOpen
 
   const [isEditing, setIsEditing] = useState(false)
-  const [editValues, setEditValues] = useState({ efectivo: "0", caixa: "0", santander: "0" })
+  const [editValues, setEditValues] = useState({ cash: "0", caixaBankAmount: "0", santanderAmount: "0" })
   const [editingExpense, setEditingExpense] = useState<string | null>(null)
-  const [editExpenseValues, setEditExpenseValues] = useState<{ proveedor: string; importe: number }>({ proveedor: "", importe: 0 })
+  const [editExpenseValues, setEditExpenseValues] = useState<{ supplier: string; amount: number }>({ supplier: "", amount: 0 })
   const [addingCurrentExpense, setAddingCurrentExpense] = useState(false)
   const [currentExpenseCategories, setCurrentExpenseCategories] = useState<ExpenseCategoryOption[]>([])
   const [currentExpenseCreditors, setCurrentExpenseCreditors] = useState<ExpenseCreditorOption[]>([])
-  const [currentExpenseValues, setCurrentExpenseValues] = useState({ categoriaId: "", acreedorId: "", concepto: "", importe: "" })
+  const [currentExpenseValues, setCurrentExpenseValues] = useState({ categoryId: "", creditorId: "", concept: "", amount: "" })
   const [loadingCurrentExpenseOptions, setLoadingCurrentExpenseOptions] = useState(false)
   const [savingCurrentExpense, setSavingCurrentExpense] = useState(false)
   const [currentExpenseError, setCurrentExpenseError] = useState("")
@@ -49,17 +51,17 @@ export function ShiftCard({ shift, userRole, onSave, onClose, onReopen, closingS
   const [openMobileMenu, setOpenMobileMenu] = useState(false)
   const [showCloseModal, setShowCloseModal] = useState(false)
 
-  const efectivo = isEditing ? Number(editValues.efectivo) || 0 : toN(shift.efectivo)
-  const caixa = isEditing ? Number(editValues.caixa) || 0 : toN(shift.caixa)
-  const santander = isEditing ? Number(editValues.santander) || 0 : toN(shift.santander)
-  const fondoInicial = toN(shift.fondoInicial)
-  const currentExpenses = shift.gastosCorrientes || []
+  const cash = isEditing ? Number(editValues.cash) || 0 : toN(shift.cash)
+  const caixaBankAmount = isEditing ? Number(editValues.caixaBankAmount) || 0 : toN(shift.caixaBankAmount)
+  const santanderAmount = isEditing ? Number(editValues.santanderAmount) || 0 : toN(shift.santanderAmount)
+  const openingFund = toN(shift.openingFund)
+  const currentExpenses = shift.currentExpenses || []
   const totalExpenses = calculateTotalExpenses(shift.expenses, currentExpenses)
-  const fondoFinal = calculateFondoFinal(fondoInicial, shift.expenses, currentExpenses)
+  const closingFund = calculateFundFinal(openingFund, shift.expenses, currentExpenses)
 
   function startEditing() {
     setIsEditing(true)
-    setEditValues({ efectivo: String(efectivo), caixa: String(caixa), santander: String(santander) })
+    setEditValues({ cash: String(cash), caixaBankAmount: String(caixaBankAmount), santanderAmount: String(santanderAmount) })
   }
 
   function cancelEditing() {
@@ -68,15 +70,15 @@ export function ShiftCard({ shift, userRole, onSave, onClose, onReopen, closingS
 
   function saveEditing() {
     onSave(shift.id, {
-      efectivo: parseFloat(editValues.efectivo) || 0,
-      caixa: parseFloat(editValues.caixa) || 0,
-      santander: parseFloat(editValues.santander) || 0,
-      fondoFinal: calculateFondoFinal(fondoInicial, shift.expenses, currentExpenses),
+      cash: parseFloat(editValues.cash) || 0,
+      caixaBankAmount: parseFloat(editValues.caixaBankAmount) || 0,
+      santanderAmount: parseFloat(editValues.santanderAmount) || 0,
+      closingFund: calculateFundFinal(openingFund, shift.expenses, currentExpenses),
     })
     setIsEditing(false)
   }
 
-  async function submitClose(data: CierreTurnoFormData) {
+  async function submitClose(data: ShiftCloseFormData) {
     const saved = await onClose(shift.id, data)
     if (saved) setShowCloseModal(false)
   }
@@ -85,7 +87,7 @@ export function ShiftCard({ shift, userRole, onSave, onClose, onReopen, closingS
     await fetch(`/api/shifts/${shift.id}/expenses`, {
       method: "PATCH",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ expenseId, proveedor: editExpenseValues.proveedor, importe: editExpenseValues.importe }),
+      body: JSON.stringify({ expenseId, supplier: editExpenseValues.supplier, amount: editExpenseValues.amount }),
     })
     setEditingExpense(null)
     await onRefresh()
@@ -111,10 +113,10 @@ export function ShiftCard({ shift, userRole, onSave, onClose, onReopen, closingS
       const response = await fetch(`/api/shifts/${shift.id}/gastos`)
       const result = await response.json()
       if (!response.ok) throw new Error(result.error || "No se pudo cargar el formulario")
-      const personal = result.categorias?.find((category: ExpenseCategoryOption) => category.codigo === "PER")
-      setCurrentExpenseCategories(result.categorias || [])
-      setCurrentExpenseCreditors(result.acreedores || [])
-      setCurrentExpenseValues((current) => ({ ...current, categoriaId: current.categoriaId || personal?.id || result.categorias?.[0]?.id || "" }))
+      const personal = result.categories?.find((category: ExpenseCategoryOption) => category.code === "PER")
+      setCurrentExpenseCategories(result.categories || [])
+      setCurrentExpenseCreditors(result.creditors || [])
+      setCurrentExpenseValues((current) => ({ ...current, categoryId: current.categoryId || personal?.id || result.categories?.[0]?.id || "" }))
     } catch (reason) {
       setCurrentExpenseError(reason instanceof Error ? reason.message : "No se pudo cargar el formulario")
     } finally {
@@ -138,18 +140,18 @@ export function ShiftCard({ shift, userRole, onSave, onClose, onReopen, closingS
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          categoriaId: currentExpenseValues.categoriaId,
-          acreedorId: currentExpenseValues.acreedorId || undefined,
-          concepto: currentExpenseValues.concepto,
-          fechaDevengo: new Date().toISOString().slice(0, 10),
-          importe: Number(currentExpenseValues.importe),
+          categoryId: currentExpenseValues.categoryId,
+          creditorId: currentExpenseValues.creditorId || undefined,
+          concept: currentExpenseValues.concept,
+          accrualDate: new Date().toISOString().slice(0, 10),
+          amount: Number(currentExpenseValues.amount),
         }),
       })
       const result = await response.json()
       if (!response.ok) throw new Error(result.error || "No se pudo registrar el gasto")
       setCurrentExpenseSuccess("Gasto guardado correctamente y enviado a autorización")
       setAddingCurrentExpense(false)
-      setCurrentExpenseValues((current) => ({ ...current, concepto: "", importe: "" }))
+      setCurrentExpenseValues((current) => ({ ...current, concept: "", amount: "" }))
       await onRefresh()
     } catch (reason) {
       setCurrentExpenseError(reason instanceof Error ? reason.message : "No se pudo registrar el gasto")
@@ -163,7 +165,7 @@ export function ShiftCard({ shift, userRole, onSave, onClose, onReopen, closingS
       <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <div className="flex min-w-0 flex-wrap items-center gap-2">
           <p className="font-medium text-gray-900">
-            {new Date(shift.date).toLocaleDateString("es-ES")} — {shift.turno}
+            {new Date(shift.date).toLocaleDateString("es-ES")} — {shift.shift}
           </p>
           <span className={`inline-block rounded-full px-2 py-0.5 text-xs font-medium ${isOpen ? "bg-green-100 text-green-800" : "bg-gray-100 text-gray-600"}`}>
             {isOpen ? "Abierto" : "Cerrado"}
@@ -194,7 +196,7 @@ export function ShiftCard({ shift, userRole, onSave, onClose, onReopen, closingS
                   </button>
                 </>
               )}
-              {!isOpen && userRole === "SOCIO" && (
+              {!isOpen && isRole(userRole, UserRole.PARTNER) && (
                 <button onClick={() => onReopen(shift.id)} className="rounded-md bg-amber-500 px-3 py-1.5 text-xs font-medium text-white hover:bg-amber-600">Reabrir</button>
               )}
             </div>
@@ -231,7 +233,7 @@ export function ShiftCard({ shift, userRole, onSave, onClose, onReopen, closingS
                       </button>
                     </>
                   )}
-                   {!isOpen && userRole === "SOCIO" && (
+                   {!isOpen && isRole(userRole, UserRole.PARTNER) && (
                     <button onClick={() => { onReopen(shift.id); setOpenMobileMenu(false) }} className="block w-full px-4 py-2 text-left text-sm text-amber-700 hover:bg-amber-50">Reabrir</button>
                   )}
                 </div>
@@ -249,7 +251,7 @@ export function ShiftCard({ shift, userRole, onSave, onClose, onReopen, closingS
        <div className="mt-3 grid grid-cols-1 gap-2 text-sm min-[360px]:grid-cols-2 md:grid-cols-3">
         <div>
           <span className="text-gray-500">F. Inicial:</span>{" "}
-          <span className="font-medium text-gray-900">{fondoInicial.toFixed(2)}</span>
+          <span className="font-medium text-gray-900">{openingFund.toFixed(2)}</span>
         </div>
         {isEditing ? (
           <>
@@ -258,8 +260,8 @@ export function ShiftCard({ shift, userRole, onSave, onClose, onReopen, closingS
               <input
                 type="number"
                 step="0.01"
-                value={editValues.efectivo}
-                onChange={(e) => setEditValues({ ...editValues, efectivo: e.target.value })}
+                value={editValues.cash}
+                onChange={(e) => setEditValues({ ...editValues, cash: e.target.value })}
                 className="mt-1 block w-full rounded-md border border-gray-300 px-2 py-1 text-xs text-gray-900 shadow-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
               />
             </div>
@@ -268,8 +270,8 @@ export function ShiftCard({ shift, userRole, onSave, onClose, onReopen, closingS
               <input
                 type="number"
                 step="0.01"
-                value={editValues.caixa}
-                onChange={(e) => setEditValues({ ...editValues, caixa: e.target.value })}
+                value={editValues.caixaBankAmount}
+                onChange={(e) => setEditValues({ ...editValues, caixaBankAmount: e.target.value })}
                 className="mt-1 block w-full rounded-md border border-gray-300 px-2 py-1 text-xs text-gray-900 shadow-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
               />
             </div>
@@ -278,8 +280,8 @@ export function ShiftCard({ shift, userRole, onSave, onClose, onReopen, closingS
               <input
                 type="number"
                 step="0.01"
-                value={editValues.santander}
-                onChange={(e) => setEditValues({ ...editValues, santander: e.target.value })}
+                value={editValues.santanderAmount}
+                onChange={(e) => setEditValues({ ...editValues, santanderAmount: e.target.value })}
                 className="mt-1 block w-full rounded-md border border-gray-300 px-2 py-1 text-xs text-gray-900 shadow-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
               />
             </div>
@@ -288,15 +290,15 @@ export function ShiftCard({ shift, userRole, onSave, onClose, onReopen, closingS
           <>
             <div>
               <span className="text-gray-500">Efectivo:</span>{" "}
-              <span className="font-medium text-gray-900">{efectivo.toFixed(2)}</span>
+              <span className="font-medium text-gray-900">{cash.toFixed(2)}</span>
             </div>
             <div>
               <span className="text-gray-500">Caixa:</span>{" "}
-              <span className="font-medium text-gray-900">{caixa.toFixed(2)}</span>
+              <span className="font-medium text-gray-900">{caixaBankAmount.toFixed(2)}</span>
             </div>
             <div>
               <span className="text-gray-500">Santander:</span>{" "}
-              <span className="font-medium text-gray-900">{santander.toFixed(2)}</span>
+              <span className="font-medium text-gray-900">{santanderAmount.toFixed(2)}</span>
             </div>
           </>
         )}
@@ -306,13 +308,13 @@ export function ShiftCard({ shift, userRole, onSave, onClose, onReopen, closingS
         </div>
         <div className="col-span-2 md:col-span-3">
           <span className="text-gray-500">F. Final:</span>{" "}
-          <span className={`font-bold ${fondoFinal >= 0 ? "text-green-700" : "text-red-700"}`}>{fondoFinal.toFixed(2)}</span>
+          <span className={`font-bold ${closingFund >= 0 ? "text-green-700" : "text-red-700"}`}>{closingFund.toFixed(2)}</span>
         </div>
       </div>
 
-      {shift.cierreTurno ? (
+      {shift.shiftClose ? (
         <div className="mt-3 break-words rounded-md border border-green-100 bg-green-50 p-2 text-xs text-green-800 [overflow-wrap:anywhere]">
-          Ticket {shift.cierreTurno.tpv} · cierre {shift.cierreTurno.numeroCierreCaja} · ventas netas {toN(shift.cierreTurno.ventasNetas).toFixed(2)} €
+          Ticket {shift.shiftClose.pos} · cierre {shift.shiftClose.cashCloseNumber} · ventas netas {toN(shift.shiftClose.netSales).toFixed(2)} €
         </div>
       ) : !isOpen ? (
         <div className="mt-3 rounded-md border border-amber-100 bg-amber-50 p-2 text-xs text-amber-800">
@@ -330,15 +332,15 @@ export function ShiftCard({ shift, userRole, onSave, onClose, onReopen, closingS
                   <div className="flex min-w-0 flex-1 flex-col gap-2 sm:flex-row sm:items-center">
                     <input
                       type="text"
-                      value={editExpenseValues.proveedor}
-                      onChange={(e) => setEditExpenseValues({ ...editExpenseValues, proveedor: e.target.value })}
+                      value={editExpenseValues.supplier}
+                      onChange={(e) => setEditExpenseValues({ ...editExpenseValues, supplier: e.target.value })}
                       className="flex-1 rounded-md border border-gray-300 px-2 py-1 text-xs text-gray-900"
                     />
                     <input
                       type="number"
                       step="0.01"
-                      value={editExpenseValues.importe}
-                      onChange={(e) => setEditExpenseValues({ ...editExpenseValues, importe: parseFloat(e.target.value) || 0 })}
+                      value={editExpenseValues.amount}
+                      onChange={(e) => setEditExpenseValues({ ...editExpenseValues, amount: parseFloat(e.target.value) || 0 })}
                       className="w-full rounded-md border border-gray-300 px-2 py-1 text-xs text-gray-900 sm:w-20"
                     />
                     <button onClick={() => handleEditExpense(expense.id)} className="rounded bg-green-600 px-2 py-1 text-xs text-white hover:bg-green-700">OK</button>
@@ -346,13 +348,13 @@ export function ShiftCard({ shift, userRole, onSave, onClose, onReopen, closingS
                   </div>
                 ) : (
                   <>
-                     <span className="min-w-0 break-words text-gray-600 [overflow-wrap:anywhere]">{expense.proveedor}</span>
+                     <span className="min-w-0 break-words text-gray-600 [overflow-wrap:anywhere]">{expense.supplier}</span>
                      <div className="flex shrink-0 items-center gap-2">
-                      <span className="font-medium text-gray-900">{toN(expense.importe).toFixed(2)}</span>
+                      <span className="font-medium text-gray-900">{toN(expense.amount).toFixed(2)}</span>
                       {canManageExpenses && (
                         <div className="flex gap-1">
                           <button
-                            onClick={() => { setEditingExpense(expense.id); setEditExpenseValues({ proveedor: expense.proveedor, importe: toN(expense.importe) }) }}
+                            onClick={() => { setEditingExpense(expense.id); setEditExpenseValues({ supplier: expense.supplier, amount: toN(expense.amount) }) }}
                             className="rounded bg-gray-200 px-1.5 py-0.5 text-[10px] text-gray-600 hover:bg-gray-300"
                           >
                             Editar
@@ -384,10 +386,10 @@ export function ShiftCard({ shift, userRole, onSave, onClose, onReopen, closingS
             {currentExpenses.map((expense) => (
               <div key={expense.id} className="flex flex-col gap-1 text-xs sm:flex-row sm:items-start sm:justify-between sm:gap-3">
                 <div className="min-w-0">
-                  <p className="break-words font-medium text-gray-900 [overflow-wrap:anywhere]">{expense.concepto}</p>
-                  <p className="break-words text-gray-500 [overflow-wrap:anywhere]">{expense.categoria.codigo} · {expense.estado === "PENDIENTE_AUTORIZACION" ? "Pendiente de autorización" : expense.estado} · {expense.solicitante.name || expense.solicitante.email}</p>
+                  <p className="break-words font-medium text-gray-900 [overflow-wrap:anywhere]">{expense.concept}</p>
+                  <p className="break-words text-gray-500 [overflow-wrap:anywhere]">{expense.category.code} · {expense.status === "PENDIENTE_AUTORIZACION" ? "Pendiente de autorización" : expense.status} · {expense.requester.name || expense.requester.email}</p>
                 </div>
-                <span className="shrink-0 self-end whitespace-nowrap font-medium text-gray-900 sm:self-auto">{toN(expense.importe).toFixed(2)}</span>
+                <span className="shrink-0 self-end whitespace-nowrap font-medium text-gray-900 sm:self-auto">{toN(expense.amount).toFixed(2)}</span>
               </div>
             ))}
           </div>
@@ -404,31 +406,31 @@ export function ShiftCard({ shift, userRole, onSave, onClose, onReopen, closingS
               <label className="text-xs text-gray-700">
                 Categoría
                 <select
-                  value={currentExpenseValues.categoriaId}
-                  onChange={(event) => setCurrentExpenseValues({ ...currentExpenseValues, categoriaId: event.target.value })}
+                  value={currentExpenseValues.categoryId}
+                  onChange={(event) => setCurrentExpenseValues({ ...currentExpenseValues, categoryId: event.target.value })}
                   className="mt-1 w-full rounded-md border border-gray-300 px-2 py-1.5 text-xs text-gray-900"
                   required
                 >
                   <option value="">Seleccionar categoría...</option>
-                  {currentExpenseCategories.map((category) => <option key={category.id} value={category.id}>{category.codigo} · {category.nombre}</option>)}
+                  {currentExpenseCategories.map((category) => <option key={category.id} value={category.id}>{category.code} · {category.name}</option>)}
                 </select>
               </label>
               <label className="text-xs text-gray-700">
                 Acreedor <span className="text-gray-400">(opcional para Personal/MEN)</span>
                 <select
-                  value={currentExpenseValues.acreedorId}
-                  onChange={(event) => setCurrentExpenseValues({ ...currentExpenseValues, acreedorId: event.target.value })}
+                  value={currentExpenseValues.creditorId}
+                  onChange={(event) => setCurrentExpenseValues({ ...currentExpenseValues, creditorId: event.target.value })}
                   className="mt-1 w-full rounded-md border border-gray-300 px-2 py-1.5 text-xs text-gray-900"
                 >
                   <option value="">Sin acreedor</option>
-                  {currentExpenseCreditors.map((creditor) => <option key={creditor.id} value={creditor.id}>{creditor.nombre} · {creditor.tipo}</option>)}
+                  {currentExpenseCreditors.map((creditor) => <option key={creditor.id} value={creditor.id}>{creditor.name} · {creditor.type}</option>)}
                 </select>
               </label>
               <label className="text-xs text-gray-700 sm:col-span-2">
                 Concepto
                 <input
-                  value={currentExpenseValues.concepto}
-                  onChange={(event) => setCurrentExpenseValues({ ...currentExpenseValues, concepto: event.target.value })}
+                  value={currentExpenseValues.concept}
+                  onChange={(event) => setCurrentExpenseValues({ ...currentExpenseValues, concept: event.target.value })}
                   placeholder="Ej.: Horas extras de Juan"
                   className="mt-1 w-full rounded-md border border-gray-300 px-2 py-1.5 text-xs text-gray-900"
                   required
@@ -440,8 +442,8 @@ export function ShiftCard({ shift, userRole, onSave, onClose, onReopen, closingS
                   type="number"
                   min="0.01"
                   step="0.01"
-                  value={currentExpenseValues.importe}
-                  onChange={(event) => setCurrentExpenseValues({ ...currentExpenseValues, importe: event.target.value })}
+                  value={currentExpenseValues.amount}
+                  onChange={(event) => setCurrentExpenseValues({ ...currentExpenseValues, amount: event.target.value })}
                   className="mt-1 w-full rounded-md border border-gray-300 px-2 py-1.5 text-xs text-gray-900"
                   required
                 />
@@ -460,10 +462,10 @@ export function ShiftCard({ shift, userRole, onSave, onClose, onReopen, closingS
         </form>
       )}
       {showCloseModal && (
-        <CierreTurnoModal
+        <ShiftCloseModal
           shift={shift}
-          initialCierre={shift.cierreTurno}
-          requirePhoto={!shift.cierreTurno}
+          initialClose={shift.shiftClose}
+          requirePhoto={!shift.shiftClose}
           onCancel={() => setShowCloseModal(false)}
           onSubmit={submitClose}
           saving={closingShift === shift.id}

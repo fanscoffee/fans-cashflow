@@ -19,37 +19,37 @@ vi.mock("@/lib/csv", () => ({
 }))
 
 const mockDashboardData = {
-  resumen: { totalTurnos: 10, totalIngresos: 5000, totalGastos: 2000, beneficioNeto: 3000 },
-  dailyData: [{ dia: "22/07", ingresos: 500, gastos: 200, mañana: 300, tarde: 200 }],
-  turnoData: [{ name: "Mañana", value: 3000 }],
-  expenseData: [{ proveedor: "Proveedor A", total: 500 }],
-  exportData: [{ fecha: "22/07", turno: "mañana", estado: "CERRADO", creadoPor: "Juan", fondoInicial: 200, efectivo: 500, caixa: 100, santander: 50, efectivoGasto: 50, fondoFinal: 300, totalGastos: 50, gastos: "Frutas: 50" }],
+  summary: { totalShifts: 10, totalRevenue: 5000, totalExpenses: 2000, netProfit: 3000 },
+  dailyData: [{ day: "22/07", revenue: 500, expenses: 200, morning: 300, afternoon: 200 }],
+  shiftData: [{ name: "Mañana", value: 3000 }],
+  expenseData: [{ supplier: "Proveedor A", total: 500 }],
+  exportData: [{ date: "22/07", shift: "mañana", status: "CERRADO", createdBy: "Juan", openingFund: 200, cash: 500, caixaBankAmount: 100, santanderAmount: 50, cashExpense: 50, closingFund: 300, totalExpenses: 50, expenses: "Frutas: 50" }],
   exportExpenses: [{ fecha: "22/07", turno: "mañana", concepto: "Compra de fruta", proveedor: "Frutas", importe: 50, creadoPor: "Juan" }],
 }
 
-const mockVentaInventarioData = {
-  estado: "OK",
-  conteos: {
-    actual: { id: "actual", fechaConteo: "2026-07-31T00:00:00.000Z" },
-    anterior: { id: "anterior", fechaConteo: "2026-06-30T00:00:00.000Z" },
+const mockSalesInventoryData = {
+  state: "OK",
+  counts: {
+    current: { id: "actual", countedAt: "2026-07-31T00:00:00.000Z" },
+    previous: { id: "anterior", countedAt: "2026-06-30T00:00:00.000Z" },
   },
-  resumen: {
-    ventaTeorica: 1200,
-    ventaReal: 1300,
-    diferencia: 100,
-    diferenciaPct: 8.33,
-    turnosConCierre: 5,
-    turnosSinCierre: 0,
-    productosValorizados: 3,
-    productosPendientes: 0,
-    ajustesInventario: 0,
+  summary: {
+    theoreticalSales: 1200,
+    actualSales: 1300,
+    variance: 100,
+    variancePct: 8.33,
+    shiftsWithClose: 5,
+    shiftsWithoutClose: 0,
+    productsValued: 3,
+    pendingProducts: 0,
+    inventoryAdjustments: 0,
   },
-  advertencias: [],
+  warnings: [],
 }
 
 const server = setupServer(
   http.get("/api/dashboard", () => HttpResponse.json(mockDashboardData)),
-  http.get("/api/dashboard/venta-inventario", () => HttpResponse.json(mockVentaInventarioData)),
+  http.get("/api/dashboard/venta-inventario", () => HttpResponse.json(mockSalesInventoryData)),
   http.get("/api/dashboard/export-gestoria", () => new HttpResponse(new Uint8Array([80, 75, 3, 4]), { headers: { "Content-Type": "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" } })),
 )
 
@@ -72,7 +72,7 @@ describe("Dashboard", () => {
     expect(screen.getByText("5000.00 €")).toBeInTheDocument()
   })
 
-  it("shows 'No hay datos disponibles' on empty response", async () => {
+  it("shows the no-data message on an empty response", async () => {
     server.use(http.get("/api/dashboard", () => HttpResponse.json(null)))
     render(<Dashboard />)
     await waitFor(() => {
@@ -122,7 +122,7 @@ describe("Dashboard", () => {
     )
   })
 
-  it("exports the selected period for the gestoría", async () => {
+  it("exports the selected period for accounting", async () => {
     vi.mocked(downloadBlob).mockClear()
     render(<Dashboard />)
     await waitFor(() => {
@@ -150,7 +150,7 @@ describe("Dashboard", () => {
   })
 
   it("renders summary with negative profit", async () => {
-    server.use(http.get("/api/dashboard", () => HttpResponse.json({ ...mockDashboardData, resumen: { ...mockDashboardData.resumen, beneficioNeto: -500 } })))
+    server.use(http.get("/api/dashboard", () => HttpResponse.json({ ...mockDashboardData, summary: { ...mockDashboardData.summary, netProfit: -500 } })))
     render(<Dashboard />)
     await waitFor(() => {
       expect(screen.getByText("-500.00 €")).toBeInTheDocument()

@@ -3,6 +3,9 @@ import { Prisma } from "@/generated/prisma/client"
 import { z } from "zod"
 import { prisma } from "@/lib/prisma"
 import { withAuth } from "@/lib/with-auth"
+import { UserRole } from "@/lib/database-enums"
+import { hasAnyRole } from "@/lib/roles"
+import { getFirstSearchParam } from "@/lib/request-params"
 
 const catalogType = z.enum([
   "TIPO_ARTICULO",
@@ -23,67 +26,67 @@ const catalogType = z.enum([
 ])
 
 const catalogCreateSchema = z.object({
-  tipo: catalogType,
-  valor: z.string().trim().min(1).max(120),
-  descripcion: z.string().trim().max(500).nullable().optional(),
-  prefijoCodigo: z.string().trim().max(3).nullable().optional(),
+  type: catalogType,
+  value: z.string().trim().min(1).max(120),
+  description: z.string().trim().max(500).nullable().optional(),
+  codePrefix: z.string().trim().max(3).nullable().optional(),
 }).strict()
 
 export const GET = withAuth(async (req) => {
   const { searchParams } = new URL(req.url)
-  const tipo = searchParams.get("tipo")
+  const type = getFirstSearchParam(searchParams, "type", "tipo")
 
-  const where: Record<string, unknown> = { activo: true }
-  if (tipo) where.tipo = tipo
+  const where: Record<string, unknown> = { active: true }
+  if (type) where.type = type
 
-  const catalogos = await prisma.catalogo.findMany({
+  const catalogs = await prisma.catalog.findMany({
     where,
-    orderBy: { valor: "asc" },
+    orderBy: { value: "asc" },
   })
 
-  return NextResponse.json(catalogos)
+  return NextResponse.json(catalogs)
 })
 
 export const POST = withAuth(async (req, session) => {
-  if (session.user.role !== "ADMIN" && session.user.role !== "SOCIO") {
+  if (!hasAnyRole(session.user.role, [UserRole.ADMIN, UserRole.PARTNER])) {
     return NextResponse.json({ error: "No autorizado" }, { status: 403 })
   }
 
   try {
     const input = catalogCreateSchema.parse(await req.json())
-    const tipo = input.tipo
-    const valor = input.valor
+    const type = input.type
+    const value = input.value
 
-    const data: { tipo: typeof tipo; valor: string; descripcion?: string | null; prefijoCodigo?: string | null } = {
-      tipo,
-      valor,
-      descripcion: input.descripcion ?? null,
-      prefijoCodigo: input.prefijoCodigo ?? null,
+    const data: { type: typeof type; value: string; description?: string | null; codePrefix?: string | null } = {
+      type,
+      value,
+      description: input.description ?? null,
+      codePrefix: input.codePrefix ?? null,
     }
-    if (tipo === "FAMILIA") {
-      const prefijoCodigo = typeof input.prefijoCodigo === "string"
-        ? input.prefijoCodigo.toUpperCase()
+    if (type === "FAMILIA") {
+      const codePrefix = typeof input.codePrefix === "string"
+        ? input.codePrefix.toUpperCase()
         : ""
-      if (!/^[A-Z]{3}$/.test(prefijoCodigo)) {
+      if (!/^[A-Z]{3}$/.test(codePrefix)) {
         return NextResponse.json({ error: "El prefijo de familia debe tener 3 letras mayúsculas" }, { status: 400 })
       }
-      data.prefijoCodigo = prefijoCodigo
-    } else if (input.prefijoCodigo !== undefined && input.prefijoCodigo !== null) {
+      data.codePrefix = codePrefix
+    } else if (input.codePrefix !== undefined && input.codePrefix !== null) {
       return NextResponse.json({ error: "El prefijo solo aplica a familias" }, { status: 400 })
     }
 
-    const existing = await prisma.catalogo.findUnique({
-      where: { tipo_valor: { tipo, valor } },
+    const existing = await prisma.catalog.findUnique({
+      where: { type_value: { type, value } },
     })
     if (existing) {
       return NextResponse.json(
-        { error: `Ya existe el valor "${valor}" en el catálogo "${tipo}"` },
+        { error: `Ya existe el valor "${value}" en el catálogo "${type}"` },
         { status: 400 }
       )
     }
 
-    const catalogo = await prisma.catalogo.create({ data })
-    return NextResponse.json(catalogo, { status: 201 })
+    const catalog = await prisma.catalog.create({ data })
+    return NextResponse.json(catalog, { status: 201 })
   } catch (error) {
     if (error instanceof z.ZodError) {
       return NextResponse.json({ error: error.issues[0]?.message || "Datos no válidos" }, { status: 400 })

@@ -3,8 +3,8 @@ import type { NextRequest } from "next/server"
 
 vi.mock("@/lib/prisma", () => ({
   prisma: {
-    asignacionPagoUsuario: { findFirst: vi.fn() },
-    gastoCorriente: { findMany: vi.fn() },
+    userPaymentAssignment: { findFirst: vi.fn() },
+    currentExpense: { findMany: vi.fn() },
   },
 }))
 
@@ -29,29 +29,29 @@ describe("GET /api/pagos/gastos", () => {
     vi.clearAllMocks()
   })
 
-  it("is restricted to ADMIN and SOCIO", async () => {
+  it("is restricted to ADMIN and PARTNER", async () => {
     vi.mocked(auth).mockResolvedValue({ user: { id: "employee-1", role: "EMPLEADO" } } as any)
 
     const response = await GET(request)
 
     expect(response.status).toBe(403)
-    expect(prisma.gastoCorriente.findMany).not.toHaveBeenCalled()
+    expect(prisma.currentExpense.findMany).not.toHaveBeenCalled()
   })
 
-  it("returns the trace including its source shift for SOCIO", async () => {
+  it("returns the trace including its source shift for PARTNER", async () => {
     vi.mocked(auth).mockResolvedValue({ user: { id: "partner-1", role: "SOCIO" } } as any)
-    vi.mocked(prisma.gastoCorriente.findMany).mockResolvedValue([{
+    vi.mocked(prisma.currentExpense.findMany).mockResolvedValue([{
       id: "expense-1",
-      shift: { id: "shift-1", date: new Date("2026-08-31"), turno: "mañana" },
+      shift: { id: "shift-1", date: new Date("2026-08-31"), shift: "mañana" },
     }] as any)
 
     const response = await GET(request)
 
     expect(response.status).toBe(200)
-    expect(prisma.gastoCorriente.findMany).toHaveBeenCalledWith(expect.objectContaining({
-      where: { shiftId: { not: null }, estado: { not: "ANULADO" } },
+    expect(prisma.currentExpense.findMany).toHaveBeenCalledWith(expect.objectContaining({
+      where: { shiftId: { not: null }, status: { not: "VOID" } },
       include: expect.objectContaining({
-        shift: { select: { id: true, date: true, turno: true } },
+        shift: { select: { id: true, date: true, shift: true } },
       }),
       take: 500,
     }))

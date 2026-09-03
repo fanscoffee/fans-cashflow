@@ -68,7 +68,7 @@ export async function POST(request: Request) {
 
     return NextResponse.json(options)
   } catch (error) {
-    console.error("Error generando opciones de autenticación:", error)
+    console.error("Error generating authentication options:", error)
     return NextResponse.json(
       { error: "Error al generar opciones" },
       { status: 500 }

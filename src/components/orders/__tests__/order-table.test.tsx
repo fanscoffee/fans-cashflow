@@ -65,10 +65,10 @@ describe("OrderTable", () => {
 
   it("shows status badges when order has status", () => {
     render(<OrderTable {...defaultProps} />)
-    const pagadoBadges = screen.getAllByText("Pagado")
-    const entregadoBadges = screen.getAllByText("Entregado")
-    expect(pagadoBadges.length).toBeGreaterThanOrEqual(1)
-    expect(entregadoBadges.length).toBeGreaterThanOrEqual(1)
+    const paidBadges = screen.getAllByText("Pagado")
+    const deliveredBadges = screen.getAllByText("Entregado")
+    expect(paidBadges.length).toBeGreaterThanOrEqual(1)
+    expect(deliveredBadges.length).toBeGreaterThanOrEqual(1)
   })
 
   it("hides edit and delete buttons when not permitted", () => {
@@ -117,7 +117,7 @@ describe("OrderTable", () => {
 
   it("highlights active sort column", () => {
     render(<OrderTable {...defaultProps} sortField="clientName" sortDirection="asc" />)
-    const clienteHeader = screen.getByText("Cliente").closest("th")
-    expect(clienteHeader).toBeInTheDocument()
+    const clientHeader = screen.getByText("Cliente").closest("th")
+    expect(clientHeader).toBeInTheDocument()
   })
 })

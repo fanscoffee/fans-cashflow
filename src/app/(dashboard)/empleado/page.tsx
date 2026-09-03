@@ -6,21 +6,23 @@ import AppHeader from "@/components/app-header"
 import PasskeyManager from "@/components/passkey-manager"
 import { OpenShiftForm } from "@/components/open-shift-form"
 import { ShiftCard } from "@/components/shift-card"
-import type { CierreTurnoFormData } from "@/components/cierre-turno-modal"
+import type { ShiftCloseFormData } from "@/components/shift-close-modal"
 import { useAutoLogout } from "@/hooks/useAutoLogout"
 import type { Shift, ShiftFormData } from "@/types/shift"
+import { UserRole } from "@/lib/database-enums"
+import { isRole } from "@/lib/roles"
 
-export default function EmpleadoPage() {
+export default function EmployeePage() {
   const { data: session, status } = useSession()
   const [shifts, setShifts] = useState<Shift[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const [success, setSuccess] = useState<string | null>(null)
   const [closingShift, setClosingShift] = useState<string | null>(null)
-  const [fondoInicial, setFondoInicial] = useState<number | null>(null)
+  const [openingFund, setFundInicial] = useState<number | null>(null)
   const [dateStr, setDateStr] = useState(() => new Date().toISOString().split("T")[0])
 
-  useAutoLogout(session?.user?.role === "EMPLEADO")
+  useAutoLogout(isRole(session?.user?.role, UserRole.EMPLOYEE))
 
   const refreshData = useCallback(async () => {
     const [shiftsRes, fundRes] = await Promise.all([
@@ -33,7 +35,7 @@ export default function EmpleadoPage() {
     }
     if (fundRes.ok) {
       const fundData = await fundRes.json()
-      setFondoInicial(fundData.fondo)
+      setFundInicial(fundData.fund)
     }
   }, [])
 
@@ -51,7 +53,7 @@ export default function EmpleadoPage() {
         }
         if (fundRes.ok && !cancelled) {
           const fundData = await fundRes.json()
-          setFondoInicial(fundData.fondo)
+          setFundInicial(fundData.fund)
         }
       } catch {
         if (!cancelled) setError("Error al cargar los datos")
@@ -84,7 +86,7 @@ export default function EmpleadoPage() {
     }
   }
 
-  async function handleSaveShift(shiftId: string, values: { efectivo: number; caixa: number; santander: number; fondoFinal: number }) {
+  async function handleSaveShift(shiftId: string, values: { cash: number; caixaBankAmount: number; santanderAmount: number; closingFund: number }) {
     setError(null)
     setSuccess(null)
     try {
@@ -105,7 +107,7 @@ export default function EmpleadoPage() {
     }
   }
 
-  async function handleCloseShift(shiftId: string, cierre: CierreTurnoFormData): Promise<boolean> {
+  async function handleCloseShift(shiftId: string, close: ShiftCloseFormData): Promise<boolean> {
     setError(null)
     setSuccess(null)
     setClosingShift(shiftId)
@@ -113,9 +115,9 @@ export default function EmpleadoPage() {
       const res = await fetch(`/api/shifts/${shiftId}`, {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(cierre.sinInformacion
-          ? { status: "CERRADO", sinInformacion: true }
-          : { status: "CERRADO", cierre }),
+        body: JSON.stringify(close.noInformation
+          ? { status: "CERRADO", noInformation: true }
+          : { status: "CERRADO", close }),
       })
       if (!res.ok) {
         const result = await res.json()
@@ -154,7 +156,7 @@ export default function EmpleadoPage() {
     }
   }
 
-  if (status === "loading" || loading || fondoInicial === null) {
+  if (status === "loading" || loading || openingFund === null) {
     return (
       <div className="flex min-h-screen items-center justify-center bg-gray-50">
         <p className="text-gray-500">Cargando...</p>
@@ -163,7 +165,7 @@ export default function EmpleadoPage() {
   }
 
   const hasOpenShift = shifts.some((s) => s.status === "ABIERTO")
-  const isReadOnly = session?.user?.role === "ADMIN"
+  const isReadOnly = isRole(session?.user?.role, UserRole.ADMIN)
 
   return (
     <div className="min-h-screen bg-gray-50">
@@ -194,7 +196,7 @@ export default function EmpleadoPage() {
 
         {!isReadOnly && (
           <OpenShiftForm
-            fondoInicial={fondoInicial}
+            openingFund={openingFund}
             hasOpenShift={hasOpenShift}
             dateStr={dateStr}
             userRole={session?.user?.role}

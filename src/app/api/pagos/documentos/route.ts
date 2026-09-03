@@ -1,27 +1,30 @@
 import { NextResponse } from "next/server"
 import { withAuth } from "@/lib/with-auth"
 import { prisma } from "@/lib/prisma"
-import { paymentErrorResponse } from "@/lib/pagos-http"
-import { requirePaymentFunction } from "@/lib/pagos"
-import { parseEntity } from "@/lib/pagos-http"
+import { paymentErrorResponse } from "@/lib/payments-http"
+import { requirePaymentFunction } from "@/lib/payments"
+import { parseEntity } from "@/lib/payments-http"
+import { CurrentExpenseStatus, InvoiceWorkflowStatus, PaymentFunction, PaymentStatus } from "@/lib/database-enums"
+import { getFirstSearchParam } from "@/lib/request-params"
 
 export const GET = withAuth(async (req, session) => {
   try {
-    const entity = parseEntity(new URL(req.url).searchParams.get("entidad"))
-    await requirePaymentFunction(session.user.id, "EJECUTAR", entity, session.user.role)
-    const [facturas, gastos] = await Promise.all([
-      prisma.factura.findMany({
-        where: { ...(entity ? { entidad: entity } : {}), estadoCircuito: { in: ["CONFORMADA", "PARCIALMENTE_CONFORMADA"] }, acreedorId: { not: null } },
-        include: { acreedor: { select: { id: true, codigo: true, nombre: true } }, aplicaciones: { where: { pago: { estado: { not: "ANULADO" } } }, select: { importeAplicado: true } }, adjuntos: { select: { id: true, nombreArchivo: true, mimeType: true } } },
-        orderBy: [{ fechaVencimiento: "asc" }, { createdAt: "asc" }],
+    const searchParams = new URL(req.url).searchParams
+    const entity = parseEntity(getFirstSearchParam(searchParams, "entity", "entidad"))
+    await requirePaymentFunction(session.user.id, PaymentFunction.EXECUTE, entity, session.user.role)
+    const [invoices, expenses] = await Promise.all([
+      prisma.invoice.findMany({
+        where: { ...(entity ? { entity: entity } : {}), workflowStatus: { in: [InvoiceWorkflowStatus.CONFIRMED, InvoiceWorkflowStatus.PARTIALLY_CONFIRMED] }, creditorId: { not: null } },
+        include: { creditor: { select: { id: true, code: true, name: true } }, applications: { where: { payment: { status: { not: PaymentStatus.VOID } } }, select: { appliedAmount: true } }, attachments: { select: { id: true, fileName: true, mimeType: true } } },
+        orderBy: [{ dueDate: "asc" }, { createdAt: "asc" }],
       }),
-      prisma.gastoCorriente.findMany({
-        where: { ...(entity ? { entidad: entity } : {}), estado: "AUTORIZADO" },
-        include: { categoria: true, acreedor: { select: { id: true, codigo: true, nombre: true } }, aplicaciones: { where: { pago: { estado: { not: "ANULADO" } } }, select: { importeAplicado: true } } },
-        orderBy: { fechaDevengo: "asc" },
+      prisma.currentExpense.findMany({
+        where: { ...(entity ? { entity: entity } : {}), status: CurrentExpenseStatus.AUTHORIZED },
+        include: { category: true, creditor: { select: { id: true, code: true, name: true } }, applications: { where: { payment: { status: { not: PaymentStatus.VOID } } }, select: { appliedAmount: true } } },
+        orderBy: { accrualDate: "asc" },
       }),
     ])
-    return NextResponse.json({ facturas, gastos })
+    return NextResponse.json({ invoices, expenses })
   } catch (error) {
     return paymentErrorResponse(error)
   }

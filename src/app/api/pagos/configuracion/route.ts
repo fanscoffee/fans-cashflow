@@ -1,20 +1,30 @@
 import { NextResponse } from "next/server"
 import { withAuth } from "@/lib/with-auth"
 import { prisma } from "@/lib/prisma"
-import { paymentErrorResponse, parseEntity } from "@/lib/pagos-http"
-import { requirePaymentFunction } from "@/lib/pagos"
+import { paymentErrorResponse, parseEntity } from "@/lib/payments-http"
+import { requirePaymentFunction } from "@/lib/payments"
+import { CreditorStatus, FundsAccountStatus, PaymentEntity, PaymentFunction, PaymentMethodStatus } from "@/lib/database-enums"
+import { getFirstSearchParam } from "@/lib/request-params"
 
 export const GET = withAuth(async (req, session) => {
   try {
-    const entity = parseEntity(new URL(req.url).searchParams.get("entidad"))
-    await requirePaymentFunction(session.user.id, "SOLICITAR", entity, session.user.role)
-    const [categorias, acreedores, cuentas, medios] = await Promise.all([
-      prisma.categoriaGasto.findMany({ where: { activo: true }, orderBy: { codigo: "asc" } }),
-      prisma.acreedor.findMany({ where: { estado: "ACTIVO" }, select: { id: true, codigo: true, nombre: true, tipo: true, entidadHabitual: true, cuentaDestinoUltimos4: true }, orderBy: { nombre: "asc" } }),
-      prisma.cuentaFondos.findMany({ where: { ...(entity ? { entidad: entity } : {}), estado: "ACTIVA" }, select: { id: true, tipo: true, entidad: true, descripcion: true, ibanUltimos4: true, saldoTeorico: true, fondoFijo: true }, orderBy: [{ entidad: "asc" }, { id: "asc" }] }),
-      prisma.medioPago.findMany({ where: { estado: "ACTIVO" }, select: { id: true, tipo: true, requiereCuenta: true, conciliableBanco: true, limiteOperacion: true }, orderBy: { id: "asc" } }),
+    const searchParams = new URL(req.url).searchParams
+    const entity = parseEntity(getFirstSearchParam(searchParams, "entity", "entidad"))
+    await requirePaymentFunction(session.user.id, PaymentFunction.REQUEST, entity, session.user.role)
+    const [categories, creditors, accounts, paymentMethods] = await Promise.all([
+      prisma.expenseCategory.findMany({ where: { active: true }, orderBy: { code: "asc" } }),
+      prisma.creditor.findMany({ where: { status: CreditorStatus.ACTIVE }, select: { id: true, code: true, name: true, type: true, defaultEntity: true, destinationAccountLast4: true }, orderBy: { name: "asc" } }),
+      prisma.fundsAccount.findMany({ where: { ...(entity ? { entity: entity } : {}), status: FundsAccountStatus.ACTIVE }, select: { id: true, type: true, entity: true, description: true, ibanLast4: true, theoreticalBalance: true, fixedFloat: true }, orderBy: [{ entity: "asc" }, { id: "asc" }] }),
+      prisma.paymentMethod.findMany({ where: { status: PaymentMethodStatus.ACTIVE }, select: { id: true, type: true, requiresAccount: true, bankReconciliable: true, transactionLimit: true }, orderBy: { id: "asc" } }),
     ])
-    return NextResponse.json({ categorias, acreedores, cuentas, medios, entidades: ["OBRADOR", "CAFETERIA"] })
+    return NextResponse.json({
+      categories,
+      creditors,
+      accounts,
+      paymentMethods,
+      entities: Object.values(PaymentEntity),
+      entidades: ["OBRADOR", "CAFETERIA"],
+    })
   } catch (error) {
     return paymentErrorResponse(error)
   }

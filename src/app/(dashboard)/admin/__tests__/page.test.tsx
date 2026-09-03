@@ -72,7 +72,7 @@ describe("AdminPage", () => {
     })
   })
 
-  it("toggles form when +Nuevo empleado is clicked", async () => {
+  it("toggles the form when the new employee control is clicked", async () => {
     render(<AdminPage />)
     await waitFor(() => {
       expect(screen.getAllByText("Juan").length).toBeGreaterThan(0)
@@ -198,8 +198,8 @@ describe("AdminPage", () => {
     const pwInputs = screen.getAllByPlaceholderText("Nueva contraseña")
     fireEvent.input(pwInputs[0], { target: { value: "newpass123" } })
 
-    const guardarButtons = screen.getAllByText("Guardar")
-    fireEvent.click(guardarButtons[0])
+    const saveButtons = screen.getAllByText("Guardar")
+    fireEvent.click(saveButtons[0])
 
     await waitFor(() => {
       expect(screen.getAllByText("Cambiar contraseña").length).toBeGreaterThanOrEqual(2)

@@ -7,158 +7,158 @@ datasource db {
   provider = "postgresql"
 }
 
-enum Role {
+enum UserRole {
   ADMIN
-  SOCIO
-  EMPLEADO
-  OBRADOR
+  PARTNER  @map("SOCIO")
+  EMPLOYEE @map("EMPLEADO")
+  BAKERY   @map("OBRADOR")
 }
 
-enum EntidadPago {
-  OBRADOR
-  CAFETERIA
+enum PaymentEntity {
+  BAKERY      @map("OBRADOR")
+  COFFEE_SHOP @map("CAFETERIA")
 }
 
-enum TipoMedioPago {
-  TRANSFERENCIA
-  DOMICILIACION
-  TARJETA
-  EFECTIVO
-  CHEQUE
-  PAGO_MOVIL
+enum PaymentMethodType {
+  BANK_TRANSFER @map("TRANSFERENCIA")
+  DIRECT_DEBIT  @map("DOMICILIACION")
+  CARD          @map("TARJETA")
+  CASH          @map("EFECTIVO")
+  CHECK         @map("CHEQUE")
+  MOBILE_PAYMENT @map("PAGO_MOVIL")
 }
 
-enum EstadoMedioPago {
-  ACTIVO
-  BAJA
+enum PaymentMethodStatus {
+  ACTIVE   @map("ACTIVO")
+  INACTIVE @map("BAJA")
 }
 
-enum TipoCuentaFondos {
-  BANCO
-  CAJA
-  CAJA_CHICA
-  TARJETA
+enum FundsAccountType {
+  BANK      @map("BANCO")
+  CASH_BOX  @map("CAJA")
+  PETTY_CASH @map("CAJA_CHICA")
+  CARD      @map("TARJETA")
 }
 
-enum EstadoCuentaFondos {
-  ACTIVA
-  BLOQUEADA
-  CERRADA
+enum FundsAccountStatus {
+  ACTIVE  @map("ACTIVA")
+  BLOCKED @map("BLOQUEADA")
+  CLOSED  @map("CERRADA")
 }
 
-enum TipoAcreedor {
-  PROVEEDOR_MERCANCIA
-  SERVICIOS
-  PERSONAL
-  ADMINISTRACION
-  OTROS
+enum CreditorType {
+  MERCHANDISE_SUPPLIER @map("PROVEEDOR_MERCANCIA")
+  SERVICES       @map("SERVICIOS")
+  STAFF          @map("PERSONAL")
+  ADMINISTRATION @map("ADMINISTRACION")
+  OTHER          @map("OTROS")
 }
 
-enum EstadoAcreedor {
-  ACTIVO
-  BLOQUEADO
-  BAJA
+enum CreditorStatus {
+  ACTIVE   @map("ACTIVO")
+  BLOCKED  @map("BLOQUEADO")
+  INACTIVE @map("BAJA")
 }
 
-enum TipoDocumentoPago {
-  COMPRA_MERCANCIA
-  GASTO
+enum PaymentDocumentType {
+  MERCHANDISE_PURCHASE @map("COMPRA_MERCANCIA")
+  EXPENSE              @map("GASTO")
 }
 
-enum EstadoCircuitoFactura {
-  BORRADOR
-  EN_COTEJO
-  INCIDENCIA
-  CONFORMADA
-  PARCIALMENTE_CONFORMADA
-  ANULADA
+enum InvoiceWorkflowStatus {
+  DRAFT                @map("BORRADOR")
+  IN_REVIEW            @map("EN_COTEJO")
+  ISSUE                @map("INCIDENCIA")
+  CONFIRMED            @map("CONFORMADA")
+  PARTIALLY_CONFIRMED  @map("PARCIALMENTE_CONFORMADA")
+  VOID                 @map("ANULADA")
 }
 
-enum OrigenFacturaGestoria {
+enum AccountingInvoiceOrigin {
   OCR
   MANUAL
 }
 
-enum JustificanteGasto {
-  FACTURA
-  RECIBO
+enum ExpenseReceiptType {
+  INVOICE          @map("FACTURA")
+  RECEIPT          @map("RECIBO")
   TICKET
-  CONTRATO
-  VALE_INTERNO
-  SIN_JUSTIFICANTE
+  CONTRACT         @map("CONTRATO")
+  INTERNAL_VOUCHER @map("VALE_INTERNO")
+  NO_RECEIPT       @map("SIN_JUSTIFICANTE")
 }
 
-enum EstadoGastoCorriente {
-  BORRADOR
-  PENDIENTE_AUTORIZACION
-  AUTORIZADO
-  RECHAZADO
-  PAGADO
-  CERRADO
-  ANULADO
+enum CurrentExpenseStatus {
+  DRAFT                @map("BORRADOR")
+  PENDING_AUTHORIZATION @map("PENDIENTE_AUTORIZACION")
+  AUTHORIZED           @map("AUTORIZADO")
+  REJECTED             @map("RECHAZADO")
+  PAID                 @map("PAGADO")
+  CLOSED               @map("CERRADO")
+  VOID                 @map("ANULADO")
 }
 
-enum EstadoPago {
-  BORRADOR
-  PROGRAMADO
-  ORDENADO
-  CONCILIADO
-  CERRADO
-  ANULADO
+enum PaymentStatus {
+  DRAFT      @map("BORRADOR")
+  SCHEDULED  @map("PROGRAMADO")
+  ORDERED    @map("ORDENADO")
+  RECONCILED @map("CONCILIADO")
+  CLOSED     @map("CERRADO")
+  VOID       @map("ANULADO")
 }
 
-enum TipoAplicacionPago {
-  FACTURA
-  GASTO
-  ANTICIPO
+enum PaymentApplicationType {
+  INVOICE @map("FACTURA")
+  EXPENSE @map("GASTO")
+  ADVANCE @map("ANTICIPO")
 }
 
-enum FuncionPago {
-  REGISTRAR
-  SOLICITAR
-  AUTORIZAR
-  EJECUTAR
-  CONCILIAR
-  ADMINISTRAR
+enum PaymentFunction {
+  REGISTER   @map("REGISTRAR")
+  REQUEST    @map("SOLICITAR")
+  AUTHORIZE  @map("AUTORIZAR")
+  EXECUTE    @map("EJECUTAR")
+  RECONCILE  @map("CONCILIAR")
+  ADMINISTER @map("ADMINISTRAR")
 }
 
-enum TipoMovimientoFondos {
-  SALIDA_PAGO
-  ENTRADA_DOTACION
-  REPOSICION_CAJA
-  DEPOSITO
-  AJUSTE
-  SALIDA_LEGACY
+enum FundsMovementType {
+  PAYMENT_OUTFLOW  @map("SALIDA_PAGO")
+  ALLOCATION_INFLOW @map("ENTRADA_DOTACION")
+  CASH_REPLENISHMENT @map("REPOSICION_CAJA")
+  DEPOSIT           @map("DEPOSITO")
+  ADJUSTMENT        @map("AJUSTE")
+  LEGACY_OUTFLOW    @map("SALIDA_LEGACY")
 }
 
-enum DireccionMovimientoExtracto {
-  ENTRADA
-  SALIDA
+enum StatementMovementDirection {
+  INFLOW  @map("ENTRADA")
+  OUTFLOW @map("SALIDA")
 }
 
-enum EstadoMovimientoExtracto {
-  PENDIENTE
-  CONCILIADO
-  INCIDENCIA
+enum StatementMovementStatus {
+  PENDING    @map("PENDIENTE")
+  RECONCILED @map("CONCILIADO")
+  ISSUE      @map("INCIDENCIA")
 }
 
-enum EstadoArqueoCaja {
-  BORRADOR
-  VALIDADO
-  INCIDENCIA
+enum CashCountStatus {
+  DRAFT     @map("BORRADOR")
+  VALIDATED @map("VALIDADO")
+  ISSUE     @map("INCIDENCIA")
 }
 
-enum EstadoReposicionCaja {
-  BORRADOR
-  SOLICITADA
-  EJECUTADA
-  RECHAZADA
+enum CashReplenishmentStatus {
+  DRAFT     @map("BORRADOR")
+  REQUESTED @map("SOLICITADA")
+  EXECUTED  @map("EJECUTADA")
+  REJECTED  @map("RECHAZADA")
 }
 
-enum EstadoCierreMensual {
-  ABIERTO
-  BLOQUEADO
-  CERRADO
+enum MonthlyCloseStatus {
+  OPEN    @map("ABIERTO")
+  BLOCKED @map("BLOQUEADO")
+  CLOSED  @map("CERRADO")
 }
 
 model User {
@@ -166,7 +166,7 @@ model User {
   name                     String?
   email                    String                  @unique
   password                 String
-  role                     Role                    @default(EMPLEADO)
+  role                     UserRole                    @default(EMPLOYEE)
   authVersion              Int                     @default(0)
   createdShifts            Shift[]
   fundAdditions            FundAddition[]
@@ -174,38 +174,38 @@ model User {
   passkeys                 Passkey[]
   webAuthnChallenges       WebAuthnChallenge[]
   orders                   Order[]
-  productos                Producto[]
-  proveedores              Proveedor[]
-  recepcionesRecibidas     Recepcion[]
-  inventariosFisicos       InventarioFisico[]
-  cierresTurnoConfirmados  CierreTurno[]
-  facturasConfirmadas      Factura[]
-  asignacionesPago         AsignacionPagoUsuario[]
-  cuentasFondosResponsable CuentaFondos[]          @relation("CuentaResponsable")
-  acreedoresCreados        Acreedor[]              @relation("AcreedorCreador")
-  gastosSolicitados        GastoCorriente[]        @relation("GastoSolicitante")
-  gastosAutorizados        GastoCorriente[]        @relation("GastoAutorizador")
-  pagosEjecutados          Pago[]                  @relation("PagoEjecutor")
-  pagosExcesoAutorizados   Pago[]                  @relation("PagoExcesoAutorizador")
-  pagosAnulados            Pago[]                  @relation("PagoAnulador")
-  aprobacionesPago         AprobacionPago[]        @relation("AprobacionUsuario")
-  movimientosFondos        MovimientoFondos[]      @relation("MovimientoCreador")
-  movimientosConciliados   MovimientoExtracto[]    @relation("MovimientoConciliador")
-  importacionesExtracto    ImportacionExtracto[]
-  arqueosCustodio          ArqueoCaja[]            @relation("ArqueoCustodio")
-  arqueosVerificador       ArqueoCaja[]            @relation("ArqueoVerificador")
-  reposicionesCreadas      ReposicionCaja[]        @relation("ReposicionCreador")
-  adjuntosSubidos          AdjuntoPago[]           @relation("AdjuntoUploader")
-  eventosAuditoria         EventoAuditoria[]       @relation("AuditoriaActor")
-  cierresMensuales         CierreMensual[]         @relation("CierreUsuario")
-  cambiosCuentaSolicitados CambioCuentaAcreedor[]  @relation("CambioCuentaSolicitante")
-  cambiosCuentaAutorizados CambioCuentaAcreedor[]  @relation("CambioCuentaAutorizador")
-  parametrosCambiados      ParametroAutorizacion[]
-  reglasCambiadas          ReglaAutorizacion[]
-  contratosAutorizados     ContratoRecurrente[]
-  anticiposSolicitados     Anticipo[]              @relation("AnticipoSolicitante")
-  anticiposAutorizados     Anticipo[]              @relation("AnticipoAutorizador")
-  facturasGestoria         FacturaGestoria[]
+  products                Product[]
+  suppliers              Supplier[]
+  receivedReceipts     Receipt[]
+  physicalInventories       PhysicalInventory[]
+  confirmedShiftCloses  ShiftClose[]
+  confirmedInvoices      Invoice[]
+  paymentAssignments         UserPaymentAssignment[]
+  responsibleFundsAccounts FundsAccount[]          @relation("FundsAccountResponsible")
+  createdCreditors        Creditor[]              @relation("CreditorCreator")
+  requestedExpenses        CurrentExpense[]        @relation("ExpenseRequester")
+  authorizedExpenses        CurrentExpense[]        @relation("ExpenseAuthorizer")
+  executedPayments          Payment[]                  @relation("PaymentExecutor")
+  excessAuthorizedPayments   Payment[]                  @relation("ExcessPaymentAuthorizer")
+  voidedPayments            Payment[]                  @relation("PaymentVoider")
+  paymentApprovals         PaymentApproval[]        @relation("ApprovalUser")
+  fundsMovements        FundsMovement[]      @relation("MovementCreator")
+  reconciledStatementMovements   StatementMovement[]    @relation("MovementReconciler")
+  statementImports    StatementImport[]
+  custodianCashCounts          CashCount[]            @relation("CashCountCustodian")
+  verifierCashCounts       CashCount[]            @relation("CashCountVerifier")
+  createdCashReplenishments      CashReplenishment[]        @relation("ReplenishmentCreator")
+  uploadedPaymentAttachments          PaymentAttachment[]           @relation("AttachmentUploader")
+  auditEvents         AuditEvent[]       @relation("AuditActor")
+  monthlyCloses         MonthlyClose[]         @relation("CloseUser")
+  requestedAccountChanges CreditorAccountChange[]  @relation("AccountChangeRequester")
+  authorizedAccountChanges CreditorAccountChange[]  @relation("AccountChangeAuthorizer")
+  changedParameters      AuthorizationParameter[]
+  changedRules          AuthorizationRule[]
+  authorizedContracts     RecurringContract[]
+  requestedAdvances     Advance[]              @relation("AdvanceRequester")
+  authorizedAdvances     Advance[]              @relation("AdvanceAuthorizer")
+  accountingInvoices         AccountingInvoice[]
 }
 
 model Passkey {
@@ -239,71 +239,71 @@ model WebAuthnChallenge {
 model Shift {
   id            String        @id @default(cuid())
   date          DateTime      @db.Date
-  turno         String
+  shift         String
   status        String        @default("ABIERTO")
   createdById   String
   createdBy     User          @relation(fields: [createdById], references: [id])
-  efectivo      Decimal       @db.Decimal(10, 2)
-  caixa         Decimal       @db.Decimal(10, 2)
-  santander     Decimal       @db.Decimal(10, 2)
-  efectivoGasto Decimal       @db.Decimal(10, 2)
-  fondoInicial  Decimal       @db.Decimal(10, 2)
-  fondoFinal    Decimal       @db.Decimal(10, 2)
+  cash      Decimal       @db.Decimal(10, 2)
+  caixaBankAmount         Decimal       @db.Decimal(10, 2)
+  santanderAmount     Decimal       @db.Decimal(10, 2)
+  cashExpense Decimal       @db.Decimal(10, 2)
+  openingFund  Decimal       @db.Decimal(10, 2)
+  closingFund    Decimal       @db.Decimal(10, 2)
   closedAt      DateTime?
   expenses      Expense[]
-  gastosCorrientes GastoCorriente[]
+  currentExpenses CurrentExpense[]
   cashTracking  CashTracking?
-  cierreTurno   CierreTurno?
+  shiftClose   ShiftClose?
   createdAt     DateTime      @default(now())
   updatedAt     DateTime      @updatedAt
 
-  @@unique([date, turno])
+  @@unique([date, shift])
 }
 
-model CierreTurno {
+model ShiftClose {
   id                   String   @id @default(cuid())
   shiftId              String   @unique
-  numeroCierreCaja     String
-  tpv                  String
-  fechaHoraApertura    DateTime
-  fechaHoraCierre      DateTime
-  fondoCajaAnterior    Decimal  @db.Decimal(12, 2)
-  cobrosEfectivo       Decimal  @db.Decimal(12, 2)
-  reembolsosEfectivo   Decimal  @db.Decimal(12, 2)
-  depositado           Decimal  @db.Decimal(12, 2)
-  pagosSalidas         Decimal  @db.Decimal(12, 2)
-  efectivoTeoricoCaja  Decimal  @db.Decimal(12, 2)
-  cantidadEfectivoReal Decimal  @db.Decimal(12, 2)
-  descuadre            Decimal  @db.Decimal(12, 2)
-  ventasBrutas         Decimal  @db.Decimal(12, 2)
-  reembolsos           Decimal  @db.Decimal(12, 2)
-  descuentos           Decimal  @db.Decimal(12, 2)
-  ventasNetas          Decimal  @db.Decimal(12, 2)
-  ventasEfectivo       Decimal  @db.Decimal(12, 2)
-  ventasTarjeta        Decimal  @db.Decimal(12, 2)
-  ivaPan4Base          Decimal  @db.Decimal(12, 2)
-  ivaPan4Cuota         Decimal  @db.Decimal(12, 2)
-  iva10Base            Decimal  @db.Decimal(12, 2)
-  iva10Cuota           Decimal  @db.Decimal(12, 2)
-  observacionDescuadre String?
-  confirmadoPorId      String
-  confirmadoAt         DateTime @default(now())
+  cashCloseNumber     String
+  pos                  String
+  openingDateTime    DateTime
+  closingDateTime      DateTime
+  previousCashFund    Decimal  @db.Decimal(12, 2)
+  cashReceipts       Decimal  @db.Decimal(12, 2)
+  cashRefunds   Decimal  @db.Decimal(12, 2)
+  depositedAmount           Decimal  @db.Decimal(12, 2)
+  paymentOutflows         Decimal  @db.Decimal(12, 2)
+  theoreticalCash  Decimal  @db.Decimal(12, 2)
+  actualCash Decimal  @db.Decimal(12, 2)
+  cashVariance            Decimal  @db.Decimal(12, 2)
+  grossSales         Decimal  @db.Decimal(12, 2)
+  refunds           Decimal  @db.Decimal(12, 2)
+  discounts           Decimal  @db.Decimal(12, 2)
+  netSales          Decimal  @db.Decimal(12, 2)
+  cashSales       Decimal  @db.Decimal(12, 2)
+  cardSales        Decimal  @db.Decimal(12, 2)
+  breadVat4Base          Decimal  @db.Decimal(12, 2)
+  breadVat4Amount         Decimal  @db.Decimal(12, 2)
+  vat10Base            Decimal  @db.Decimal(12, 2)
+  vat10Amount           Decimal  @db.Decimal(12, 2)
+  varianceNote String?
+  confirmedById      String
+  confirmedAt         DateTime @default(now())
   createdAt            DateTime @default(now())
   updatedAt            DateTime @updatedAt
 
   shift         Shift @relation(fields: [shiftId], references: [id])
-  confirmadoPor User  @relation(fields: [confirmadoPorId], references: [id])
+  confirmedBy User  @relation(fields: [confirmedById], references: [id])
 
-  @@unique([tpv, numeroCierreCaja])
-  @@index([confirmadoAt])
+  @@unique([pos, cashCloseNumber])
+  @@index([confirmedAt])
 }
 
 model Expense {
   id        String  @id @default(cuid())
   shiftId   String
   shift     Shift   @relation(fields: [shiftId], references: [id])
-  proveedor String
-  importe   Decimal @db.Decimal(10, 2)
+  supplier String
+  amount   Decimal @db.Decimal(10, 2)
 }
 
 model FundAddition {
@@ -316,9 +316,9 @@ model FundAddition {
 }
 
 enum CashDestination {
-  DEPOSITO
-  INGRESO_EN_FONDO
-  GUARDADO
+  DEPOSIT            @map("DEPOSITO")
+  FUND_REINVESTMENT  @map("INGRESO_EN_FONDO")
+  STORED             @map("GUARDADO")
   FANS
 }
 
@@ -347,851 +347,851 @@ model Order {
   updatedAt    DateTime @updatedAt
 }
 
-model Catalogo {
+model Catalog {
   id          String   @id @default(cuid())
-  tipo        String
-  valor       String
-  descripcion String?
-  prefijoCodigo String?
-  activo      Boolean  @default(true)
+  type        String
+  value       String
+  description String?
+  codePrefix String?
+  active      Boolean  @default(true)
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
 
-  @@unique([tipo, valor])
-  @@unique([prefijoCodigo])
-  @@index([tipo])
+  @@unique([type, value])
+  @@unique([codePrefix])
+  @@index([type])
 }
 
-model Proveedor {
+model Supplier {
   id               String  @id @default(cuid())
-  razonSocial      String
-  cifNif           String  @unique
-  direccionFiscal  String?
-  contactoNombre   String?
-  contactoTelefono String?
-  contactoEmail    String?
+  legalName      String
+  taxId           String  @unique
+  billingAddress  String?
+  contactName   String?
+  contactPhone String?
+  contactEmail    String?
   iban             String?
 
-  categoriaServicio String?
-  condicionesPago   String?
-  plazoEntregaDias  Int?
-  pedidoMinimo      Decimal? @db.Decimal(10, 3)
-  notasCondiciones  String?
+  serviceCategory String?
+  paymentTerms   String?
+  deliveryLeadTimeDays  Int?
+  minimumOrder      Decimal? @db.Decimal(10, 3)
+  termsNotes  String?
 
-  frecuenciaEntrega String?
-  horarioEntrega    String?
-  metodoPedido      String?
+  deliveryFrequency String?
+  deliverySchedule    String?
+  orderingMethod      String?
 
-  fechaAlta            DateTime @default(now())
-  estado               String   @default("Activo")
-  valoracionFiabilidad Int?
-  valoracionCalidad    Int?
-  valoracionPrecio     Int?
-  incidencias          String?
-  observaciones        String?
+  addedAt            DateTime @default(now())
+  status               String   @default("Activo")
+  reliabilityRating Int?
+  qualityRating    Int?
+  priceRating     Int?
+  issues          String?
+  notes        String?
 
-  productos   ProveedorProducto[]
-  recepciones Recepcion[]
-  facturas    Factura[]
-  acreedor    Acreedor?
+  products   SupplierProduct[]
+  receipts Receipt[]
+  invoices    Invoice[]
+  creditor    Creditor?
   createdById String?
   createdBy   User?               @relation(fields: [createdById], references: [id])
   createdAt   DateTime            @default(now())
   updatedAt   DateTime            @updatedAt
 
-  @@index([estado])
+  @@index([status])
 }
 
-model ProveedorProducto {
+model SupplierProduct {
   id                 String    @id @default(cuid())
-  proveedorId        String
-  proveedor          Proveedor @relation(fields: [proveedorId], references: [id], onDelete: Cascade)
-  productoId         String
-  producto           Producto  @relation(fields: [productoId], references: [id], onDelete: Cascade)
-  refProveedor       String?
-  precioCompraSinIva Decimal?  @db.Decimal(10, 4)
-  plazoEntregaDias   Int?
-  pedidoMinimo       Decimal?  @db.Decimal(10, 3)
-  esPrincipal        Boolean   @default(false)
-  activo             Boolean   @default(true)
+  supplierId        String
+  supplier          Supplier @relation(fields: [supplierId], references: [id], onDelete: Cascade)
+  productId         String
+  product           Product  @relation(fields: [productId], references: [id], onDelete: Cascade)
+  supplierReference       String?
+  purchasePriceExcludingVat Decimal?  @db.Decimal(10, 4)
+  deliveryLeadTimeDays   Int?
+  minimumOrder       Decimal?  @db.Decimal(10, 3)
+  isPrimary        Boolean   @default(false)
+  active             Boolean   @default(true)
   createdAt          DateTime  @default(now())
   updatedAt          DateTime  @updatedAt
 
-  @@unique([proveedorId, productoId])
-  @@index([productoId])
+  @@unique([supplierId, productId])
+  @@index([productId])
 }
 
-model Recepcion {
+model Receipt {
   id             String   @id @default(cuid())
-  codigoAlbaran  String
-  proveedorId    String
-  facturaId      String?
-  fechaRecepcion DateTime
-  recibidoById   String?
-  notas          String?
+  deliveryNoteCode  String
+  supplierId    String
+  invoiceId      String?
+  receivedAt DateTime
+  receivedById   String?
+  notes          String?
   createdAt      DateTime @default(now())
   updatedAt      DateTime @updatedAt
 
-  proveedor  Proveedor        @relation(fields: [proveedorId], references: [id])
-  factura    Factura?         @relation(fields: [facturaId], references: [id])
-  recibidoBy User?            @relation(fields: [recibidoById], references: [id])
-  lineas     RecepcionLinea[]
+  supplier  Supplier        @relation(fields: [supplierId], references: [id])
+  invoice    Invoice?         @relation(fields: [invoiceId], references: [id])
+  receivedBy User?            @relation(fields: [receivedById], references: [id])
+  lines     ReceiptLine[]
 
-  @@unique([codigoAlbaran, proveedorId])
-  @@index([proveedorId])
-  @@index([facturaId])
-  @@index([fechaRecepcion])
+  @@unique([deliveryNoteCode, supplierId])
+  @@index([supplierId])
+  @@index([invoiceId])
+  @@index([receivedAt])
 }
 
-model Factura {
+model Invoice {
   id                    String                @id @default(cuid())
-  proveedorId           String
-  serie                 String                @default("")
-  numero                String
-  fechaExpedicion       DateTime
-  fechaOperacion        DateTime?
-  fechaVencimiento      DateTime?
-  fechaPago             DateTime?
-  numeroPedido          String?
-  fechaPedido           DateTime?
-  centroEntrega         String?
-  referenciaAlbaran     String?
-  fechaAlbaran          DateTime?
-  formaPago             String?
-  estado                String                @default("CONFIRMADA")
-  estadoPago            String                @default("PENDIENTE")
-  moneda                String                @default("EUR")
-  importePagado         Decimal?              @db.Decimal(12, 2)
-  entidad               EntidadPago           @default(OBRADOR)
-  tipoDocumento         TipoDocumentoPago     @default(COMPRA_MERCANCIA)
-  estadoCircuito        EstadoCircuitoFactura @default(BORRADOR)
-  acreedorId            String?
-  importeConformado     Decimal?              @db.Decimal(12, 2)
-  importeRetenido       Decimal               @default(0) @db.Decimal(12, 2)
-  motivoRetencion       String?
-  referenciaOrigen      String?
-  esLegacyPago          Boolean               @default(false)
-  razonSocialEmisor     String
-  nifEmisor             String
-  domicilioFiscalEmisor String
-  totalNeto             Decimal               @db.Decimal(12, 2)
-  totalDescuento        Decimal               @default(0) @db.Decimal(12, 2)
-  totalIva              Decimal               @db.Decimal(12, 2)
-  totalRecargo          Decimal               @db.Decimal(12, 2)
-  totalRetenciones      Decimal               @db.Decimal(12, 2)
-  importeTotal          Decimal               @db.Decimal(12, 2)
-  observaciones         String?
-  alertas               Json?
-  confirmadoPorId       String
-  confirmadoAt          DateTime              @default(now())
+  supplierId           String
+  series                 String                @default("")
+  number                String
+  issueDate       DateTime
+  operationDate        DateTime?
+  dueDate      DateTime?
+  paymentDate             DateTime?
+  orderNumber          String?
+  orderDate           DateTime?
+  deliveryCenter         String?
+  deliveryNoteReference     String?
+  deliveryNoteDate          DateTime?
+  paymentMethod             String?
+  status                String                @default("CONFIRMADA")
+  paymentStatus            String                @default("PENDIENTE")
+  currency                String                @default("EUR")
+  paidAmount         Decimal?              @db.Decimal(12, 2)
+  entity               PaymentEntity           @default(BAKERY)
+  documentType         PaymentDocumentType     @default(MERCHANDISE_PURCHASE)
+  workflowStatus        InvoiceWorkflowStatus @default(DRAFT)
+  creditorId            String?
+  confirmedAmount     Decimal?              @db.Decimal(12, 2)
+  withheldAmount       Decimal               @default(0) @db.Decimal(12, 2)
+  withholdingReason       String?
+  sourceReference      String?
+  isLegacyPayment          Boolean               @default(false)
+  issuerLegalName     String
+  issuerTaxId             String
+  issuerBillingAddress String
+  netTotal             Decimal               @db.Decimal(12, 2)
+  discountTotal        Decimal               @default(0) @db.Decimal(12, 2)
+  totalVat              Decimal               @db.Decimal(12, 2)
+  surchargeTotal          Decimal               @db.Decimal(12, 2)
+  withholdingTotal      Decimal               @db.Decimal(12, 2)
+  totalAmount          Decimal               @db.Decimal(12, 2)
+  notes         String?
+  alerts               Json?
+  confirmedById       String
+  confirmedAt          DateTime              @default(now())
   createdAt             DateTime              @default(now())
   updatedAt             DateTime              @updatedAt
 
-  proveedor     Proveedor         @relation(fields: [proveedorId], references: [id])
-  acreedor      Acreedor?         @relation(fields: [acreedorId], references: [id])
-  confirmadoPor User              @relation(fields: [confirmadoPorId], references: [id])
-  albaranes     Recepcion[]
-  lineas        FacturaLinea[]
-  impuestos     FacturaImpuesto[]
-  adjuntos      AdjuntoPago[]
-  aplicaciones  PagoAplicacion[]
+  supplier     Supplier         @relation(fields: [supplierId], references: [id])
+  creditor      Creditor?         @relation(fields: [creditorId], references: [id])
+  confirmedBy User              @relation(fields: [confirmedById], references: [id])
+  deliveryNotes     Receipt[]
+  lines        InvoiceLine[]
+  taxes     InvoiceTax[]
+  attachments      PaymentAttachment[]
+  applications  PaymentApplication[]
 
-  @@unique([proveedorId, serie, numero])
-  @@unique([acreedorId, numero])
-  @@index([fechaExpedicion])
-  @@index([estado])
-  @@index([estadoPago])
-  @@index([entidad, estadoCircuito, fechaVencimiento])
-  @@index([acreedorId, estadoCircuito])
+  @@unique([supplierId, series, number])
+  @@unique([creditorId, number])
+  @@index([issueDate])
+  @@index([status])
+  @@index([paymentStatus])
+  @@index([entity, workflowStatus, dueDate])
+  @@index([creditorId, workflowStatus])
 }
 
-model FacturaLinea {
+model InvoiceLine {
   id                  String    @id @default(cuid())
-  facturaId           String
-  productoId          String?
-  tipoLinea           String    @default("PRODUCTO")
-  referenciaProveedor String?
-  codigoArticulo      String?
-  descripcion         String
-  unidadMedida        String?
-  formatoOriginal     String?
-  cantidad            Decimal   @db.Decimal(12, 4)
-  descuentoPorcentaje Decimal?  @db.Decimal(7, 4)
-  descuentoImporte    Decimal   @db.Decimal(12, 2)
-  precioUnitario      Decimal   @db.Decimal(12, 4)
-  precioUnitarioNeto  Decimal   @db.Decimal(12, 4)
-  baseImponible       Decimal   @db.Decimal(12, 2)
-  tipoIva             Decimal?  @db.Decimal(7, 4)
-  cuotaIva            Decimal   @db.Decimal(12, 2)
-  totalLinea          Decimal   @db.Decimal(12, 2)
-  lote                String?
-  fechaVencimiento    DateTime?
-  alertaValidacion    String?
+  invoiceId           String
+  productId          String?
+  lineType           String    @default("PRODUCTO")
+  supplierReference String?
+  itemCode      String?
+  description         String
+  unitOfMeasure        String?
+  originalFormat     String?
+  quantity            Decimal   @db.Decimal(12, 4)
+  discountPercentage Decimal?  @db.Decimal(7, 4)
+  discountAmount    Decimal   @db.Decimal(12, 2)
+  unitPrice      Decimal   @db.Decimal(12, 4)
+  netUnitPrice  Decimal   @db.Decimal(12, 4)
+  taxableBase       Decimal   @db.Decimal(12, 2)
+  vatRate             Decimal?  @db.Decimal(7, 4)
+  vatAmount            Decimal   @db.Decimal(12, 2)
+  lineTotal          Decimal   @db.Decimal(12, 2)
+  batch                String?
+  dueDate    DateTime?
+  validationAlert    String?
   createdAt           DateTime  @default(now())
   updatedAt           DateTime  @updatedAt
 
-  factura  Factura   @relation(fields: [facturaId], references: [id], onDelete: Cascade)
-  producto Producto? @relation(fields: [productoId], references: [id])
+  invoice  Invoice   @relation(fields: [invoiceId], references: [id], onDelete: Cascade)
+  product Product? @relation(fields: [productId], references: [id])
 
-  @@index([facturaId])
-  @@index([productoId])
+  @@index([invoiceId])
+  @@index([productId])
 }
 
-model FacturaImpuesto {
+model InvoiceTax {
   id            String   @id @default(cuid())
-  facturaId     String
-  tipo          String
-  porcentaje    Decimal? @db.Decimal(7, 4)
-  baseImponible Decimal  @db.Decimal(12, 2)
-  cuota         Decimal  @db.Decimal(12, 2)
+  invoiceId     String
+  type          String
+  percentage    Decimal? @db.Decimal(7, 4)
+  taxableBase Decimal  @db.Decimal(12, 2)
+  taxAmount         Decimal  @db.Decimal(12, 2)
   createdAt     DateTime @default(now())
   updatedAt     DateTime @updatedAt
 
-  factura Factura @relation(fields: [facturaId], references: [id], onDelete: Cascade)
+  invoice Invoice @relation(fields: [invoiceId], references: [id], onDelete: Cascade)
 
-  @@index([facturaId])
-  @@index([tipo])
+  @@index([invoiceId])
+  @@index([type])
 }
 
-model FacturaGestoria {
+model AccountingInvoice {
   id                String                @id @default(cuid())
-  fecha             DateTime              @db.Date
-  facturaNumero     String                @default("")
-  proveedorAcreedor String
-  nif               String                @default("")
-  concepto          String                @default("")
-  baseExenta        Decimal               @default(0) @db.Decimal(12, 2)
+  date             DateTime              @db.Date
+  invoiceNumber     String                @default("")
+  supplierOrCreditor String
+  taxId               String                @default("")
+  concept          String                @default("")
+  exemptBase        Decimal               @default(0) @db.Decimal(12, 2)
   base21            Decimal               @default(0) @db.Decimal(12, 2)
-  iva21             Decimal               @default(0) @db.Decimal(12, 2)
+  vat21             Decimal               @default(0) @db.Decimal(12, 2)
   base10            Decimal               @default(0) @db.Decimal(12, 2)
-  iva10             Decimal               @default(0) @db.Decimal(12, 2)
+  vat10             Decimal               @default(0) @db.Decimal(12, 2)
   base4             Decimal               @default(0) @db.Decimal(12, 2)
-  iva4              Decimal               @default(0) @db.Decimal(12, 2)
+  vat4              Decimal               @default(0) @db.Decimal(12, 2)
   base2             Decimal               @default(0) @db.Decimal(12, 2)
-  iva2              Decimal               @default(0) @db.Decimal(12, 2)
+  vat2              Decimal               @default(0) @db.Decimal(12, 2)
   totalBase         Decimal               @default(0) @db.Decimal(12, 2)
-  totalIva          Decimal               @default(0) @db.Decimal(12, 2)
-  irpf              Decimal               @default(0) @db.Decimal(12, 2)
-  totalFactura      Decimal               @db.Decimal(12, 2)
-  formaPago         String                @default("")
-  textoOCR          String?
-  origen            OrigenFacturaGestoria @default(MANUAL)
-  alertas           Json?
-  creadoPorId       String
+  totalVat          Decimal               @default(0) @db.Decimal(12, 2)
+  withholdingTax              Decimal               @default(0) @db.Decimal(12, 2)
+  invoiceTotal      Decimal               @db.Decimal(12, 2)
+  paymentMethod         String                @default("")
+  ocrText          String?
+  source            AccountingInvoiceOrigin @default(MANUAL)
+  alerts           Json?
+  createdById       String
   createdAt         DateTime              @default(now())
   updatedAt         DateTime              @updatedAt
 
-  creadoPor User @relation(fields: [creadoPorId], references: [id])
+  createdBy User @relation(fields: [createdById], references: [id])
 
-  @@index([fecha])
-  @@index([nif, facturaNumero])
-  @@index([creadoPorId])
+  @@index([date])
+  @@index([taxId, invoiceNumber])
+  @@index([createdById])
 }
 
-model RecepcionLinea {
+model ReceiptLine {
   id               String    @id @default(cuid())
-  recepcionId      String
-  productoId       String
-  cantidadRecibida Decimal   @db.Decimal(10, 2)
-  precioUnitario   Decimal   @db.Decimal(10, 4)
-  lote             String?
-  fechaVencimiento DateTime?
+  receiptId      String
+  productId       String
+  receivedQuantity Decimal   @db.Decimal(10, 2)
+  unitPrice   Decimal   @db.Decimal(10, 4)
+  batch             String?
+  dueDate DateTime?
   createdAt        DateTime  @default(now())
   updatedAt        DateTime  @updatedAt
 
-  recepcion Recepcion @relation(fields: [recepcionId], references: [id], onDelete: Cascade)
-  producto  Producto  @relation(fields: [productoId], references: [id])
+  receipt Receipt @relation(fields: [receiptId], references: [id], onDelete: Cascade)
+  product  Product  @relation(fields: [productId], references: [id])
 
-  @@index([recepcionId])
-  @@index([productoId])
+  @@index([receiptId])
+  @@index([productId])
 }
 
-model InventarioFisico {
+model PhysicalInventory {
   id          String   @id @default(cuid())
-  fechaConteo DateTime @default(now())
-  creadoById  String
-  notas       String?
+  countedAt DateTime @default(now())
+  createdById  String
+  notes       String?
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
 
-  creadoBy User                    @relation(fields: [creadoById], references: [id])
-  lineas   InventarioFisicoLinea[]
+  createdBy User                    @relation(fields: [createdById], references: [id])
+  lines   PhysicalInventoryLine[]
 
-  @@unique([fechaConteo])
-  @@index([fechaConteo])
+  @@unique([countedAt])
+  @@index([countedAt])
 }
 
-model InventarioFisicoLinea {
+model PhysicalInventoryLine {
   id                 String   @id @default(cuid())
-  inventarioFisicoId String
-  productoId         String
-  cantidadUm1        Decimal  @db.Decimal(10, 2)
-  cantidadUm2        Decimal  @db.Decimal(10, 2)
+  physicalInventoryId String
+  productId         String
+  quantityUnit1        Decimal  @db.Decimal(10, 2)
+  quantityUnit2        Decimal  @db.Decimal(10, 2)
   createdAt          DateTime @default(now())
   updatedAt          DateTime @updatedAt
 
-  inventarioFisico InventarioFisico @relation(fields: [inventarioFisicoId], references: [id], onDelete: Cascade)
-  producto         Producto         @relation(fields: [productoId], references: [id])
+  physicalInventory PhysicalInventory @relation(fields: [physicalInventoryId], references: [id], onDelete: Cascade)
+  product         Product         @relation(fields: [productId], references: [id])
 
-  @@unique([inventarioFisicoId, productoId])
-  @@index([inventarioFisicoId])
-  @@index([productoId])
+  @@unique([physicalInventoryId, productId])
+  @@index([physicalInventoryId])
+  @@index([productId])
 }
 
-model Producto {
+model Product {
   id                  String  @id @default(cuid())
-  codigo              String  @unique
-  codBarrasEan        String?
-  descripcionTpv      String
-  descripcionCompleta String
+  code              String  @unique
+  eanBarcode        String?
+  posDescription      String
+  fullDescription String
 
-  tipoArticulo String
-  familia      String
-  subfamilia   String?
-  seccion      String
-  esComprable  Boolean @default(false)
-  esElaborado  Boolean @default(false)
-  esVendible   Boolean @default(false)
-  llevaReceta  Boolean @default(false)
+  itemType String
+  family      String
+  subfamily   String?
+  section      String
+  isPurchasable  Boolean @default(false)
+  isPrepared  Boolean @default(false)
+  isSellable   Boolean @default(false)
+  hasRecipe  Boolean @default(false)
 
-  umBaseStock         String
-  umCompra            String?
-  factorCompraABase   Decimal? @db.Decimal(12, 6)
-  umVenta             String?
-  factorVentaABase    Decimal? @db.Decimal(12, 6)
-  pesoNetoUdG         Decimal? @db.Decimal(10, 2)
-  formatoPresentacion String?
+  baseStockUnit         String
+  purchaseUnit            String?
+  purchaseToBaseFactor   Decimal? @db.Decimal(12, 6)
+  salesUnit             String?
+  salesToBaseFactor    Decimal? @db.Decimal(12, 6)
+  netWeightPerUnitGrams         Decimal? @db.Decimal(10, 2)
+  presentationFormat String?
 
-  costeUmBase      Decimal? @db.Decimal(10, 4)
-  costeConIva      Decimal? @db.Decimal(10, 4)
-  mermaEstandarPct Decimal? @db.Decimal(5, 2)
+  baseUnitCost      Decimal? @db.Decimal(10, 4)
+  costIncludingVat      Decimal? @db.Decimal(10, 4)
+  standardWastePercentage Decimal? @db.Decimal(5, 2)
 
-  codIva            String
-  ivaPct            Decimal? @db.Decimal(5, 2)
-  ivaCompraPct      Decimal? @db.Decimal(5, 2)
-  ivaVentaPct       Decimal? @db.Decimal(5, 2)
-  metodoPrecio      String
-  margenObjetivoPct Decimal? @db.Decimal(5, 2)
-  pvpObjetivoConIva Decimal? @db.Decimal(10, 4)
-  pvpFijoConIva     Decimal? @db.Decimal(10, 4)
-  pvpAplicadoConIva Decimal? @db.Decimal(10, 4)
-  pvpAplicadoSinIva Decimal? @db.Decimal(10, 4)
-  gananciaEurUd     Decimal? @db.Decimal(10, 4)
-  margenRealPct     Decimal? @db.Decimal(5, 2)
-  desviacionPp      Decimal? @db.Decimal(5, 2)
-  diferenciaEurUd   Decimal? @db.Decimal(10, 4)
-  diagnosticoPrecio String?
+  vatCode            String
+  vatPercentage            Decimal? @db.Decimal(5, 2)
+  purchaseVatPercentage      Decimal? @db.Decimal(5, 2)
+  salesVatPercentage       Decimal? @db.Decimal(5, 2)
+  pricingMethod      String
+  targetMarginPercentage Decimal? @db.Decimal(5, 2)
+  targetRetailPriceIncludingVat Decimal? @db.Decimal(10, 4)
+  fixedRetailPriceIncludingVat     Decimal? @db.Decimal(10, 4)
+  appliedRetailPriceIncludingVat Decimal? @db.Decimal(10, 4)
+  appliedRetailPriceExcludingVat Decimal? @db.Decimal(10, 4)
+  profitPerUnit     Decimal? @db.Decimal(10, 4)
+  actualMarginPercentage     Decimal? @db.Decimal(5, 2)
+  percentagePointDeviation      Decimal? @db.Decimal(5, 2)
+  unitDifference   Decimal? @db.Decimal(10, 4)
+  pricingDiagnosis String?
 
-  controlaStock    String   @default("SI")
-  metodoValoracion String
-  stockMinimo      Decimal? @db.Decimal(10, 3)
-  stockMaximo      Decimal? @db.Decimal(10, 3)
-  puntoPedido      Decimal? @db.Decimal(10, 3)
-  ubicacion        String?
-  claseAbc         String?
+  stockControl    String   @default("SI")
+  valuationMethod String
+  minimumStock      Decimal? @db.Decimal(10, 3)
+  maximumStock      Decimal? @db.Decimal(10, 3)
+  reorderPoint      Decimal? @db.Decimal(10, 3)
+  location        String?
+  abcClass         String?
 
-  controlLote  String  @default("NO")
-  vidaUtilDias Int?
-  conservacion String?
-  alergenos    String?
+  batchControl  String  @default("NO")
+  shelfLifeDays Int?
+  storageConditions String?
+  allergens    String?
 
-  estado        String   @default("Activo")
-  fechaAlta     DateTime @default(now())
-  observaciones String?
+  status        String   @default("Activo")
+  addedAt     DateTime @default(now())
+  notes String?
 
-  esEjemplo                Boolean                 @default(false)
+  isExample                Boolean                 @default(false)
   createdById              String?
   createdBy                User?                   @relation(fields: [createdById], references: [id])
-  proveedores              ProveedorProducto[]
-  recepcionesLineas        RecepcionLinea[]
-  inventariosFisicosLineas InventarioFisicoLinea[]
-  facturasLineas           FacturaLinea[]
+  suppliers              SupplierProduct[]
+  receiptLines        ReceiptLine[]
+  physicalInventoryLines PhysicalInventoryLine[]
+  invoiceLines           InvoiceLine[]
   createdAt                DateTime                @default(now())
   updatedAt                DateTime                @updatedAt
 
-  @@index([tipoArticulo])
-  @@index([familia])
-  @@index([seccion])
-  @@index([estado])
+  @@index([itemType])
+  @@index([family])
+  @@index([section])
+  @@index([status])
 }
 
-model Acreedor {
+model Creditor {
   id                    String         @id @default(cuid())
-  codigo                String         @unique
-  tipo                  TipoAcreedor
-  nombre                String
-  nif                   String?
-  entidadHabitual       EntidadPago?
-  cuentaDestinoUltimos4 String?        @db.VarChar(4)
-  estado                EstadoAcreedor @default(ACTIVO)
-  proveedorId           String?        @unique
+  code                String         @unique
+  type                  CreditorType
+  name                String
+  taxId                   String?
+  defaultEntity       PaymentEntity?
+  destinationAccountLast4 String?        @db.VarChar(4)
+  status                CreditorStatus @default(ACTIVE)
+  supplierId           String?        @unique
   createdById           String?
   createdAt             DateTime       @default(now())
   updatedAt             DateTime       @updatedAt
 
-  proveedor           Proveedor?             @relation(fields: [proveedorId], references: [id])
-  createdBy           User?                  @relation("AcreedorCreador", fields: [createdById], references: [id])
-  facturas            Factura[]
-  gastos              GastoCorriente[]
-  pagos               Pago[]
-  anticipos           Anticipo[]
-  cambiosCuenta       CambioCuentaAcreedor[]
-  contratoRecurrentes ContratoRecurrente[]
+  supplier           Supplier?             @relation(fields: [supplierId], references: [id])
+  createdBy           User?                  @relation("CreditorCreator", fields: [createdById], references: [id])
+  invoices            Invoice[]
+  expenses              CurrentExpense[]
+  payments               Payment[]
+  advances           Advance[]
+  accountChanges       CreditorAccountChange[]
+  recurringContracts RecurringContract[]
 
-  @@index([tipo, estado])
-  @@index([nif])
+  @@index([type, status])
+  @@index([taxId])
 }
 
-model MedioPago {
+model PaymentMethod {
   id               String          @id
-  tipo             TipoMedioPago
-  requiereCuenta   Boolean         @default(true)
-  conciliableBanco Boolean         @default(true)
-  limiteOperacion  Decimal?        @db.Decimal(12, 2)
-  estado           EstadoMedioPago @default(ACTIVO)
+  type             PaymentMethodType
+  requiresAccount   Boolean         @default(true)
+  bankReconciliable Boolean         @default(true)
+  transactionLimit  Decimal?        @db.Decimal(12, 2)
+  status           PaymentMethodStatus @default(ACTIVE)
   createdAt        DateTime        @default(now())
   updatedAt        DateTime        @updatedAt
 
-  pagos Pago[]
+  payments Payment[]
 
-  @@index([tipo, estado])
+  @@index([type, status])
 }
 
-model CuentaFondos {
+model FundsAccount {
   id            String             @id
-  tipo          TipoCuentaFondos
-  entidad       EntidadPago
-  descripcion   String
-  ibanUltimos4  String?            @db.VarChar(4)
-  responsableId String
-  saldoTeorico  Decimal            @default(0) @db.Decimal(14, 2)
-  fondoFijo     Decimal?           @db.Decimal(12, 2)
-  estado        EstadoCuentaFondos @default(ACTIVA)
+  type          FundsAccountType
+  entity       PaymentEntity
+  description   String
+  ibanLast4  String?            @db.VarChar(4)
+  responsibleUserId String
+  theoreticalBalance  Decimal            @default(0) @db.Decimal(14, 2)
+  fixedFloat     Decimal?           @db.Decimal(12, 2)
+  status        FundsAccountStatus @default(ACTIVE)
   createdAt     DateTime           @default(now())
   updatedAt     DateTime           @updatedAt
 
-  responsable         User                  @relation("CuentaResponsable", fields: [responsableId], references: [id])
-  pagos               Pago[]
-  movimientos         MovimientoFondos[]
-  movimientosExtracto MovimientoExtracto[]
-  arqueos             ArqueoCaja[]
-  reposiciones        ReposicionCaja[]
-  importaciones       ImportacionExtracto[]
+  owner         User                  @relation("FundsAccountResponsible", fields: [responsibleUserId], references: [id])
+  payments               Payment[]
+  movements         FundsMovement[]
+  statementMovements StatementMovement[]
+  cashCounts             CashCount[]
+  replenishments        CashReplenishment[]
+  imports       StatementImport[]
 
-  @@index([entidad, tipo, estado])
+  @@index([entity, type, status])
 }
 
-model CategoriaGasto {
+model ExpenseCategory {
   id          String   @id @default(cuid())
-  codigo      String   @unique
-  nombre      String
-  descripcion String?
-  activo      Boolean  @default(true)
+  code      String   @unique
+  name      String
+  description String?
+  active      Boolean  @default(true)
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
 
-  gastos    GastoCorriente[]
-  contratos ContratoRecurrente[]
+  expenses    CurrentExpense[]
+  contracts RecurringContract[]
 }
 
-model ParametroAutorizacion {
+model AuthorizationParameter {
   id           String       @id @default(cuid())
-  entidad      EntidadPago?
-  codigo       String
-  valorDecimal Decimal?     @db.Decimal(12, 2)
-  valorTexto   String?
+  entity      PaymentEntity?
+  code       String
+  decimalValue Decimal?     @db.Decimal(12, 2)
+  textValue   String?
   version      Int          @default(1)
-  activo       Boolean      @default(true)
-  vigenteDesde DateTime     @default(now())
-  vigenteHasta DateTime?
+  active       Boolean      @default(true)
+  validFrom DateTime     @default(now())
+  validTo DateTime?
   changedById  String
   createdAt    DateTime     @default(now())
 
   changedBy User @relation(fields: [changedById], references: [id])
 
-  @@unique([entidad, codigo, version])
-  @@index([codigo, activo])
+  @@unique([entity, code, version])
+  @@index([code, active])
 }
 
-model ReglaAutorizacion {
+model AuthorizationRule {
   id               String       @id @default(cuid())
-  entidad          EntidadPago?
-  importeDesde     Decimal      @db.Decimal(12, 2)
-  importeHasta     Decimal?     @db.Decimal(12, 2)
-  funcionRequerida FuncionPago
+  entity          PaymentEntity?
+  amountFrom     Decimal      @db.Decimal(12, 2)
+  amountTo     Decimal?     @db.Decimal(12, 2)
+  requiredFunction PaymentFunction
   version          Int          @default(1)
-  activo           Boolean      @default(true)
-  vigenteDesde     DateTime     @default(now())
-  vigenteHasta     DateTime?
+  active           Boolean      @default(true)
+  validFrom     DateTime     @default(now())
+  validTo     DateTime?
   changedById      String
   createdAt        DateTime     @default(now())
 
   changedBy User @relation(fields: [changedById], references: [id])
 
-  @@index([entidad, importeDesde, importeHasta, activo])
+  @@index([entity, amountFrom, amountTo, active])
 }
 
-model AsignacionPagoUsuario {
+model UserPaymentAssignment {
   id           String       @id @default(cuid())
   userId       String
-  entidad      EntidadPago?
-  funcion      FuncionPago
-  activo       Boolean      @default(true)
-  vigenteDesde DateTime     @default(now())
-  vigenteHasta DateTime?
+  entity      PaymentEntity?
+  function      PaymentFunction
+  active       Boolean      @default(true)
+  validFrom DateTime     @default(now())
+  validTo DateTime?
   createdAt    DateTime     @default(now())
 
   user User @relation(fields: [userId], references: [id], onDelete: Cascade)
 
-  @@index([userId, funcion, activo])
-  @@index([entidad, funcion, activo])
+  @@index([userId, function, active])
+  @@index([entity, function, active])
 }
 
-model ContratoRecurrente {
+model RecurringContract {
   id              String      @id @default(cuid())
-  entidad         EntidadPago
-  acreedorId      String
-  categoriaId     String
-  concepto        String
-  importeEsperado Decimal     @db.Decimal(12, 2)
-  tolerancia      Decimal     @default(0) @db.Decimal(12, 2)
-  periodicidad    String
-  fechaInicio     DateTime    @db.Date
-  fechaFin        DateTime?   @db.Date
-  autorizadoPorId String
-  activo          Boolean     @default(true)
+  entity         PaymentEntity
+  creditorId      String
+  categoryId     String
+  concept        String
+  expectedAmount Decimal     @db.Decimal(12, 2)
+  tolerance      Decimal     @default(0) @db.Decimal(12, 2)
+  frequency    String
+  startDate     DateTime    @db.Date
+  endDate        DateTime?   @db.Date
+  authorizedById String
+  active          Boolean     @default(true)
   createdAt       DateTime    @default(now())
   updatedAt       DateTime    @updatedAt
 
-  acreedor      Acreedor         @relation(fields: [acreedorId], references: [id])
-  categoria     CategoriaGasto   @relation(fields: [categoriaId], references: [id])
-  autorizadoPor User             @relation(fields: [autorizadoPorId], references: [id])
-  gastos        GastoCorriente[]
+  creditor      Creditor         @relation(fields: [creditorId], references: [id])
+  category     ExpenseCategory   @relation(fields: [categoryId], references: [id])
+  authorizedBy User             @relation(fields: [authorizedById], references: [id])
+  expenses        CurrentExpense[]
 
-  @@index([entidad, activo, fechaInicio])
+  @@index([entity, active, startDate])
 }
 
-model GastoCorriente {
+model CurrentExpense {
   id            String               @id @default(cuid())
-  entidad       EntidadPago
-  categoriaId   String
-  acreedorId    String?
-  contratoId    String?
+  entity       PaymentEntity
+  categoryId   String
+  creditorId    String?
+  contractId    String?
   shiftId       String?
-  concepto      String
-  fechaDevengo  DateTime             @db.Date
-  importe       Decimal              @db.Decimal(12, 2)
-  justificante  JustificanteGasto
-  solicitanteId String
-  autorizadorId String?
-  estado        EstadoGastoCorriente @default(BORRADOR)
-  motivoRechazo String?
-  autorizadoAt  DateTime?
+  concept      String
+  accrualDate  DateTime             @db.Date
+  amount       Decimal              @db.Decimal(12, 2)
+  receipt  ExpenseReceiptType
+  requesterId String
+  authorizerId String?
+  status        CurrentExpenseStatus @default(DRAFT)
+  rejectionReason String?
+  authorizedAt  DateTime?
   createdAt     DateTime             @default(now())
   updatedAt     DateTime             @updatedAt
 
-  categoria    CategoriaGasto      @relation(fields: [categoriaId], references: [id])
-  acreedor     Acreedor?           @relation(fields: [acreedorId], references: [id])
-  contrato     ContratoRecurrente? @relation(fields: [contratoId], references: [id])
+  category    ExpenseCategory      @relation(fields: [categoryId], references: [id])
+  creditor     Creditor?           @relation(fields: [creditorId], references: [id])
+  contract     RecurringContract? @relation(fields: [contractId], references: [id])
   shift        Shift?              @relation(fields: [shiftId], references: [id], onDelete: SetNull)
-  solicitante  User                @relation("GastoSolicitante", fields: [solicitanteId], references: [id])
-  autorizador  User?               @relation("GastoAutorizador", fields: [autorizadorId], references: [id])
-  aplicaciones PagoAplicacion[]
+  requester  User                @relation("ExpenseRequester", fields: [requesterId], references: [id])
+  authorizer  User?               @relation("ExpenseAuthorizer", fields: [authorizerId], references: [id])
+  applications PaymentApplication[]
 
-  @@index([entidad, estado, fechaDevengo])
-  @@index([acreedorId, categoriaId, fechaDevengo])
+  @@index([entity, status, accrualDate])
+  @@index([creditorId, categoryId, accrualDate])
   @@index([shiftId])
 }
 
-model Anticipo {
+model Advance {
   id              String               @id @default(cuid())
-  entidad         EntidadPago
-  acreedorId      String
-  concepto        String
-  fecha           DateTime             @db.Date
-  importe         Decimal              @db.Decimal(12, 2)
-  importeAplicado Decimal              @default(0) @db.Decimal(12, 2)
-  solicitadoPorId String
-  autorizadoPorId String?
-  estado          EstadoGastoCorriente @default(PENDIENTE_AUTORIZACION)
+  entity         PaymentEntity
+  creditorId      String
+  concept        String
+  date           DateTime             @db.Date
+  amount         Decimal              @db.Decimal(12, 2)
+  appliedAmount Decimal              @default(0) @db.Decimal(12, 2)
+  requestedById String
+  authorizedById String?
+  status          CurrentExpenseStatus @default(PENDING_AUTHORIZATION)
   createdAt       DateTime             @default(now())
   updatedAt       DateTime             @updatedAt
 
-  acreedor      Acreedor         @relation(fields: [acreedorId], references: [id])
-  solicitadoPor User             @relation("AnticipoSolicitante", fields: [solicitadoPorId], references: [id])
-  autorizadoPor User?            @relation("AnticipoAutorizador", fields: [autorizadoPorId], references: [id])
-  aplicaciones  PagoAplicacion[]
+  creditor      Creditor         @relation(fields: [creditorId], references: [id])
+  requestedBy User             @relation("AdvanceRequester", fields: [requestedById], references: [id])
+  authorizedBy User?            @relation("AdvanceAuthorizer", fields: [authorizedById], references: [id])
+  applications  PaymentApplication[]
 
-  @@index([entidad, estado, fecha])
+  @@index([entity, status, date])
 }
 
-model SecuenciaPago {
-  entidad      EntidadPago @id
-  ultimoNumero Int         @default(0)
+model PaymentSequence {
+  entity      PaymentEntity @id
+  lastNumber Int         @default(0)
   updatedAt    DateTime    @updatedAt
 }
 
-model Pago {
+model Payment {
   id                    String      @id @default(cuid())
-  numero                Int
-  entidad               EntidadPago
-  fechaPago             DateTime    @db.Date
-  medioPagoId           String
-  cuentaFondosId        String
-  acreedorId            String
-  importeTotal          Decimal     @db.Decimal(12, 2)
-  referenciaExterna     String?
-  ejecutadoPorId        String
-  conciliado            Boolean     @default(false)
-  estado                EstadoPago  @default(BORRADOR)
-  excesoAutorizadoPorId String?
-  motivoExceso          String?
-  anuladoPorId          String?
-  anuladoAt             DateTime?
+  number                Int
+  entity               PaymentEntity
+  paymentDate             DateTime    @db.Date
+  paymentMethodId           String
+  fundsAccountId        String
+  creditorId            String
+  totalAmount          Decimal     @db.Decimal(12, 2)
+  externalReference     String?
+  executedById        String
+  reconciled            Boolean     @default(false)
+  status                PaymentStatus  @default(DRAFT)
+  excessAuthorizedById String?
+  excessReason          String?
+  voidedById          String?
+  voidedAt             DateTime?
   createdAt             DateTime    @default(now())
   updatedAt             DateTime    @updatedAt
 
-  medioPago           MedioPago           @relation(fields: [medioPagoId], references: [id])
-  cuentaFondos        CuentaFondos        @relation(fields: [cuentaFondosId], references: [id])
-  acreedor            Acreedor            @relation(fields: [acreedorId], references: [id])
-  ejecutadoPor        User                @relation("PagoEjecutor", fields: [ejecutadoPorId], references: [id])
-  excesoAutorizadoPor User?               @relation("PagoExcesoAutorizador", fields: [excesoAutorizadoPorId], references: [id])
-  anuladoPor          User?               @relation("PagoAnulador", fields: [anuladoPorId], references: [id])
-  aplicaciones        PagoAplicacion[]
-  aprobaciones        AprobacionPago[]
-  movimientoFondos    MovimientoFondos?
-  movimientoExtracto  MovimientoExtracto?
+  paymentMethod           PaymentMethod           @relation(fields: [paymentMethodId], references: [id])
+  fundsAccount        FundsAccount        @relation(fields: [fundsAccountId], references: [id])
+  creditor            Creditor            @relation(fields: [creditorId], references: [id])
+  executedBy        User                @relation("PaymentExecutor", fields: [executedById], references: [id])
+  excessAuthorizedBy User?               @relation("ExcessPaymentAuthorizer", fields: [excessAuthorizedById], references: [id])
+  voidedBy          User?               @relation("PaymentVoider", fields: [voidedById], references: [id])
+  applications        PaymentApplication[]
+  approvals        PaymentApproval[]
+  fundsMovement    FundsMovement?
+  statementMovement  StatementMovement?
 
-  @@unique([entidad, numero])
-  @@index([entidad, estado, fechaPago])
-  @@index([acreedorId, estado])
+  @@unique([entity, number])
+  @@index([entity, status, paymentDate])
+  @@index([creditorId, status])
 }
 
-model PagoAplicacion {
+model PaymentApplication {
   id              String             @id @default(cuid())
-  pagoId          String
-  tipoDestino     TipoAplicacionPago
-  facturaId       String?
-  gastoId         String?
-  anticipoId      String?
-  importeAplicado Decimal            @db.Decimal(12, 2)
+  paymentId          String
+  destinationType     PaymentApplicationType
+  invoiceId       String?
+  currentExpenseId         String?
+  advanceId      String?
+  appliedAmount Decimal            @db.Decimal(12, 2)
   createdAt       DateTime           @default(now())
 
-  pago     Pago            @relation(fields: [pagoId], references: [id], onDelete: Cascade)
-  factura  Factura?        @relation(fields: [facturaId], references: [id])
-  gasto    GastoCorriente? @relation(fields: [gastoId], references: [id])
-  anticipo Anticipo?       @relation(fields: [anticipoId], references: [id])
+  payment     Payment            @relation(fields: [paymentId], references: [id], onDelete: Cascade)
+  invoice  Invoice?        @relation(fields: [invoiceId], references: [id])
+  expense    CurrentExpense? @relation(fields: [currentExpenseId], references: [id])
+  advance Advance?       @relation(fields: [advanceId], references: [id])
 
-  @@index([facturaId])
-  @@index([gastoId])
-  @@index([anticipoId])
+  @@index([invoiceId])
+  @@index([currentExpenseId])
+  @@index([advanceId])
 }
 
-model AprobacionPago {
+model PaymentApproval {
   id        String   @id @default(cuid())
-  pagoId    String
-  usuarioId String
-  tipo      String
-  motivo    String
+  paymentId    String
+  userId String
+  type      String
+  reason    String
   createdAt DateTime @default(now())
 
-  pago    Pago @relation(fields: [pagoId], references: [id], onDelete: Cascade)
-  usuario User @relation("AprobacionUsuario", fields: [usuarioId], references: [id])
+  payment    Payment @relation(fields: [paymentId], references: [id], onDelete: Cascade)
+  user User @relation("ApprovalUser", fields: [userId], references: [id])
 
-  @@index([pagoId, tipo])
+  @@index([paymentId, type])
 }
 
-model MovimientoFondos {
+model FundsMovement {
   id             String               @id @default(cuid())
-  cuentaFondosId String
-  entidad        EntidadPago
-  tipo           TipoMovimientoFondos
-  importe        Decimal              @db.Decimal(14, 2)
-  descripcion    String?
-  origenTipo     String?
-  origenId       String?
-  pagoId         String?              @unique
-  creadoPorId    String
+  fundsAccountId String
+  entity        PaymentEntity
+  type           FundsMovementType
+  amount        Decimal              @db.Decimal(14, 2)
+  description    String?
+  sourceType     String?
+  sourceId       String?
+  paymentId         String?              @unique
+  createdById    String
   createdAt      DateTime             @default(now())
 
-  cuentaFondos CuentaFondos @relation(fields: [cuentaFondosId], references: [id])
-  pago         Pago?        @relation(fields: [pagoId], references: [id])
-  creadoPor    User         @relation("MovimientoCreador", fields: [creadoPorId], references: [id])
+  fundsAccount FundsAccount @relation(fields: [fundsAccountId], references: [id])
+  payment         Payment?        @relation(fields: [paymentId], references: [id])
+  createdBy    User         @relation("MovementCreator", fields: [createdById], references: [id])
 
-  @@index([cuentaFondosId, createdAt])
-  @@index([entidad, tipo, createdAt])
+  @@index([fundsAccountId, createdAt])
+  @@index([entity, type, createdAt])
 }
 
-model ImportacionExtracto {
+model StatementImport {
   id             String    @id @default(cuid())
-  cuentaFondosId String
-  nombreArchivo  String
-  hashArchivo    String?
-  fechaDesde     DateTime? @db.Date
-  fechaHasta     DateTime? @db.Date
-  creadaPorId    String
+  fundsAccountId String
+  fileName  String
+  fileHash    String?
+  startDate     DateTime? @db.Date
+  endDate     DateTime? @db.Date
+  createdById    String
   createdAt      DateTime  @default(now())
 
-  cuentaFondos CuentaFondos         @relation(fields: [cuentaFondosId], references: [id])
-  creadaPor    User                 @relation(fields: [creadaPorId], references: [id])
-  movimientos  MovimientoExtracto[]
+  fundsAccount FundsAccount         @relation(fields: [fundsAccountId], references: [id])
+  createdBy    User                 @relation(fields: [createdById], references: [id])
+  movements  StatementMovement[]
 
-  @@index([cuentaFondosId, createdAt])
+  @@index([fundsAccountId, createdAt])
 }
 
-model MovimientoExtracto {
+model StatementMovement {
   id                String                      @id @default(cuid())
-  importacionId     String
-  cuentaFondosId    String
-  fechaValor        DateTime                    @db.Date
-  descripcion       String
-  referenciaExterna String?
-  direccion         DireccionMovimientoExtracto
-  importe           Decimal                     @db.Decimal(14, 2)
-  estado            EstadoMovimientoExtracto    @default(PENDIENTE)
-  pagoId            String?                     @unique
-  conciliadoPorId   String?
-  conciliadoAt      DateTime?
-  incidencia        String?
+  importId     String
+  fundsAccountId    String
+  valueDate        DateTime                    @db.Date
+  description       String
+  externalReference String?
+  direction         StatementMovementDirection
+  amount           Decimal                     @db.Decimal(14, 2)
+  status            StatementMovementStatus    @default(PENDING)
+  paymentId            String?                     @unique
+  reconciledById   String?
+  reconciledAt      DateTime?
+  issue        String?
   createdAt         DateTime                    @default(now())
 
-  importacion   ImportacionExtracto @relation(fields: [importacionId], references: [id], onDelete: Cascade)
-  cuentaFondos  CuentaFondos        @relation(fields: [cuentaFondosId], references: [id])
-  pago          Pago?               @relation(fields: [pagoId], references: [id])
-  conciliadoPor User?               @relation("MovimientoConciliador", fields: [conciliadoPorId], references: [id])
+  statementImport   StatementImport @relation(fields: [importId], references: [id], onDelete: Cascade)
+  fundsAccount  FundsAccount        @relation(fields: [fundsAccountId], references: [id])
+  payment          Payment?               @relation(fields: [paymentId], references: [id])
+  reconciledBy User?               @relation("MovementReconciler", fields: [reconciledById], references: [id])
 
-  @@index([cuentaFondosId, fechaValor, estado])
-  @@index([referenciaExterna])
+  @@index([fundsAccountId, valueDate, status])
+  @@index([externalReference])
 }
 
-model ArqueoCaja {
+model CashCount {
   id              String           @id @default(cuid())
-  cuentaFondosId  String
-  fecha           DateTime         @db.Date
-  custodioId      String
-  verificadorId   String
-  efectivoContado Decimal          @db.Decimal(12, 2)
-  justificantes   Decimal          @db.Decimal(12, 2)
-  fondoFijo       Decimal          @db.Decimal(12, 2)
-  diferencia      Decimal          @db.Decimal(12, 2)
-  estado          EstadoArqueoCaja @default(BORRADOR)
-  observaciones   String?
+  fundsAccountId  String
+  date           DateTime         @db.Date
+  custodianId      String
+  verifierId   String
+  countedCash Decimal          @db.Decimal(12, 2)
+  receipts   Decimal          @db.Decimal(12, 2)
+  fixedFloat       Decimal          @db.Decimal(12, 2)
+  variance      Decimal          @db.Decimal(12, 2)
+  status          CashCountStatus @default(DRAFT)
+  notes   String?
   createdAt       DateTime         @default(now())
   updatedAt       DateTime         @updatedAt
 
-  cuentaFondos CuentaFondos     @relation(fields: [cuentaFondosId], references: [id])
-  custodio     User             @relation("ArqueoCustodio", fields: [custodioId], references: [id])
-  verificador  User             @relation("ArqueoVerificador", fields: [verificadorId], references: [id])
-  reposiciones ReposicionCaja[]
+  fundsAccount FundsAccount     @relation(fields: [fundsAccountId], references: [id])
+  custodian     User             @relation("CashCountCustodian", fields: [custodianId], references: [id])
+  verifier  User             @relation("CashCountVerifier", fields: [verifierId], references: [id])
+  replenishments CashReplenishment[]
 
-  @@index([cuentaFondosId, fecha])
+  @@index([fundsAccountId, date])
 }
 
-model ReposicionCaja {
+model CashReplenishment {
   id                 String               @id @default(cuid())
-  cuentaFondosId     String
-  arqueoId           String?
-  importe            Decimal              @db.Decimal(12, 2)
-  importeJustificado Decimal              @db.Decimal(12, 2)
-  estado             EstadoReposicionCaja @default(BORRADOR)
-  creadaPorId        String
-  ejecutadaAt        DateTime?
+  fundsAccountId     String
+  cashCountId           String?
+  amount            Decimal              @db.Decimal(12, 2)
+  justifiedAmount Decimal              @db.Decimal(12, 2)
+  status             CashReplenishmentStatus @default(DRAFT)
+  createdById        String
+  executedAt        DateTime?
   createdAt          DateTime             @default(now())
   updatedAt          DateTime             @updatedAt
 
-  cuentaFondos CuentaFondos @relation(fields: [cuentaFondosId], references: [id])
-  arqueo       ArqueoCaja?  @relation(fields: [arqueoId], references: [id])
-  creadaPor    User         @relation("ReposicionCreador", fields: [creadaPorId], references: [id])
+  fundsAccount FundsAccount @relation(fields: [fundsAccountId], references: [id])
+  cashCount       CashCount?  @relation(fields: [cashCountId], references: [id])
+  createdBy    User         @relation("ReplenishmentCreator", fields: [createdById], references: [id])
 
-  @@index([cuentaFondosId, estado, createdAt])
-  @@unique([arqueoId])
+  @@index([fundsAccountId, status, createdAt])
+  @@unique([cashCountId])
 }
 
-model CambioCuentaAcreedor {
+model CreditorAccountChange {
   id                String    @id @default(cuid())
-  acreedorId        String
-  cuentaAnterior4   String?
-  cuentaNueva4      String    @db.VarChar(4)
-  motivo            String
-  solicitadoPorId   String
-  autorizadoPorId   String?
-  estado            String    @default("PENDIENTE")
-  confirmacionCanal String?
+  creditorId        String
+  previousAccountLast4   String?
+  newAccountLast4      String    @db.VarChar(4)
+  reason            String
+  requestedById   String
+  authorizedById   String?
+  status            String    @default("PENDIENTE")
+  confirmationChannel String?
   createdAt         DateTime  @default(now())
-  autorizadoAt      DateTime?
+  authorizedAt      DateTime?
 
-  acreedor      Acreedor @relation(fields: [acreedorId], references: [id])
-  solicitadoPor User     @relation("CambioCuentaSolicitante", fields: [solicitadoPorId], references: [id])
-  autorizadoPor User?    @relation("CambioCuentaAutorizador", fields: [autorizadoPorId], references: [id])
+  creditor      Creditor @relation(fields: [creditorId], references: [id])
+  requestedBy User     @relation("AccountChangeRequester", fields: [requestedById], references: [id])
+  authorizedBy User?    @relation("AccountChangeAuthorizer", fields: [authorizedById], references: [id])
 
-  @@index([acreedorId, estado])
+  @@index([creditorId, status])
 }
 
-model AdjuntoPago {
+model PaymentAttachment {
   id            String   @id @default(cuid())
   storageKey    String   @unique
-  nombreArchivo String
+  fileName String
   mimeType      String
-  tamano        Int
+  sizeBytes        Int
   sha256        String?
-  facturaId     String?
-  subidoPorId   String
+  invoiceId     String?
+  uploadedById   String
   createdAt     DateTime @default(now())
 
-  factura   Factura?        @relation(fields: [facturaId], references: [id], onDelete: Cascade)
-  subidoPor User            @relation("AdjuntoUploader", fields: [subidoPorId], references: [id])
+  invoice   Invoice?        @relation(fields: [invoiceId], references: [id], onDelete: Cascade)
+  uploadedBy User            @relation("AttachmentUploader", fields: [uploadedById], references: [id])
 
-  @@index([facturaId])
+  @@index([invoiceId])
 }
 
-model CierreMensual {
+model MonthlyClose {
   id            String              @id @default(cuid())
-  entidad       EntidadPago
-  anio          Int
-  mes           Int
-  estado        EstadoCierreMensual @default(ABIERTO)
-  cerradoPorId  String?
-  cerradoAt     DateTime?
-  observaciones String?
+  entity       PaymentEntity
+  year          Int
+  month           Int
+  status        MonthlyCloseStatus @default(OPEN)
+  closedById  String?
+  closedAt     DateTime?
+  notes String?
   createdAt     DateTime            @default(now())
   updatedAt     DateTime            @updatedAt
 
-  cerradoPor  User?             @relation("CierreUsuario", fields: [cerradoPorId], references: [id])
-  indicadores IndicadorCierre[]
+  closedBy  User?             @relation("CloseUser", fields: [closedById], references: [id])
+  metrics CloseMetric[]
 
-  @@unique([entidad, anio, mes])
-  @@index([estado, anio, mes])
+  @@unique([entity, year, month])
+  @@index([status, year, month])
 }
 
-model IndicadorCierre {
+model CloseMetric {
   id         String   @id @default(cuid())
-  cierreId   String
-  codigo     String
-  cantidad   Decimal? @db.Decimal(14, 2)
-  importe    Decimal? @db.Decimal(14, 2)
-  porcentaje Decimal? @db.Decimal(7, 4)
-  detalle    Json?
+  closeId   String
+  code     String
+  quantity   Decimal? @db.Decimal(14, 2)
+  amount    Decimal? @db.Decimal(14, 2)
+  percentage Decimal? @db.Decimal(7, 4)
+  detail    Json?
   createdAt  DateTime @default(now())
 
-  cierre CierreMensual @relation(fields: [cierreId], references: [id], onDelete: Cascade)
+  close MonthlyClose @relation(fields: [closeId], references: [id], onDelete: Cascade)
 
-  @@unique([cierreId, codigo])
+  @@unique([closeId, code])
 }
 
-model EventoAuditoria {
+model AuditEvent {
   id           String       @id @default(cuid())
   actorId      String?
-  accion       String
-  tipoRegistro String
-  registroId   String
-  entidad      EntidadPago?
-  motivo       String?
-  antes        Json?
-  despues      Json?
+  action       String
+  recordType String
+  recordId   String
+  entity      PaymentEntity?
+  reason       String?
+  before        Json?
+  after      Json?
   createdAt    DateTime     @default(now())
 
-  actor User? @relation("AuditoriaActor", fields: [actorId], references: [id])
+  actor User? @relation("AuditActor", fields: [actorId], references: [id])
 
-  @@index([tipoRegistro, registroId, createdAt])
-  @@index([entidad, createdAt])
+  @@index([recordType, recordId, createdAt])
+  @@index([entity, createdAt])
 }

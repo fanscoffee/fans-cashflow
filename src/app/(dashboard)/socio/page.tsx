@@ -5,7 +5,7 @@ import AppHeader from "@/components/app-header"
 import Dashboard from "@/components/dashboard"
 import PasskeyManager from "@/components/passkey-manager"
 
-export default function SocioPage() {
+export default function PartnerPage() {
   const { data: session, status } = useSession()
 
   if (status === "loading") {

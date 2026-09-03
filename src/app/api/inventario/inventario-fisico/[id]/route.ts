@@ -1,27 +1,29 @@
 import { NextResponse } from "next/server"
 import { prisma } from "@/lib/prisma"
 import { withAuth } from "@/lib/with-auth"
+import { UserRole } from "@/lib/database-enums"
+import { hasAnyRole, isRole } from "@/lib/roles"
 
 export const GET = withAuth(async (req, session, context) => {
-  if (session.user.role !== "ADMIN" && session.user.role !== "SOCIO") {
+  if (!hasAnyRole(session.user.role, [UserRole.ADMIN, UserRole.PARTNER])) {
     return NextResponse.json({ error: "No autorizado" }, { status: 403 })
   }
   const { id } = await context.params
 
-  const inventario = await prisma.inventarioFisico.findUnique({
+  const inventory = await prisma.physicalInventory.findUnique({
     where: { id },
     include: {
-      creadoBy: { select: { name: true } },
-      lineas: {
+      createdBy: { select: { name: true } },
+      lines: {
         include: {
-          producto: {
+          product: {
             select: {
               id: true,
-              codigo: true,
-              descripcionTpv: true,
-              umCompra: true,
-              umBaseStock: true,
-              factorCompraABase: true,
+              code: true,
+              posDescription: true,
+              purchaseUnit: true,
+              baseStockUnit: true,
+              purchaseToBaseFactor: true,
             },
           },
         },
@@ -30,18 +32,18 @@ export const GET = withAuth(async (req, session, context) => {
     },
   })
 
-  if (!inventario) {
+  if (!inventory) {
     return NextResponse.json(
       { error: "Inventario no encontrado" },
       { status: 404 }
     )
   }
 
-  return NextResponse.json(inventario)
+  return NextResponse.json(inventory)
 })
 
 export const DELETE = withAuth(async (req, session, context) => {
-  if (session.user.role !== "ADMIN") {
+  if (!isRole(session.user.role, UserRole.ADMIN)) {
     return NextResponse.json(
       { error: "Solo los administradores pueden eliminar inventarios" },
       { status: 403 }
@@ -51,7 +53,7 @@ export const DELETE = withAuth(async (req, session, context) => {
   const { id } = await context.params
 
   try {
-    const existing = await prisma.inventarioFisico.findUnique({ where: { id } })
+    const existing = await prisma.physicalInventory.findUnique({ where: { id } })
     if (!existing) {
       return NextResponse.json(
         { error: "Inventario no encontrado" },
@@ -59,7 +61,7 @@ export const DELETE = withAuth(async (req, session, context) => {
       )
     }
 
-    await prisma.inventarioFisico.delete({ where: { id } })
+    await prisma.physicalInventory.delete({ where: { id } })
     return NextResponse.json({ ok: true })
   } catch (error) {
     const message =

@@ -2,53 +2,55 @@ import { NextResponse } from "next/server"
 import { z } from "zod"
 import { Prisma } from "@/generated/prisma/client"
 import { prisma } from "@/lib/prisma"
-import { calculateFondo } from "@/lib/fondo"
+import { calculateFund } from "@/lib/fund"
 import { withAuth } from "@/lib/with-auth"
 import { toJSON } from "@/lib/money"
+import { CurrentExpenseStatus, UserRole } from "@/lib/database-enums"
+import { hasAnyRole, isRole } from "@/lib/roles"
 
 const shiftExpenseInclude = {
-  categoria: { select: { codigo: true, nombre: true } },
-  solicitante: { select: { name: true, email: true } },
+  category: { select: { code: true, name: true } },
+  requester: { select: { name: true, email: true } },
 } as const
 
 const currentExpensesInclude = {
-  where: { estado: { not: "ANULADO" } },
+  where: { status: { not: CurrentExpenseStatus.VOID } },
   include: shiftExpenseInclude,
   orderBy: { createdAt: "asc" },
-} as const
+} satisfies Prisma.Shift$currentExpensesArgs
 
 const shiftSchema = z.object({
   date: z.string().refine((value) => Number.isFinite(new Date(value).getTime()), "Fecha no válida"),
-  turno: z.enum(["mañana", "tarde"]),
+  shift: z.enum(["mañana", "tarde"]),
 })
 
 class ShiftConflictError extends Error {}
 
 export const GET = withAuth(async (req, session) => {
-  if (session.user.role === "OBRADOR") {
+  if (isRole(session.user.role, UserRole.BAKERY)) {
     return NextResponse.json({ error: "No autorizado" }, { status: 403 })
   }
-  const isAdminOrSocio = session.user.role === "ADMIN" || session.user.role === "SOCIO"
+  const isAdminOrPartner = hasAnyRole(session.user.role, [UserRole.ADMIN, UserRole.PARTNER])
 
   let shifts
 
-  const orderBy = [{ date: "desc" as const }, { turno: "asc" as const }]
+  const orderBy = [{ date: "desc" as const }, { shift: "asc" as const }]
 
-  if (isAdminOrSocio) {
+  if (isAdminOrPartner) {
     shifts = await prisma.shift.findMany({
-      include: { expenses: true, gastosCorrientes: currentExpensesInclude, cierreTurno: true, createdBy: { select: { name: true, email: true } } },
+      include: { expenses: true, currentExpenses: currentExpensesInclude, shiftClose: true, createdBy: { select: { name: true, email: true } } },
       orderBy,
     })
   } else {
     const openShift = await prisma.shift.findFirst({
       where: { createdById: session.user.id, status: "ABIERTO" },
-      include: { expenses: true, gastosCorrientes: currentExpensesInclude, cierreTurno: true, createdBy: { select: { name: true, email: true } } },
+      include: { expenses: true, currentExpenses: currentExpensesInclude, shiftClose: true, createdBy: { select: { name: true, email: true } } },
       orderBy,
     })
 
     const lastClosed = await prisma.shift.findFirst({
       where: { createdById: session.user.id, status: "CERRADO" },
-      include: { expenses: true, gastosCorrientes: currentExpensesInclude, cierreTurno: true, createdBy: { select: { name: true, email: true } } },
+      include: { expenses: true, currentExpenses: currentExpensesInclude, shiftClose: true, createdBy: { select: { name: true, email: true } } },
       orderBy,
     })
 
@@ -59,7 +61,7 @@ export const GET = withAuth(async (req, session) => {
 })
 
 export const POST = withAuth(async (req, session) => {
-  if (session.user.role === "OBRADOR") {
+  if (isRole(session.user.role, UserRole.BAKERY)) {
     return NextResponse.json({ error: "No autorizado" }, { status: 403 })
   }
   const openShift = await prisma.shift.findFirst({
@@ -85,10 +87,10 @@ export const POST = withAuth(async (req, session) => {
       const existingShift = await tx.shift.findFirst({
         where: {
           date: new Date(data.date),
-          turno: data.turno,
+          shift: data.shift,
         },
       })
-      if (existingShift) throw new ShiftConflictError(`Ya existe un turno de ${data.turno} para esta fecha.`)
+      if (existingShift) throw new ShiftConflictError(`Ya existe un turno de ${data.shift} para esta fecha.`)
 
       const lastShift = await tx.shift.findFirst({
         orderBy: { createdAt: "desc" },
@@ -102,20 +104,20 @@ export const POST = withAuth(async (req, session) => {
       })
 
       const additions = [{ amount: toJSON(additionsResult._sum.amount) }]
-      const fondoInicial = calculateFondo(lastShift, additions)
+      const openingFund = calculateFund(lastShift, additions)
 
       return tx.shift.create({
         data: {
           date: new Date(data.date),
-          turno: data.turno,
+          shift: data.shift,
           status: "ABIERTO",
           createdById: session.user.id,
-          efectivo: 0,
-          caixa: 0,
-          santander: 0,
-          efectivoGasto: 0,
-          fondoInicial,
-          fondoFinal: fondoInicial,
+          cash: 0,
+          caixaBankAmount: 0,
+          santanderAmount: 0,
+          cashExpense: 0,
+          openingFund,
+          closingFund: openingFund,
         },
         include: { expenses: true },
       })

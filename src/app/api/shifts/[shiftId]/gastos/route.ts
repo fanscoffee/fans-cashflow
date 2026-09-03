@@ -5,15 +5,17 @@ import {
   createExpenseFromShift,
   createShiftExpenseSchema,
   PaymentDomainError,
-} from "@/lib/pagos"
-import { paymentErrorResponse } from "@/lib/pagos-http"
+} from "@/lib/payments"
+import { paymentErrorResponse } from "@/lib/payments-http"
+import { CreditorStatus, CreditorType, UserRole, PaymentEntity } from "@/lib/database-enums"
+import { hasAnyRole, isRole } from "@/lib/roles"
 
 async function requireOpenShift(shiftId: string, userId: string, role: string) {
   const shift = await prisma.shift.findUnique({
     where: { id: shiftId },
     select: { id: true, status: true, createdById: true },
   })
-  const canManageAllShifts = role === "ADMIN" || role === "SOCIO"
+  const canManageAllShifts = hasAnyRole(role, [UserRole.ADMIN, UserRole.PARTNER])
   if (!shift || (!canManageAllShifts && shift.createdById !== userId)) {
     throw new PaymentDomainError("Turno no encontrado", 404, "SHIFT_NOT_FOUND")
   }
@@ -24,30 +26,30 @@ async function requireOpenShift(shiftId: string, userId: string, role: string) {
 }
 
 export const GET = withAuth(async (_req, session, context) => {
-  if (session.user.role === "OBRADOR") return NextResponse.json({ error: "No autorizado" }, { status: 403 })
+  if (isRole(session.user.role, UserRole.BAKERY)) return NextResponse.json({ error: "No autorizado" }, { status: 403 })
   try {
     const { shiftId } = await context.params
     await requireOpenShift(shiftId, session.user.id, session.user.role)
-    const [categorias, acreedores] = await Promise.all([
-      prisma.categoriaGasto.findMany({
-        where: { activo: true },
-        select: { id: true, codigo: true, nombre: true },
-        orderBy: { codigo: "asc" },
+    const [categories, creditors] = await Promise.all([
+      prisma.expenseCategory.findMany({
+        where: { active: true },
+        select: { id: true, code: true, name: true },
+        orderBy: { code: "asc" },
       }),
-      prisma.acreedor.findMany({
-        where: { estado: "ACTIVO", NOT: { tipo: "PROVEEDOR_MERCANCIA" } },
-        select: { id: true, codigo: true, nombre: true, tipo: true },
-        orderBy: { nombre: "asc" },
+      prisma.creditor.findMany({
+        where: { status: CreditorStatus.ACTIVE, NOT: { type: CreditorType.MERCHANDISE_SUPPLIER } },
+        select: { id: true, code: true, name: true, type: true },
+        orderBy: { name: "asc" },
       }),
     ])
-    return NextResponse.json({ entidad: "CAFETERIA", categorias, acreedores })
+    return NextResponse.json({ entity: PaymentEntity.COFFEE_SHOP, categories, creditors })
   } catch (error) {
     return paymentErrorResponse(error)
   }
 })
 
 export const POST = withAuth(async (req, session, context) => {
-  if (session.user.role === "OBRADOR") return NextResponse.json({ error: "No autorizado" }, { status: 403 })
+  if (isRole(session.user.role, UserRole.BAKERY)) return NextResponse.json({ error: "No autorizado" }, { status: 403 })
   try {
     const { shiftId } = await context.params
     const input = createShiftExpenseSchema.parse(await req.json())

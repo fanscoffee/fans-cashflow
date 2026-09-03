@@ -4,7 +4,7 @@ import type { NextRequest } from "next/server"
 
 vi.mock("@/lib/prisma", () => ({
   prisma: {
-    facturaGestoria: { findMany: vi.fn() },
+    accountingInvoice: { findMany: vi.fn() },
   },
 }))
 
@@ -22,7 +22,7 @@ describe("GET /api/gestoria/export", () => {
   beforeEach(() => {
     vi.clearAllMocks()
     vi.mocked(auth).mockResolvedValue({ user: { id: "admin-1", role: "ADMIN" } } as any)
-    vi.mocked(prisma.facturaGestoria.findMany).mockResolvedValue([] as any)
+    vi.mocked(prisma.accountingInvoice.findMany).mockResolvedValue([] as any)
   })
 
   it("requires an allowed role", async () => {
@@ -37,6 +37,6 @@ describe("GET /api/gestoria/export", () => {
     const workbook = new ExcelJS.Workbook()
     await workbook.xlsx.load(await response.arrayBuffer())
     expect(workbook.getWorksheet("Gastos y Compras Fans")).toBeDefined()
-    expect(prisma.facturaGestoria.findMany).toHaveBeenCalledWith(expect.objectContaining({ where: { fecha: { gte: new Date("2026-07-01T00:00:00.000Z"), lt: new Date("2026-08-01T00:00:00.000Z") } } }))
+    expect(prisma.accountingInvoice.findMany).toHaveBeenCalledWith(expect.objectContaining({ where: { date: { gte: new Date("2026-07-01T00:00:00.000Z"), lt: new Date("2026-08-01T00:00:00.000Z") } } }))
   })
 })

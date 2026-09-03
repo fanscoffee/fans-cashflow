@@ -9,6 +9,8 @@ import type { Order, OrderFormData } from "@/types/order"
 import OrderForm from "@/components/orders/order-form"
 import OrderList from "@/components/orders/order-list"
 import OrderFilters from "@/components/orders/order-filters"
+import { UserRole } from "@/lib/database-enums"
+import { hasAnyRole } from "@/lib/roles"
 
 const statusOptions: { value: StatusFilter; label: string }[] = [
   { value: "all", label: "Todos" },
@@ -94,7 +96,7 @@ export default function OrdersPage() {
 
 
 
-  const showFilters = session?.user?.role === "ADMIN" || session?.user?.role === "SOCIO"
+  const showFilters = hasAnyRole(session?.user?.role, [UserRole.ADMIN, UserRole.PARTNER])
 
   const { orders, loading, error, success, canEdit, canDelete, createOrder, updateOrder, deleteOrder, toggleOrderStatus, clearMessages } = useOrders(
     showFilters && initialized ? { month: selectedMonth, year: selectedYear } : undefined

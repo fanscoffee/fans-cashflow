@@ -43,31 +43,31 @@ describe("Dashboard API /api/dashboard", () => {
       {
         id: "s1",
         date: new Date("2026-07-01"),
-        turno: "mañana",
+        shift: "mañana",
         status: "CERRADO",
-        efectivo: 100,
-        caixa: 50,
-        santander: 30,
-        efectivoGasto: 10,
-        fondoInicial: 200,
-        fondoFinal: 280,
+        cash: 100,
+        caixaBankAmount: 50,
+        santanderAmount: 30,
+        cashExpense: 10,
+        openingFund: 200,
+        closingFund: 280,
         createdBy: { name: "Admin" },
         expenses: [
-          { proveedor: "Frutas", importe: 25 },
-          { proveedor: "Limon", importe: 15 },
+          { supplier: "Frutas", amount: 25 },
+          { supplier: "Limon", amount: 15 },
         ],
       },
       {
         id: "s2",
         date: new Date("2026-07-01"),
-        turno: "tarde",
+        shift: "tarde",
         status: "CERRADO",
-        efectivo: 80,
-        caixa: 40,
-        santander: 20,
-        efectivoGasto: 5,
-        fondoInicial: 280,
-        fondoFinal: 320,
+        cash: 80,
+        caixaBankAmount: 40,
+        santanderAmount: 20,
+        cashExpense: 5,
+        openingFund: 280,
+        closingFund: 320,
         createdBy: { name: "Admin" },
         expenses: [],
       },
@@ -77,10 +77,10 @@ describe("Dashboard API /api/dashboard", () => {
     expect(res.status).toBe(200)
 
     const data = await res.json()
-    expect(data.resumen).toBeDefined()
-    expect(data.resumen.totalTurnos).toBe(2)
+    expect(data.summary).toBeDefined()
+    expect(data.summary.totalShifts).toBe(2)
     expect(data.dailyData).toBeDefined()
-    expect(data.turnoData).toHaveLength(2)
+    expect(data.shiftData).toHaveLength(2)
     expect(data.expenseData).toHaveLength(2)
     expect(data.exportData).toHaveLength(2)
     expect(data.exportExpenses).toHaveLength(2)
@@ -94,17 +94,17 @@ describe("Dashboard API /api/dashboard", () => {
     vi.mocked(prisma.shift.findMany).mockResolvedValue([
       {
         date: new Date("2026-07-02"),
-        turno: "mañana",
+        shift: "mañana",
         status: "CERRADO",
-        efectivo: 0,
-        caixa: 0,
-        santander: 0,
-        efectivoGasto: 0,
-        fondoInicial: 0,
-        fondoFinal: 0,
+        cash: 0,
+        caixaBankAmount: 0,
+        santanderAmount: 0,
+        cashExpense: 0,
+        openingFund: 0,
+        closingFund: 0,
         createdBy: { name: "Empleado" },
         expenses: [],
-        gastosCorrientes: [{ concepto: "Compra de harina", importe: 25, categoria: { nombre: "Suministros" } }],
+        currentExpenses: [{ concept: "Compra de harina", amount: 25, category: { name: "Suministros" } }],
       },
     ] as any)
 
@@ -137,14 +137,14 @@ describe("Dashboard API /api/dashboard", () => {
       {
         id: "s1",
         date: new Date("2026-07-01"),
-        turno: "mañana",
+        shift: "mañana",
         status: "ABIERTO",
-        efectivo: 0,
-        caixa: 0,
-        santander: 0,
-        efectivoGasto: 0,
-        fondoInicial: 0,
-        fondoFinal: 0,
+        cash: 0,
+        caixaBankAmount: 0,
+        santanderAmount: 0,
+        cashExpense: 0,
+        openingFund: 0,
+        closingFund: 0,
         createdBy: null,
         expenses: [],
       },
@@ -152,8 +152,8 @@ describe("Dashboard API /api/dashboard", () => {
 
     const res = await GET(mockRequest("http://localhost/api/dashboard?month=7&year=2026"))
     const data = await res.json()
-    expect(data.resumen.totalIngresos).toBe(0)
-    expect(data.resumen.totalGastos).toBe(0)
-    expect(data.resumen.beneficioNeto).toBe(0)
+    expect(data.summary.totalRevenue).toBe(0)
+    expect(data.summary.totalExpenses).toBe(0)
+    expect(data.summary.netProfit).toBe(0)
   })
 })

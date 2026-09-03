@@ -10,29 +10,29 @@ describe("uppercase normalization", () => {
     const value = uppercasePersistedValue({
       name: "Ana García",
       email: "Ana@Example.com",
-      contactoEmail: "Contacto@Example.com",
+      contactEmail: "Contacto@Example.com",
       password: "$2a$hash",
       createdById: "cuid-lower",
-      turno: "mañana",
-      estado: "Activo",
+      shift: "mañana",
+      status: "Activo",
       storageKey: "facturas/lower.pdf",
     })
 
     expect(value).toEqual({
       name: "ANA GARCÍA",
       email: "Ana@Example.com",
-      contactoEmail: "Contacto@Example.com",
+      contactEmail: "Contacto@Example.com",
       password: "$2a$hash",
       createdById: "cuid-lower",
-      turno: "mañana",
-      estado: "Activo",
+      shift: "mañana",
+      status: "Activo",
       storageKey: "facturas/lower.pdf",
     })
   })
 
   it("normalizes nested create data", () => {
-    expect(uppercasePersistedValue({ lineas: [{ descripcion: "Harina" }] })).toEqual({
-      lineas: [{ descripcion: "HARINA" }],
+    expect(uppercasePersistedValue({ lines: [{ description: "Harina" }] })).toEqual({
+      lines: [{ description: "HARINA" }],
     })
   })
 })

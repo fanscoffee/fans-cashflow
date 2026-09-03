@@ -1,13 +1,16 @@
 import { NextResponse } from "next/server"
 import { withAuth } from "@/lib/with-auth"
-import { createPayment, createPaymentSchema, getPaymentDashboard, requirePaymentFunction } from "@/lib/pagos"
-import { parseEntity, paymentErrorResponse } from "@/lib/pagos-http"
+import { createPayment, createPaymentSchema, getPaymentDashboard, requirePaymentFunction } from "@/lib/payments"
+import { parseEntity, paymentErrorResponse } from "@/lib/payments-http"
+import { PaymentFunction } from "@/lib/database-enums"
+import { getFirstSearchParam } from "@/lib/request-params"
 
 export const GET = withAuth(async (req, session) => {
   try {
-    const entity = parseEntity(new URL(req.url).searchParams.get("entidad"))
+    const searchParams = new URL(req.url).searchParams
+    const entity = parseEntity(getFirstSearchParam(searchParams, "entity", "entidad"))
     // The dashboard contains balances and creditor data, not just public status.
-    await requirePaymentFunction(session.user.id, "SOLICITAR", entity, session.user.role)
+    await requirePaymentFunction(session.user.id, PaymentFunction.REQUEST, entity, session.user.role)
     const dashboard = await getPaymentDashboard(entity)
     return NextResponse.json(dashboard)
   } catch (error) {

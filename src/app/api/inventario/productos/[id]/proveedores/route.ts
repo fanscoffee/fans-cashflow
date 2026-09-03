@@ -2,6 +2,8 @@ import { NextResponse } from "next/server"
 import { z } from "zod"
 import { prisma } from "@/lib/prisma"
 import { withAuth } from "@/lib/with-auth"
+import { UserRole } from "@/lib/database-enums"
+import { hasAnyRole } from "@/lib/roles"
 
 const optionalNumber = (schema: z.ZodType<number>) => z.preprocess(
   (value) => value === null || value === "" ? undefined : value,
@@ -9,16 +11,16 @@ const optionalNumber = (schema: z.ZodType<number>) => z.preprocess(
 ) as z.ZodType<number | undefined>
 
 const relationFields = {
-  refProveedor: z.string().trim().max(120).nullable().optional(),
-  precioCompraSinIva: optionalNumber(z.coerce.number().finite().min(0)),
-  plazoEntregaDias: optionalNumber(z.coerce.number().int().min(0)),
-  pedidoMinimo: optionalNumber(z.coerce.number().finite().min(0)),
-  esPrincipal: z.boolean().optional(),
-  activo: z.boolean().optional(),
+  supplierReference: z.string().trim().max(120).nullable().optional(),
+  purchasePriceExcludingVat: optionalNumber(z.coerce.number().finite().min(0)),
+  deliveryLeadTimeDays: optionalNumber(z.coerce.number().int().min(0)),
+  minimumOrder: optionalNumber(z.coerce.number().finite().min(0)),
+  isPrimary: z.boolean().optional(),
+  active: z.boolean().optional(),
 }
 
 const createRelationSchema = z.object({
-  proveedorId: z.string().min(1),
+  supplierId: z.string().min(1),
   ...relationFields,
 }).strict()
 
@@ -30,20 +32,20 @@ const updateRelationSchema = z.object({
 export const GET = withAuth(async (req, _session, context) => {
   const { id } = await context.params
 
-  const producto = await prisma.producto.findUnique({ where: { id }, select: { id: true } })
-  if (!producto) return NextResponse.json({ error: "Producto no encontrado" }, { status: 404 })
+  const product = await prisma.product.findUnique({ where: { id }, select: { id: true } })
+  if (!product) return NextResponse.json({ error: "Producto no encontrado" }, { status: 404 })
 
-  const relaciones = await prisma.proveedorProducto.findMany({
-    where: { productoId: id },
-    include: { proveedor: { select: { id: true, razonSocial: true, cifNif: true } } },
-    orderBy: { esPrincipal: "desc" },
+  const relations = await prisma.supplierProduct.findMany({
+    where: { productId: id },
+    include: { supplier: { select: { id: true, legalName: true, taxId: true } } },
+    orderBy: { isPrimary: "desc" },
   })
 
-  return NextResponse.json(relaciones)
+  return NextResponse.json(relations)
 })
 
 export const POST = withAuth(async (req, session, context) => {
-  if (session.user.role !== "ADMIN" && session.user.role !== "SOCIO") {
+  if (!hasAnyRole(session.user.role, [UserRole.ADMIN, UserRole.PARTNER])) {
     return NextResponse.json({ error: "No autorizado" }, { status: 403 })
   }
 
@@ -51,15 +53,15 @@ export const POST = withAuth(async (req, session, context) => {
 
   try {
     const input = createRelationSchema.parse(await req.json())
-    const [producto, proveedor] = await Promise.all([
-      prisma.producto.findUnique({ where: { id }, select: { id: true } }),
-      prisma.proveedor.findUnique({ where: { id: input.proveedorId }, select: { id: true, estado: true } }),
+    const [product, supplier] = await Promise.all([
+      prisma.product.findUnique({ where: { id }, select: { id: true } }),
+      prisma.supplier.findUnique({ where: { id: input.supplierId }, select: { id: true, status: true } }),
     ])
-    if (!producto) return NextResponse.json({ error: "Producto no encontrado" }, { status: 404 })
-    if (!proveedor || proveedor.estado !== "Activo") return NextResponse.json({ error: "Proveedor no disponible" }, { status: 409 })
+    if (!product) return NextResponse.json({ error: "Producto no encontrado" }, { status: 404 })
+    if (!supplier || supplier.status !== "Activo") return NextResponse.json({ error: "Proveedor no disponible" }, { status: 409 })
 
-    const existing = await prisma.proveedorProducto.findUnique({
-      where: { proveedorId_productoId: { proveedorId: input.proveedorId, productoId: id } },
+    const existing = await prisma.supplierProduct.findUnique({
+      where: { supplierId_productId: { supplierId: input.supplierId, productId: id } },
     })
     if (existing) {
       return NextResponse.json(
@@ -69,25 +71,25 @@ export const POST = withAuth(async (req, session, context) => {
     }
 
     const relation = await prisma.$transaction(async (tx) => {
-      if (input.esPrincipal) {
-        await tx.proveedorProducto.updateMany({
-          where: { productoId: id, esPrincipal: true },
-          data: { esPrincipal: false },
+      if (input.isPrimary) {
+        await tx.supplierProduct.updateMany({
+          where: { productId: id, isPrimary: true },
+          data: { isPrimary: false },
         })
       }
 
-      return tx.proveedorProducto.create({
+      return tx.supplierProduct.create({
         data: {
-          proveedorId: input.proveedorId,
-          productoId: id,
-          refProveedor: input.refProveedor || null,
-          precioCompraSinIva: input.precioCompraSinIva ?? null,
-          plazoEntregaDias: input.plazoEntregaDias ?? null,
-          pedidoMinimo: input.pedidoMinimo ?? null,
-          esPrincipal: input.esPrincipal || false,
-          activo: input.activo ?? true,
+          supplierId: input.supplierId,
+          productId: id,
+          supplierReference: input.supplierReference || null,
+          purchasePriceExcludingVat: input.purchasePriceExcludingVat ?? null,
+          deliveryLeadTimeDays: input.deliveryLeadTimeDays ?? null,
+          minimumOrder: input.minimumOrder ?? null,
+          isPrimary: input.isPrimary || false,
+          active: input.active ?? true,
         },
-        include: { proveedor: { select: { id: true, razonSocial: true, cifNif: true } } },
+        include: { supplier: { select: { id: true, legalName: true, taxId: true } } },
       })
     })
 
@@ -102,7 +104,7 @@ export const POST = withAuth(async (req, session, context) => {
 })
 
 export const PATCH = withAuth(async (req, session, context) => {
-  if (session.user.role !== "ADMIN" && session.user.role !== "SOCIO") {
+  if (!hasAnyRole(session.user.role, [UserRole.ADMIN, UserRole.PARTNER])) {
     return NextResponse.json({ error: "No autorizado" }, { status: 403 })
   }
 
@@ -111,27 +113,27 @@ export const PATCH = withAuth(async (req, session, context) => {
   try {
     const input = updateRelationSchema.parse(await req.json())
     const { relationId, ...data } = input
-    const existing = await prisma.proveedorProducto.findFirst({ where: { id: relationId, productoId: id }, select: { id: true } })
+    const existing = await prisma.supplierProduct.findFirst({ where: { id: relationId, productId: id }, select: { id: true } })
     if (!existing) return NextResponse.json({ error: "Relación no encontrada" }, { status: 404 })
 
-    if (data.esPrincipal) {
-      await prisma.proveedorProducto.updateMany({
-        where: { productoId: id, esPrincipal: true, id: { not: relationId } },
-        data: { esPrincipal: false },
+    if (data.isPrimary) {
+      await prisma.supplierProduct.updateMany({
+        where: { productId: id, isPrimary: true, id: { not: relationId } },
+        data: { isPrimary: false },
       })
     }
 
-    const relation = await prisma.proveedorProducto.update({
+    const relation = await prisma.supplierProduct.update({
       where: { id: relationId },
       data: {
-        ...(data.refProveedor !== undefined && { refProveedor: data.refProveedor || null }),
-        ...(data.precioCompraSinIva !== undefined && { precioCompraSinIva: data.precioCompraSinIva ?? null }),
-        ...(data.plazoEntregaDias !== undefined && { plazoEntregaDias: data.plazoEntregaDias ?? null }),
-        ...(data.pedidoMinimo !== undefined && { pedidoMinimo: data.pedidoMinimo ?? null }),
-        ...(data.esPrincipal !== undefined && { esPrincipal: data.esPrincipal }),
-        ...(data.activo !== undefined && { activo: data.activo }),
+        ...(data.supplierReference !== undefined && { supplierReference: data.supplierReference || null }),
+        ...(data.purchasePriceExcludingVat !== undefined && { purchasePriceExcludingVat: data.purchasePriceExcludingVat ?? null }),
+        ...(data.deliveryLeadTimeDays !== undefined && { deliveryLeadTimeDays: data.deliveryLeadTimeDays ?? null }),
+        ...(data.minimumOrder !== undefined && { minimumOrder: data.minimumOrder ?? null }),
+        ...(data.isPrimary !== undefined && { isPrimary: data.isPrimary }),
+        ...(data.active !== undefined && { active: data.active }),
       },
-      include: { proveedor: { select: { id: true, razonSocial: true, cifNif: true } } },
+      include: { supplier: { select: { id: true, legalName: true, taxId: true } } },
     })
 
     return NextResponse.json(relation)
@@ -145,7 +147,7 @@ export const PATCH = withAuth(async (req, session, context) => {
 })
 
 export const DELETE = withAuth(async (req, session, context) => {
-  if (session.user.role !== "ADMIN" && session.user.role !== "SOCIO") {
+  if (!hasAnyRole(session.user.role, [UserRole.ADMIN, UserRole.PARTNER])) {
     return NextResponse.json({ error: "No autorizado" }, { status: 403 })
   }
 
@@ -158,18 +160,18 @@ export const DELETE = withAuth(async (req, session, context) => {
     let relationToDelete = relationId
     if (!relationToDelete) {
       const body = await req.json()
-      relationToDelete = z.object({ proveedorId: z.string().min(1) }).parse(body).proveedorId
-      const relation = await prisma.proveedorProducto.findUnique({
-        where: { proveedorId_productoId: { proveedorId: relationToDelete, productoId: id } },
+      relationToDelete = z.object({ supplierId: z.string().min(1) }).parse(body).supplierId
+      const relation = await prisma.supplierProduct.findUnique({
+        where: { supplierId_productId: { supplierId: relationToDelete, productId: id } },
         select: { id: true },
       })
       relationToDelete = relation?.id || null
     } else {
-      const relation = await prisma.proveedorProducto.findFirst({ where: { id: relationToDelete, productoId: id }, select: { id: true } })
+      const relation = await prisma.supplierProduct.findFirst({ where: { id: relationToDelete, productId: id }, select: { id: true } })
       relationToDelete = relation?.id || null
     }
     if (!relationToDelete) return NextResponse.json({ error: "Relación no encontrada" }, { status: 404 })
-    await prisma.proveedorProducto.delete({ where: { id: relationToDelete } })
+    await prisma.supplierProduct.delete({ where: { id: relationToDelete } })
 
     return NextResponse.json({ ok: true })
   } catch (error) {

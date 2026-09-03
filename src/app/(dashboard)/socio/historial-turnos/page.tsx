@@ -8,29 +8,29 @@ import type { CurrentExpense } from "@/types/shift"
 
 interface Expense {
   id: string
-  proveedor: string
-  importe: number
+  supplier: string
+  amount: number
 }
 
 interface Shift {
   id: string
   date: string
-  turno: string
+  shift: string
   status: string
-  efectivo: number
-  caixa: number
-  santander: number
-  fondoInicial: number
-  fondoFinal: number
+  cash: number
+  caixaBankAmount: number
+  santanderAmount: number
+  openingFund: number
+  closingFund: number
   expenses: Expense[]
-  gastosCorrientes?: CurrentExpense[]
+  currentExpenses?: CurrentExpense[]
   createdAt: string
   createdBy?: { name: string | null; email: string }
 }
 
 const PAGE_SIZE = 10
 
-export default function HistorialTurnosPage() {
+export default function HistorialShiftsPage() {
   const { status } = useSession()
   const [shifts, setShifts] = useState<Shift[]>([])
   const [loading, setLoading] = useState(true)
@@ -38,7 +38,7 @@ export default function HistorialTurnosPage() {
   // Filters
   const [dateFrom, setDateFrom] = useState("")
   const [dateTo, setDateTo] = useState("")
-  const [filterTurno, setFilterTurno] = useState<string>("todos")
+  const [filterShift, setFilterShift] = useState<string>("todos")
   const [filterStatus, setFilterStatus] = useState<string>("todos")
   const [filterPersona, setFilterPersona] = useState("")
   const [page, setPage] = useState(1)
@@ -58,7 +58,7 @@ export default function HistorialTurnosPage() {
     return shifts.filter((s) => {
       if (dateFrom && s.date < dateFrom) return false
       if (dateTo && s.date > dateTo) return false
-      if (filterTurno !== "todos" && s.turno !== filterTurno) return false
+      if (filterShift !== "todos" && s.shift !== filterShift) return false
       if (filterStatus !== "todos" && s.status !== filterStatus) return false
       if (lowerPersona) {
         const creator = (s.createdBy?.name || s.createdBy?.email || "").toLowerCase()
@@ -66,7 +66,7 @@ export default function HistorialTurnosPage() {
       }
       return true
     })
-  }, [shifts, dateFrom, dateTo, filterTurno, filterStatus, filterPersona])
+  }, [shifts, dateFrom, dateTo, filterShift, filterStatus, filterPersona])
 
   const visibleCount = page * PAGE_SIZE
   const visible = filtered.slice(0, visibleCount)
@@ -76,7 +76,7 @@ export default function HistorialTurnosPage() {
   const resetFilters = () => {
     setDateFrom("")
     setDateTo("")
-    setFilterTurno("todos")
+    setFilterShift("todos")
     setFilterStatus("todos")
     setFilterPersona("")
     setPage(1)
@@ -125,8 +125,8 @@ export default function HistorialTurnosPage() {
               <div className="min-w-0 sm:min-w-[100px]">
                 <label className="block text-xs font-medium text-gray-600">Turno</label>
                 <select
-                  value={filterTurno}
-                  onChange={(e) => { setFilterTurno(e.target.value); setPage(1) }}
+                  value={filterShift}
+                  onChange={(e) => { setFilterShift(e.target.value); setPage(1) }}
                   className="mt-1 block w-full rounded-md border border-gray-300 px-3 py-1.5 text-sm text-gray-900 focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
                 >
                   <option value="todos">Todos</option>
@@ -183,9 +183,9 @@ export default function HistorialTurnosPage() {
                     groups[day].push(shift)
                   }
                   return Object.entries(groups).map(([day, dayShifts]) => {
-                    dayShifts.sort((a) => a.turno === "mañana" ? -1 : 1)
-                    const facturacion = dayShifts.reduce(
-                      (sum, s) => sum + toN(s.efectivo) + toN(s.caixa) + toN(s.santander),
+                    dayShifts.sort((a) => a.shift === "mañana" ? -1 : 1)
+                    const dailyRevenue = dayShifts.reduce(
+                      (sum, s) => sum + toN(s.cash) + toN(s.caixaBankAmount) + toN(s.santanderAmount),
                       0
                     )
                     return (
@@ -195,21 +195,21 @@ export default function HistorialTurnosPage() {
                             {new Date(day + "T00:00:00").toLocaleDateString("es-ES", { weekday: "long", day: "numeric", month: "long", year: "numeric" })}
                           </h3>
                           <span className="rounded-md bg-blue-50 px-3 py-1 text-sm font-bold text-blue-700">
-                            {facturacion.toFixed(2)} €
+                            {dailyRevenue.toFixed(2)} €
                           </span>
                         </div>
                         <div className="space-y-3">
                           {dayShifts.map((shift) => {
-                            const totalExpenses = shift.expenses.reduce((sum, e) => sum + toN(e.importe), 0)
-                            const currentExpenses = shift.gastosCorrientes || []
-                            const totalCurrentExpenses = currentExpenses.reduce((sum, expense) => sum + toN(expense.importe), 0)
-                            const totalPorTurno = toN(shift.efectivo) + toN(shift.caixa) + toN(shift.santander)
+                            const totalExpenses = shift.expenses.reduce((sum, e) => sum + toN(e.amount), 0)
+                            const currentExpenses = shift.currentExpenses || []
+                            const totalCurrentExpenses = currentExpenses.reduce((sum, expense) => sum + toN(expense.amount), 0)
+                            const totalPorShift = toN(shift.cash) + toN(shift.caixaBankAmount) + toN(shift.santanderAmount)
                             return (
                               <div key={shift.id} className="rounded-md border border-gray-100 bg-white p-4">
                                 <div className="flex flex-col gap-1 sm:flex-row sm:items-center sm:justify-between">
                                   <div className="flex flex-wrap items-center gap-2">
-                                    <span className={`inline-block rounded-full px-2 py-0.5 text-xs font-medium ${shift.turno === "mañana" ? "bg-amber-100 text-amber-700" : "bg-blue-100 text-blue-700"}`}>
-                                      {shift.turno}
+                                    <span className={`inline-block rounded-full px-2 py-0.5 text-xs font-medium ${shift.shift === "mañana" ? "bg-amber-100 text-amber-700" : "bg-blue-100 text-blue-700"}`}>
+                                      {shift.shift}
                                     </span>
                                     <span className={`inline-block rounded-full px-2 py-0.5 text-xs font-medium ${shift.status === "ABIERTO" ? "bg-green-100 text-green-800" : "bg-gray-100 text-gray-600"}`}>
                                       {shift.status === "ABIERTO" ? "Abierto" : "Cerrado"}
@@ -220,30 +220,30 @@ export default function HistorialTurnosPage() {
                                       </span>
                                     )}
                                     <span className="rounded-full bg-green-100 px-2 py-0.5 text-xs font-bold text-green-800">
-                                      {totalPorTurno.toFixed(2)} €
+                                      {totalPorShift.toFixed(2)} €
                                     </span>
                                   </div>
                                 </div>
                         <div className="mt-2 grid grid-cols-1 gap-2 text-sm min-[420px]:grid-cols-2 md:grid-cols-4">
                                   <div>
                                     <span className="text-gray-500">F. Inicial:</span>{" "}
-                                     <span className="font-medium text-gray-900">{toN(shift.fondoInicial).toFixed(2)}</span>
+                                     <span className="font-medium text-gray-900">{toN(shift.openingFund).toFixed(2)}</span>
                                   </div>
                                   <div>
                                     <span className="text-gray-500">F. Final:</span>{" "}
-                                    <span className="font-medium text-gray-900">{toN(shift.fondoFinal).toFixed(2)}</span>
+                                    <span className="font-medium text-gray-900">{toN(shift.closingFund).toFixed(2)}</span>
                                   </div>
                                   <div>
                                     <span className="text-gray-500">Efectivo:</span>{" "}
-                                    <span className="font-medium text-gray-900">{toN(shift.efectivo).toFixed(2)}</span>
+                                    <span className="font-medium text-gray-900">{toN(shift.cash).toFixed(2)}</span>
                                   </div>
                                   <div>
                                     <span className="text-gray-500">Caixa:</span>{" "}
-                                    <span className="font-medium text-gray-900">{toN(shift.caixa).toFixed(2)}</span>
+                                    <span className="font-medium text-gray-900">{toN(shift.caixaBankAmount).toFixed(2)}</span>
                                   </div>
                                   <div>
                                     <span className="text-gray-500">Santander:</span>{" "}
-                                    <span className="font-medium text-gray-900">{toN(shift.santander).toFixed(2)}</span>
+                                    <span className="font-medium text-gray-900">{toN(shift.santanderAmount).toFixed(2)}</span>
                                   </div>
                                   <div>
                                     <span className="text-gray-500">Gastos:</span>{" "}
@@ -259,8 +259,8 @@ export default function HistorialTurnosPage() {
                                     <div className="space-y-1">
                                       {shift.expenses.map((expense) => (
                                         <div key={expense.id} className="flex justify-between text-xs">
-                                      <span className="min-w-0 break-words text-gray-600 [overflow-wrap:anywhere]">{expense.proveedor}</span>
-                                      <span className="shrink-0 font-medium text-gray-900">{toN(expense.importe).toFixed(2)}</span>
+                                      <span className="min-w-0 break-words text-gray-600 [overflow-wrap:anywhere]">{expense.supplier}</span>
+                                      <span className="shrink-0 font-medium text-gray-900">{toN(expense.amount).toFixed(2)}</span>
                                         </div>
                                       ))}
                                     </div>
@@ -272,8 +272,8 @@ export default function HistorialTurnosPage() {
                                     <div className="space-y-1">
                                       {currentExpenses.map((expense) => (
                                         <div key={expense.id} className="flex justify-between gap-3 text-xs">
-                                          <span className="min-w-0 break-words text-gray-700 [overflow-wrap:anywhere]">{expense.concepto} · {expense.categoria.codigo} · {expense.estado === "PENDIENTE_AUTORIZACION" ? "Pendiente de autorización" : expense.estado} · {expense.solicitante.name || expense.solicitante.email}</span>
-                                          <span className="shrink-0 whitespace-nowrap font-medium text-gray-900">{toN(expense.importe).toFixed(2)}</span>
+                                          <span className="min-w-0 break-words text-gray-700 [overflow-wrap:anywhere]">{expense.concept} · {expense.category.code} · {expense.status === "PENDIENTE_AUTORIZACION" ? "Pendiente de autorización" : expense.status} · {expense.requester.name || expense.requester.email}</span>
+                                          <span className="shrink-0 whitespace-nowrap font-medium text-gray-900">{toN(expense.amount).toFixed(2)}</span>
                                         </div>
                                       ))}
                                     </div>

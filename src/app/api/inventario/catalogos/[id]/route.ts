@@ -3,6 +3,9 @@ import { Prisma } from "@/generated/prisma/client"
 import { z } from "zod"
 import { prisma } from "@/lib/prisma"
 import { withAuth } from "@/lib/with-auth"
+import { UserRole } from "@/lib/database-enums"
+import { hasAnyRole, isRole } from "@/lib/roles"
+import { getFirstSearchParam } from "@/lib/request-params"
 
 const catalogType = z.enum([
   "TIPO_ARTICULO",
@@ -23,48 +26,48 @@ const catalogType = z.enum([
 ])
 
 const catalogUpdateSchema = z.object({
-  tipo: catalogType.optional(),
-  valor: z.string().trim().min(1).max(120).optional(),
-  descripcion: z.string().trim().max(500).nullable().optional(),
-  prefijoCodigo: z.string().trim().max(3).nullable().optional(),
-  activo: z.boolean().optional(),
+  type: catalogType.optional(),
+  value: z.string().trim().min(1).max(120).optional(),
+  description: z.string().trim().max(500).nullable().optional(),
+  codePrefix: z.string().trim().max(3).nullable().optional(),
+  active: z.boolean().optional(),
 }).strict()
 
-const PRODUCTO_CATALOGO_FIELDS: Record<string, string[]> = {
-  TIPO_ARTICULO: ["tipoArticulo"],
-  FAMILIA: ["familia"],
-  SUBFAMILIA: ["subfamilia"],
-  SECCION: ["seccion"],
-  UNIDAD_MEDIDA: ["umBaseStock", "umCompra", "umVenta"],
-  SI_NO: ["controlaStock", "controlLote"],
-  VALORACION: ["metodoValoracion"],
-  METODO_PRECIO: ["metodoPrecio"],
-  CLASE_ABC: ["claseAbc"],
-  UBICACION: ["ubicacion"],
-  CONSERVACION: ["conservacion"],
-  ESTADO: ["estado"],
-  CODIGO_IVA: ["codIva"],
+const PRODUCT_CATALOG_FIELDS: Record<string, string[]> = {
+  TIPO_ARTICULO: ["itemType"],
+  FAMILIA: ["family"],
+  SUBFAMILIA: ["subfamily"],
+  SECCION: ["section"],
+  UNIDAD_MEDIDA: ["baseStockUnit", "purchaseUnit", "salesUnit"],
+  SI_NO: ["stockControl", "batchControl"],
+  VALORACION: ["valuationMethod"],
+  METODO_PRECIO: ["pricingMethod"],
+  CLASE_ABC: ["abcClass"],
+  UBICACION: ["location"],
+  CONSERVACION: ["storageConditions"],
+  ESTADO: ["status"],
+  CODIGO_IVA: ["vatCode"],
 }
 
-function getProductoCatalogoConditions(tipo: string, valor: string): Record<string, unknown>[] {
-  if (tipo === "ALERGENO") {
-    // Los alérgenos se almacenan como una lista separada por punto y coma.
+function getProductCatalogConditions(type: string, value: string): Record<string, unknown>[] {
+  if (type === "ALERGENO") {
+    // Allergens are stored as a semicolon-separated list.
     return [
-      { alergenos: valor },
-      { alergenos: { startsWith: `${valor};` } },
-      { alergenos: { startsWith: `${valor}; ` } },
-      { alergenos: { endsWith: `;${valor}` } },
-      { alergenos: { endsWith: `; ${valor}` } },
-      { alergenos: { contains: `;${valor};` } },
-      { alergenos: { contains: `; ${valor};` } },
+      { allergens: value },
+      { allergens: { startsWith: `${value};` } },
+      { allergens: { startsWith: `${value}; ` } },
+      { allergens: { endsWith: `;${value}` } },
+      { allergens: { endsWith: `; ${value}` } },
+      { allergens: { contains: `;${value};` } },
+      { allergens: { contains: `; ${value};` } },
     ]
   }
 
-  return (PRODUCTO_CATALOGO_FIELDS[tipo] || []).map((field) => ({ [field]: valor }))
+  return (PRODUCT_CATALOG_FIELDS[type] || []).map((field) => ({ [field]: value }))
 }
 
 export const PATCH = withAuth(async (req, session, context) => {
-  if (session.user.role !== "ADMIN" && session.user.role !== "SOCIO") {
+  if (!hasAnyRole(session.user.role, [UserRole.ADMIN, UserRole.PARTNER])) {
     return NextResponse.json({ error: "No autorizado" }, { status: 403 })
   }
 
@@ -73,46 +76,46 @@ export const PATCH = withAuth(async (req, session, context) => {
   try {
     const body = await req.json()
     const input = catalogUpdateSchema.parse(body)
-    const current = await prisma.catalogo.findUnique({
+    const current = await prisma.catalog.findUnique({
       where: { id },
-      select: { tipo: true, valor: true, prefijoCodigo: true },
+      select: { type: true, value: true, codePrefix: true },
     })
     if (!current) {
       return NextResponse.json({ error: "Catálogo no encontrado" }, { status: 404 })
     }
-    if (input.tipo !== undefined && input.tipo !== current.tipo) {
+    if (input.type !== undefined && input.type !== current.type) {
       return NextResponse.json({ error: "El tipo de catálogo es inmutable" }, { status: 400 })
     }
 
     const data: Record<string, unknown> = {}
-    if (input.tipo !== undefined) data.tipo = current.tipo
-    if (input.valor !== undefined) data.valor = input.valor
-    if (input.descripcion !== undefined) data.descripcion = input.descripcion
-    if (input.activo !== undefined) data.activo = input.activo
-    if (input.prefijoCodigo !== undefined) {
-      if (current.tipo !== "FAMILIA") {
+    if (input.type !== undefined) data.type = current.type
+    if (input.value !== undefined) data.value = input.value
+    if (input.description !== undefined) data.description = input.description
+    if (input.active !== undefined) data.active = input.active
+    if (input.codePrefix !== undefined) {
+      if (current.type !== "FAMILIA") {
         return NextResponse.json({ error: "El prefijo solo aplica a familias" }, { status: 400 })
       }
-      const prefijoCodigo = typeof input.prefijoCodigo === "string"
-        ? input.prefijoCodigo.toUpperCase()
+      const codePrefix = typeof input.codePrefix === "string"
+        ? input.codePrefix.toUpperCase()
         : ""
-      if (!/^[A-Z]{3}$/.test(prefijoCodigo)) {
+      if (!/^[A-Z]{3}$/.test(codePrefix)) {
         return NextResponse.json({ error: "El prefijo de familia debe tener 3 letras mayúsculas" }, { status: 400 })
       }
-      if (prefijoCodigo !== current.prefijoCodigo) {
-        const productosAsignados = await prisma.producto.count({ where: { familia: current.valor } })
-        if (productosAsignados > 0) {
+      if (codePrefix !== current.codePrefix) {
+        const assignedProducts = await prisma.product.count({ where: { family: current.value } })
+        if (assignedProducts > 0) {
           return NextResponse.json({ error: "No se puede cambiar el prefijo de una familia con productos" }, { status: 409 })
         }
       }
-      data.prefijoCodigo = prefijoCodigo
+      data.codePrefix = codePrefix
     }
 
-    if (input.valor) {
-      const existing = await prisma.catalogo.findFirst({
+    if (input.value) {
+      const existing = await prisma.catalog.findFirst({
         where: {
-          tipo: current.tipo,
-          valor: input.valor,
+          type: current.type,
+          value: input.value,
           id: { not: id },
         },
       })
@@ -124,12 +127,12 @@ export const PATCH = withAuth(async (req, session, context) => {
       }
     }
 
-    const catalogo = await prisma.catalogo.update({
+    const catalog = await prisma.catalog.update({
       where: { id },
       data,
     })
 
-    return NextResponse.json(catalogo)
+    return NextResponse.json(catalog)
   } catch (error) {
     if (error instanceof z.ZodError) {
       return NextResponse.json({ error: error.issues[0]?.message || "Datos no válidos" }, { status: 400 })
@@ -143,42 +146,43 @@ export const PATCH = withAuth(async (req, session, context) => {
 })
 
 export const DELETE = withAuth(async (req, session, context) => {
-  if (session.user.role !== "ADMIN") {
+  if (!isRole(session.user.role, UserRole.ADMIN)) {
     return NextResponse.json({ error: "Solo los administradores pueden eliminar catálogos" }, { status: 403 })
   }
 
   const { id } = await context.params
-  const permanently = new URL(req.url).searchParams.get("permanente") === "true"
+  const searchParams = new URL(req.url).searchParams
+  const permanently = getFirstSearchParam(searchParams, "permanent", "permanente") === "true"
 
   try {
     if (permanently) {
-      const catalogo = await prisma.catalogo.findUnique({
+      const catalog = await prisma.catalog.findUnique({
         where: { id },
-        select: { tipo: true, valor: true },
+        select: { type: true, value: true },
       })
 
-      if (!catalogo) {
+      if (!catalog) {
         return NextResponse.json({ error: "Catálogo no encontrado" }, { status: 404 })
       }
 
-      const productoConditions = getProductoCatalogoConditions(catalogo.tipo, catalogo.valor)
-      const productosAsignados = productoConditions.length
-        ? await prisma.producto.count({ where: { OR: productoConditions } })
+      const productConditions = getProductCatalogConditions(catalog.type, catalog.value)
+      const assignedProducts = productConditions.length
+        ? await prisma.product.count({ where: { OR: productConditions } })
         : 0
-      if (productosAsignados > 0) {
+      if (assignedProducts > 0) {
         return NextResponse.json(
-          { error: `No se puede eliminar: ${productosAsignados} producto(s) usan el valor "${catalogo.valor}". Reasígnalos antes de eliminarlo.` },
+          { error: `No se puede eliminar: ${assignedProducts} producto(s) usan el valor "${catalog.value}". Reasígnalos antes de eliminarlo.` },
           { status: 409 }
         )
       }
 
-      await prisma.catalogo.delete({ where: { id } })
+      await prisma.catalog.delete({ where: { id } })
       return NextResponse.json({ ok: true })
     }
 
-    await prisma.catalogo.update({
+    await prisma.catalog.update({
       where: { id },
-      data: { activo: false },
+      data: { active: false },
     })
     return NextResponse.json({ ok: true })
   } catch (error) {

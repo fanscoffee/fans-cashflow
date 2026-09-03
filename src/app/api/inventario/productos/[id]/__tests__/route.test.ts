@@ -3,7 +3,7 @@ import type { NextRequest } from "next/server"
 
 vi.mock("@/lib/prisma", () => ({
   prisma: {
-    producto: {
+    product: {
       findUnique: vi.fn(),
       update: vi.fn(),
       delete: vi.fn(),
@@ -38,69 +38,69 @@ describe("PATCH /api/inventario/productos/[id]", () => {
   })
 
   it("does not allow changing the immutable product code", async () => {
-    vi.mocked(prisma.producto.findUnique).mockResolvedValue({
-      codigo: "MP-HAR-001",
-      tipoArticulo: "MP",
-      familia: "Harinas y sémolas",
+    vi.mocked(prisma.product.findUnique).mockResolvedValue({
+      code: "MP-HAR-001",
+      itemType: "MP",
+      family: "Harinas y sémolas",
     } as any)
 
-    const response = await PATCH(mockRequest({ codigo: "MP-HAR-002" }), context)
+    const response = await PATCH(mockRequest({ code: "MP-HAR-002" }), context)
 
     expect(response.status).toBe(400)
-    expect(prisma.producto.update).not.toHaveBeenCalled()
+    expect(prisma.product.update).not.toHaveBeenCalled()
   })
 
   it("derives flags when updating a standard product", async () => {
-    vi.mocked(prisma.producto.findUnique).mockResolvedValue({
-      codigo: "MP-HAR-001",
-      tipoArticulo: "MP",
-      familia: "Harinas y sémolas",
-      costeUmBase: 10,
-      ivaPct: 10,
-      ivaCompraPct: 21,
-      ivaVentaPct: 10,
-      metodoPrecio: "FIJO",
-      margenObjetivoPct: 70,
-      pvpFijoConIva: 20,
-      pvpAplicadoConIva: 20,
+    vi.mocked(prisma.product.findUnique).mockResolvedValue({
+      code: "MP-HAR-001",
+      itemType: "MP",
+      family: "Harinas y sémolas",
+      baseUnitCost: 10,
+      vatPercentage: 10,
+      purchaseVatPercentage: 21,
+      salesVatPercentage: 10,
+      pricingMethod: "FIJO",
+      targetMarginPercentage: 70,
+      fixedRetailPriceIncludingVat: 20,
+      appliedRetailPriceIncludingVat: 20,
     } as any)
-    vi.mocked(prisma.producto.update).mockResolvedValue({ id: "product-1" } as any)
+    vi.mocked(prisma.product.update).mockResolvedValue({ id: "product-1" } as any)
 
     const response = await PATCH(mockRequest({
-      costeUmBase: 10,
-      ivaCompraPct: 21,
-      ivaVentaPct: 10,
-      pvpAplicadoConIva: 20,
-      esComprable: false,
-      esElaborado: true,
-      esVendible: true,
-      llevaReceta: true,
-      observaciones: "Actualizado",
+      baseUnitCost: 10,
+      purchaseVatPercentage: 21,
+      salesVatPercentage: 10,
+      appliedRetailPriceIncludingVat: 20,
+      isPurchasable: false,
+      isPrepared: true,
+      isSellable: true,
+      hasRecipe: true,
+      notes: "Actualizado",
     }), context)
 
     expect(response.status).toBe(200)
-    expect(prisma.producto.update).toHaveBeenCalledWith({
+    expect(prisma.product.update).toHaveBeenCalledWith({
       where: { id: "product-1" },
       data: {
-        costeUmBase: 10,
-        ivaCompraPct: 21,
-        ivaVentaPct: 10,
-        esComprable: true,
-        esElaborado: false,
-        esVendible: false,
-        llevaReceta: false,
-        ivaPct: 10,
-        costeConIva: 12.1,
-        pvpObjetivoConIva: 36.6667,
-        pvpFijoConIva: 20,
-        pvpAplicadoConIva: 20,
-        pvpAplicadoSinIva: 18.1818,
-        gananciaEurUd: 8.1818,
-        margenRealPct: 45,
-        desviacionPp: -25,
-        diferenciaEurUd: -16.6667,
-        diagnosticoPrecio: "MUY POR DEBAJO",
-        observaciones: "Actualizado",
+        baseUnitCost: 10,
+        purchaseVatPercentage: 21,
+        salesVatPercentage: 10,
+        isPurchasable: true,
+        isPrepared: false,
+        isSellable: false,
+        hasRecipe: false,
+        vatPercentage: 10,
+        costIncludingVat: 12.1,
+        targetRetailPriceIncludingVat: 36.6667,
+        fixedRetailPriceIncludingVat: 20,
+        appliedRetailPriceIncludingVat: 20,
+        appliedRetailPriceExcludingVat: 18.1818,
+        profitPerUnit: 8.1818,
+        actualMarginPercentage: 45,
+        percentagePointDeviation: -25,
+        unitDifference: -16.6667,
+        pricingDiagnosis: "MUY POR DEBAJO",
+        notes: "Actualizado",
       },
     })
   })
@@ -117,22 +117,22 @@ describe("DELETE /api/inventario/productos/[id]", () => {
     const response = await DELETE(deleteRequest, context)
 
     expect(response.status).toBe(403)
-    expect(prisma.producto.delete).not.toHaveBeenCalled()
+    expect(prisma.product.delete).not.toHaveBeenCalled()
   })
 
   it("allows Yomi", async () => {
     vi.mocked(auth).mockResolvedValue({ user: { id: "partner-1", role: "SOCIO", name: "yomi" } } as any)
-    vi.mocked(prisma.producto.delete).mockResolvedValue({ id: "product-1" } as any)
+    vi.mocked(prisma.product.delete).mockResolvedValue({ id: "product-1" } as any)
 
     const response = await DELETE(deleteRequest, context)
 
     expect(response.status).toBe(200)
-    expect(prisma.producto.delete).toHaveBeenCalledWith({ where: { id: "product-1" } })
+    expect(prisma.product.delete).toHaveBeenCalledWith({ where: { id: "product-1" } })
   })
 
   it("allows ADMIN", async () => {
     vi.mocked(auth).mockResolvedValue({ user: { id: "admin-1", role: "ADMIN" } } as any)
-    vi.mocked(prisma.producto.delete).mockResolvedValue({ id: "product-1" } as any)
+    vi.mocked(prisma.product.delete).mockResolvedValue({ id: "product-1" } as any)
 
     const response = await DELETE(deleteRequest, context)
 

@@ -2,59 +2,61 @@ import { NextResponse } from "next/server"
 import { z } from "zod"
 import { prisma } from "@/lib/prisma"
 import { withAuth } from "@/lib/with-auth"
+import { UserRole } from "@/lib/database-enums"
+import { hasAnyRole } from "@/lib/roles"
 import { canDeleteInventoryItems } from "@/lib/inventory-permissions"
-import { proveedorUpdateSchema, sanitizeProveedor } from "@/lib/proveedores"
+import { supplierUpdateSchema, sanitizeSupplier } from "@/lib/suppliers"
 
 export const GET = withAuth(async (req, session, context) => {
   const { id } = await context.params
-  const proveedor = await prisma.proveedor.findUnique({
+  const supplier = await prisma.supplier.findUnique({
     where: { id },
     include: {
-      productos: {
-        include: { producto: true },
+      products: {
+        include: { product: true },
       },
     },
   })
 
-  if (!proveedor) {
+  if (!supplier) {
     return NextResponse.json({ error: "Proveedor no encontrado" }, { status: 404 })
   }
 
-  const includeBankDetails = session.user.role === "ADMIN" || session.user.role === "SOCIO"
-  return NextResponse.json(sanitizeProveedor(proveedor, includeBankDetails))
+  const includeBankDetails = hasAnyRole(session.user.role, [UserRole.ADMIN, UserRole.PARTNER])
+  return NextResponse.json(sanitizeSupplier(supplier, includeBankDetails))
 })
 
 export const PATCH = withAuth(async (req, session, context) => {
-  if (session.user.role !== "ADMIN" && session.user.role !== "SOCIO") {
+  if (!hasAnyRole(session.user.role, [UserRole.ADMIN, UserRole.PARTNER])) {
     return NextResponse.json({ error: "No autorizado" }, { status: 403 })
   }
 
   const { id } = await context.params
 
   try {
-    const data = proveedorUpdateSchema.parse(await req.json())
+    const data = supplierUpdateSchema.parse(await req.json())
 
-    const existing = await prisma.proveedor.findUnique({ where: { id }, select: { id: true } })
+    const existing = await prisma.supplier.findUnique({ where: { id }, select: { id: true } })
     if (!existing) return NextResponse.json({ error: "Proveedor no encontrado" }, { status: 404 })
 
-    if (data.cifNif) {
-      const conflict = await prisma.proveedor.findFirst({
-        where: { cifNif: data.cifNif, id: { not: id } },
+    if (data.taxId) {
+      const conflict = await prisma.supplier.findFirst({
+        where: { taxId: data.taxId, id: { not: id } },
       })
       if (conflict) {
         return NextResponse.json(
-          { error: `Ya existe otro proveedor con el CIF/NIF ${data.cifNif}` },
+          { error: `Ya existe otro proveedor con el CIF/NIF ${data.taxId}` },
           { status: 400 }
         )
       }
     }
 
-    const proveedor = await prisma.proveedor.update({
+    const supplier = await prisma.supplier.update({
       where: { id },
       data,
     })
 
-    return NextResponse.json(proveedor)
+    return NextResponse.json(supplier)
   } catch (error) {
     if (error instanceof z.ZodError) {
       return NextResponse.json({ error: error.issues[0]?.message || "Datos no válidos" }, { status: 400 })
@@ -72,32 +74,33 @@ export const DELETE = withAuth(async (req, session, context) => {
   const { id } = await context.params
 
   try {
-    const proveedor = await prisma.proveedor.findUnique({ where: { id }, select: { id: true } })
-    if (!proveedor) {
+    const supplier = await prisma.supplier.findUnique({ where: { id }, select: { id: true } })
+    if (!supplier) {
       return NextResponse.json({ error: "Proveedor no encontrado" }, { status: 404 })
     }
 
-    const [productos, recepciones, facturas, acreedores] = await Promise.all([
-      prisma.proveedorProducto.count({ where: { proveedorId: id } }),
-      prisma.recepcion.count({ where: { proveedorId: id } }),
-      prisma.factura.count({ where: { proveedorId: id } }),
-      prisma.acreedor.count({ where: { proveedorId: id } }),
+    const [products, receipts, invoices, creditors] = await Promise.all([
+      prisma.supplierProduct.count({ where: { supplierId: id } }),
+      prisma.receipt.count({ where: { supplierId: id } }),
+      prisma.invoice.count({ where: { supplierId: id } }),
+      prisma.creditor.count({ where: { supplierId: id } }),
     ])
-    const vinculaciones = { productos, recepciones, facturas, acreedores }
-    const totalVinculaciones = Object.values(vinculaciones).reduce((total, count) => total + count, 0)
+    const links = { products, receipts, invoices, creditors }
+    const totalLinks = Object.values(links).reduce((total, count) => total + count, 0)
 
-    if (totalVinculaciones > 0) {
+    if (totalLinks > 0) {
       return NextResponse.json(
         {
           error: "No se puede eliminar el proveedor porque todavía tiene vinculaciones.",
           code: "PROVIDER_HAS_LINKS",
-          vinculaciones,
+          links,
+          vinculaciones: links,
         },
         { status: 409 }
       )
     }
 
-    await prisma.proveedor.delete({ where: { id } })
+    await prisma.supplier.delete({ where: { id } })
     return NextResponse.json({ ok: true })
   } catch (error) {
     const message = error instanceof Error ? error.message : "Error al eliminar el proveedor"

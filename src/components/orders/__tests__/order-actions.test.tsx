@@ -44,7 +44,7 @@ describe("OrderActions", () => {
     expect(screen.getByText("Entregado")).toBeInTheDocument()
   })
 
-  it("calls onEdit when Editar clicked", async () => {
+  it("calls onEdit when edit is clicked", async () => {
     const onEdit = vi.fn()
     const user = userEvent.setup()
     render(<OrderActions {...defaultProps} onEdit={onEdit} />)
@@ -53,7 +53,7 @@ describe("OrderActions", () => {
     expect(onEdit).toHaveBeenCalledWith(mockOrder)
   })
 
-  it("calls onDelete when Eliminar clicked", async () => {
+  it("calls onDelete when delete is clicked", async () => {
     const onDelete = vi.fn()
     const user = userEvent.setup()
     render(<OrderActions {...defaultProps} onDelete={onDelete} />)
@@ -62,7 +62,7 @@ describe("OrderActions", () => {
     expect(onDelete).toHaveBeenCalledWith("1")
   })
 
-  it("calls onToggleStatus with confirm when Pagado clicked", async () => {
+  it("calls onToggleStatus with confirm when paid is clicked", async () => {
     vi.spyOn(global, "confirm").mockReturnValue(true)
     const onToggleStatus = vi.fn()
     const user = userEvent.setup()
@@ -72,7 +72,7 @@ describe("OrderActions", () => {
     expect(onToggleStatus).toHaveBeenCalledWith("1", "isPaid", true)
   })
 
-  it("calls onToggleStatus with confirm when Entregado clicked", async () => {
+  it("calls onToggleStatus with confirm when delivered is clicked", async () => {
     vi.spyOn(global, "confirm").mockReturnValue(true)
     const onToggleStatus = vi.fn()
     const user = userEvent.setup()
@@ -92,7 +92,7 @@ describe("OrderActions", () => {
     expect(onToggleStatus).not.toHaveBeenCalled()
   })
 
-  it("hides Editar and Eliminar when not permitted", async () => {
+  it("hides edit and delete actions when not permitted", async () => {
     const user = userEvent.setup()
     render(<OrderActions {...defaultProps} canEdit={false} canDelete={false} />)
     await user.click(screen.getByLabelText("Acciones"))
@@ -100,7 +100,7 @@ describe("OrderActions", () => {
     expect(screen.queryByText("Eliminar")).not.toBeInTheDocument()
   })
 
-  it("always shows Pagado and Entregado regardless of permissions", async () => {
+  it("always shows paid and delivered status regardless of permissions", async () => {
     const user = userEvent.setup()
     render(<OrderActions {...defaultProps} canEdit={false} canDelete={false} />)
     await user.click(screen.getByLabelText("Acciones"))
@@ -108,7 +108,7 @@ describe("OrderActions", () => {
     expect(screen.getByText("Entregado")).toBeInTheDocument()
   })
 
-  it("shows confirmation to desmarcar when isPaid is true", async () => {
+  it("shows confirmation to unmark payment when isPaid is true", async () => {
     vi.spyOn(global, "confirm").mockReturnValue(true)
     const onToggleStatus = vi.fn()
     const order = { ...mockOrder, isPaid: true }

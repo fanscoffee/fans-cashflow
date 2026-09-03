@@ -3,16 +3,18 @@ import { z } from "zod"
 import bcrypt from "bcryptjs"
 import { prisma } from "@/lib/prisma"
 import { withAuth } from "@/lib/with-auth"
+import { UserRole, userRoleSchema } from "@/lib/database-enums"
+import { isRole } from "@/lib/roles"
 
 const createUserSchema = z.object({
   name: z.string().min(2, "El nombre debe tener al menos 2 caracteres"),
   email: z.string().email("Email no válido"),
   password: z.string().min(6, "La contraseña debe tener al menos 6 caracteres"),
-  role: z.enum(["ADMIN", "SOCIO", "EMPLEADO", "OBRADOR"]),
+  role: userRoleSchema,
 })
 
 export const GET = withAuth(async (req, session) => {
-  if (session.user.role !== "ADMIN") {
+  if (!isRole(session.user.role, UserRole.ADMIN)) {
     return NextResponse.json({ error: "No autorizado" }, { status: 401 })
   }
 
@@ -30,7 +32,7 @@ export const GET = withAuth(async (req, session) => {
 })
 
 export const POST = withAuth(async (req, session) => {
-  if (session.user.role !== "ADMIN") {
+  if (!isRole(session.user.role, UserRole.ADMIN)) {
     return NextResponse.json({ error: "No autorizado" }, { status: 401 })
   }
 

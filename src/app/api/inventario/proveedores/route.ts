@@ -2,13 +2,16 @@ import { NextResponse } from "next/server"
 import { z } from "zod"
 import { prisma } from "@/lib/prisma"
 import { withAuth } from "@/lib/with-auth"
-import { proveedorInputSchema, sanitizeProveedor } from "@/lib/proveedores"
+import { UserRole } from "@/lib/database-enums"
+import { hasAnyRole } from "@/lib/roles"
+import { supplierInputSchema, sanitizeSupplier } from "@/lib/suppliers"
+import { getFirstSearchParam } from "@/lib/request-params"
 
 export const GET = withAuth(async (req, session) => {
   const { searchParams } = new URL(req.url)
   const search = searchParams.get("search") || ""
-  const estado = searchParams.get("estado") || ""
-  const categoria = searchParams.get("categoria") || ""
+  const status = getFirstSearchParam(searchParams, "status", "estado") || ""
+  const category = getFirstSearchParam(searchParams, "category", "categoria") || ""
   const requestedPage = Number(searchParams.get("page") || "1")
   const requestedPageSize = Number(searchParams.get("pageSize") || "50")
   const page = Number.isInteger(requestedPage) ? Math.max(1, requestedPage) : 1
@@ -18,55 +21,55 @@ export const GET = withAuth(async (req, session) => {
 
   if (search) {
     where.OR = [
-      { razonSocial: { contains: search, mode: "insensitive" } },
-      { cifNif: { contains: search, mode: "insensitive" } },
-      { contactoNombre: { contains: search, mode: "insensitive" } },
+      { legalName: { contains: search, mode: "insensitive" } },
+      { taxId: { contains: search, mode: "insensitive" } },
+      { contactName: { contains: search, mode: "insensitive" } },
     ]
   }
-  if (estado) where.estado = estado
-  if (categoria) where.categoriaServicio = categoria
+  if (status) where.status = status
+  if (category) where.serviceCategory = category
 
-  const [proveedores, total] = await Promise.all([
-    prisma.proveedor.findMany({
+  const [suppliers, total] = await Promise.all([
+    prisma.supplier.findMany({
       where,
-      orderBy: { razonSocial: "asc" },
+      orderBy: { legalName: "asc" },
       skip: (page - 1) * pageSize,
       take: pageSize,
-      include: { _count: { select: { productos: true } } },
+      include: { _count: { select: { products: true } } },
     }),
-    prisma.proveedor.count({ where }),
+    prisma.supplier.count({ where }),
   ])
 
-  const includeBankDetails = session.user.role === "ADMIN" || session.user.role === "SOCIO"
-  return NextResponse.json({ proveedores: proveedores.map((proveedor) => sanitizeProveedor(proveedor, includeBankDetails)), total, page, pageSize })
+  const includeBankDetails = hasAnyRole(session.user.role, [UserRole.ADMIN, UserRole.PARTNER])
+  return NextResponse.json({ suppliers: suppliers.map((supplier) => sanitizeSupplier(supplier, includeBankDetails)), total, page, pageSize })
 })
 
 export const POST = withAuth(async (req, session) => {
-  if (session.user.role !== "ADMIN" && session.user.role !== "SOCIO") {
+  if (!hasAnyRole(session.user.role, [UserRole.ADMIN, UserRole.PARTNER])) {
     return NextResponse.json({ error: "No autorizado" }, { status: 403 })
   }
 
   try {
-    const data = proveedorInputSchema.parse(await req.json())
+    const data = supplierInputSchema.parse(await req.json())
 
-    const existing = await prisma.proveedor.findUnique({
-      where: { cifNif: data.cifNif },
+    const existing = await prisma.supplier.findUnique({
+      where: { taxId: data.taxId },
     })
     if (existing) {
       return NextResponse.json(
-        { error: `Ya existe un proveedor con el CIF/NIF ${data.cifNif}` },
+        { error: `Ya existe un proveedor con el CIF/NIF ${data.taxId}` },
         { status: 400 }
       )
     }
 
-    const proveedor = await prisma.proveedor.create({
+    const supplier = await prisma.supplier.create({
       data: {
         ...data,
         createdById: session.user.id,
       },
     })
 
-    return NextResponse.json(proveedor, { status: 201 })
+    return NextResponse.json(supplier, { status: 201 })
   } catch (error) {
     if (error instanceof z.ZodError) {
       return NextResponse.json({ error: error.issues[0]?.message || "Datos no válidos" }, { status: 400 })

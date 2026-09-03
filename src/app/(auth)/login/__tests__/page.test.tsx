@@ -23,7 +23,8 @@ vi.mock("@simplewebauthn/browser", () => ({
 }))
 
 vi.mock("@/lib/roles", () => ({
-  ROLE_REDIRECT: { ADMIN: "/admin", SOCIO: "/socio", EMPLEADO: "/empleado" },
+  ROLE_REDIRECT: { ADMIN: "/admin", PARTNER: "/socio", EMPLOYEE: "/empleado" },
+  normalizeRole: (role: string | undefined) => role === "SOCIO" ? "PARTNER" : role,
 }))
 
 import { signIn } from "next-auth/react"

@@ -4,9 +4,9 @@ export const MONTH_NAMES = [
 ]
 
 export const DESTINATION_LABELS: Record<string, string> = {
-  DEPOSITO: "Depósito",
-  INGRESO_EN_FONDO: "Ingreso en fondo",
-  GUARDADO: "Guardado",
+  DEPOSIT: "Depósito",
+  FUND_REINVESTMENT: "Ingreso en fondo",
+  STORED: "Guardado",
   FANS: "Fans",
 }
 

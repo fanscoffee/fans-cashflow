@@ -6,7 +6,7 @@ describe("canDeleteInventoryItems", () => {
     expect(canDeleteInventoryItems({ role: "ADMIN" })).toBe(true)
   })
 
-  it("allows only the SOCIO named Yomi", () => {
+  it("allows only the PARTNER named Yomi", () => {
     expect(canDeleteInventoryItems({ role: "SOCIO", name: "Yomi" })).toBe(true)
     expect(canDeleteInventoryItems({ role: "SOCIO", name: " yomi " })).toBe(true)
     expect(canDeleteInventoryItems({ role: "SOCIO", name: "Ana" })).toBe(false)
@@ -15,13 +15,13 @@ describe("canDeleteInventoryItems", () => {
 })
 
 describe("canRegisterInventoryReception", () => {
-  it("allows ADMIN, SOCIO and EMPLEADO", () => {
+  it("allows ADMIN, PARTNER and EMPLOYEE", () => {
     expect(canRegisterInventoryReception({ role: "ADMIN" })).toBe(true)
     expect(canRegisterInventoryReception({ role: "SOCIO" })).toBe(true)
     expect(canRegisterInventoryReception({ role: "EMPLEADO" })).toBe(true)
   })
 
-  it("blocks OBRADOR and anonymous users", () => {
+  it("blocks BAKERY and anonymous users", () => {
     expect(canRegisterInventoryReception({ role: "OBRADOR" })).toBe(false)
     expect(canRegisterInventoryReception(null)).toBe(false)
   })

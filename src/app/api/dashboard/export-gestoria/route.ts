@@ -2,17 +2,19 @@ import { NextResponse } from "next/server"
 import { prisma } from "@/lib/prisma"
 import { withAuth } from "@/lib/with-auth"
 import {
-  buildGestoriaRows,
-  buildGestoriaWorkbook,
-  type GestoriaExpenseSource,
-  type GestoriaInvoiceSource,
-  type GestoriaLegacyExpenseSource,
-} from "@/lib/gestoria-export"
+  buildAccountingRows,
+  buildAccountingWorkbook,
+  type AccountingExpenseSource,
+  type AccountingInvoiceSource,
+  type AccountingLegacyExpenseSource,
+} from "@/lib/accounting-export"
+import { CurrentExpenseStatus, InvoiceWorkflowStatus, PaymentStatus, UserRole } from "@/lib/database-enums"
+import { hasAnyRole } from "@/lib/roles"
 
 export const runtime = "nodejs"
 
-const INVOICE_STATES = ["CONFORMADA", "PARCIALMENTE_CONFORMADA", "ANULADA"] as const
-const EXPENSE_STATES = ["AUTORIZADO", "PAGADO", "CERRADO"] as const
+const INVOICE_STATES = [InvoiceWorkflowStatus.CONFIRMED, InvoiceWorkflowStatus.PARTIALLY_CONFIRMED, InvoiceWorkflowStatus.VOID] as const
+const EXPENSE_STATES = [CurrentExpenseStatus.AUTHORIZED, CurrentExpenseStatus.PAID, CurrentExpenseStatus.CLOSED] as const
 
 function parsePeriod(request: Request) {
   const { searchParams } = new URL(request.url)
@@ -33,7 +35,7 @@ function parsePeriod(request: Request) {
 }
 
 export const GET = withAuth(async (request, session) => {
-  if (session.user.role !== "ADMIN" && session.user.role !== "SOCIO") {
+  if (!hasAnyRole(session.user.role, [UserRole.ADMIN, UserRole.PARTNER])) {
     return NextResponse.json({ error: "No autorizado" }, { status: 403 })
   }
 
@@ -41,67 +43,67 @@ export const GET = withAuth(async (request, session) => {
   if (!period) return NextResponse.json({ error: "Periodo no válido" }, { status: 400 })
 
   try {
-    const [facturas, gastos, gastosLegacy] = await Promise.all([
-      prisma.factura.findMany({
+    const [invoices, expenses, expensesLegacy] = await Promise.all([
+      prisma.invoice.findMany({
         where: {
-          fechaExpedicion: { gte: period.startDate, lt: period.endDate },
-          estadoCircuito: { in: [...INVOICE_STATES] },
+          issueDate: { gte: period.startDate, lt: period.endDate },
+          workflowStatus: { in: [...INVOICE_STATES] },
         },
         select: {
-          serie: true,
-          numero: true,
-          fechaExpedicion: true,
-          tipoDocumento: true,
-          estadoCircuito: true,
-          formaPago: true,
-          razonSocialEmisor: true,
-          nifEmisor: true,
-          totalNeto: true,
-          totalIva: true,
-          totalRetenciones: true,
-          importeTotal: true,
-          proveedor: { select: { razonSocial: true, cifNif: true } },
-          acreedor: { select: { nombre: true, nif: true, tipo: true } },
-          impuestos: { select: { tipo: true, porcentaje: true, baseImponible: true, cuota: true } },
-          aplicaciones: {
-            where: { pago: { estado: { not: "ANULADO" } } },
-            select: { pago: { select: { medioPago: { select: { tipo: true } } } } },
+          series: true,
+          number: true,
+          issueDate: true,
+          documentType: true,
+          workflowStatus: true,
+          paymentMethod: true,
+          issuerLegalName: true,
+          issuerTaxId: true,
+          netTotal: true,
+          totalVat: true,
+          withholdingTotal: true,
+          totalAmount: true,
+          supplier: { select: { legalName: true, taxId: true } },
+          creditor: { select: { name: true, taxId: true, type: true } },
+          taxes: { select: { type: true, percentage: true, taxableBase: true, taxAmount: true } },
+          applications: {
+            where: { payment: { status: { not: PaymentStatus.VOID } } },
+            select: { payment: { select: { paymentMethod: { select: { type: true } } } } },
           },
         },
-        orderBy: [{ fechaExpedicion: "asc" }, { createdAt: "asc" }],
+        orderBy: [{ issueDate: "asc" }, { createdAt: "asc" }],
       }),
-      prisma.gastoCorriente.findMany({
+      prisma.currentExpense.findMany({
         where: {
-          fechaDevengo: { gte: period.startDate, lt: period.endDate },
-          estado: { in: [...EXPENSE_STATES] },
+          accrualDate: { gte: period.startDate, lt: period.endDate },
+          status: { in: [...EXPENSE_STATES] },
         },
         select: {
-          fechaDevengo: true,
-          concepto: true,
-          importe: true,
-          justificante: true,
-          categoria: { select: { nombre: true } },
-          acreedor: { select: { nombre: true, nif: true, tipo: true } },
-          aplicaciones: {
-            where: { pago: { estado: { not: "ANULADO" } } },
-            select: { pago: { select: { medioPago: { select: { tipo: true } } } } },
+          accrualDate: true,
+          concept: true,
+          amount: true,
+          receipt: true,
+          category: { select: { name: true } },
+          creditor: { select: { name: true, taxId: true, type: true } },
+          applications: {
+            where: { payment: { status: { not: PaymentStatus.VOID } } },
+            select: { payment: { select: { paymentMethod: { select: { type: true } } } } },
           },
         },
-        orderBy: [{ fechaDevengo: "asc" }, { createdAt: "asc" }],
+        orderBy: [{ accrualDate: "asc" }, { createdAt: "asc" }],
       }),
       prisma.expense.findMany({
         where: { shift: { date: { gte: period.startDate, lt: period.endDate } } },
-        select: { importe: true, proveedor: true, shift: { select: { date: true, turno: true } } },
+        select: { amount: true, supplier: true, shift: { select: { date: true, shift: true } } },
         orderBy: { shift: { date: "asc" } },
       }),
     ])
 
-    const rows = buildGestoriaRows({
-      facturas: facturas as unknown as GestoriaInvoiceSource[],
-      gastos: gastos as unknown as GestoriaExpenseSource[],
-      gastosLegacy: gastosLegacy as unknown as GestoriaLegacyExpenseSource[],
+    const rows = buildAccountingRows({
+      invoices: invoices as unknown as AccountingInvoiceSource[],
+      expenses: expenses as unknown as AccountingExpenseSource[],
+      expensesLegacy: expensesLegacy as unknown as AccountingLegacyExpenseSource[],
     })
-    const workbook = await buildGestoriaWorkbook(rows)
+    const workbook = await buildAccountingWorkbook(rows)
     const filename = `fans-cashflow-gestoria-${period.year}-${String(period.month).padStart(2, "0")}.xlsx`
 
     return new NextResponse(workbook, {

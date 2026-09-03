@@ -15,51 +15,49 @@ import {
   Cell,
   ResponsiveContainer,
 } from "recharts"
+import { UserRole } from "@/lib/database-enums"
+import { hasAnyRole } from "@/lib/roles"
 
 interface DashboardData {
-  resumen: {
-    totalTurnos: number
-    totalIngresos: number
-    totalGastos: number
-    beneficioNeto: number
+  summary?: {
+    totalShifts: number
+    totalRevenue: number
+    totalExpenses: number
+    netProfit: number
+  }
+  resumen?: {
+    totalShifts?: number
+    totalTurnos?: number
+    totalRevenue?: number
+    totalIngresos?: number
+    totalExpenses?: number
+    totalGastos?: number
+    netProfit?: number
+    beneficioNeto?: number
   }
   dailyData: {
-    dia: string
-    ingresos: number
-    gastos: number
-    mañana: number
-    tarde: number
+    day?: string
+    revenue?: number
+    expenses?: number
+    morning?: number
+    afternoon?: number
+    dia?: string
+    ingresos?: number
+    gastos?: number
+    mañana?: number
+    tarde?: number
   }[]
-  turnoData: { name: string; value: number }[]
-  expenseData: { proveedor: string; total: number }[]
-  exportData: {
-    fecha: string
-    turno: string
-    estado: string
-    creadoPor: string
-    fondoInicial: number
-    efectivo: number
-    caixa: number
-    santander: number
-    efectivoGasto: number
-    fondoFinal: number
-    totalGastos: number
-    gastos: string
-  }[]
-  exportExpenses: {
-    fecha: string
-    turno: string
-    concepto: string
-    proveedor: string
-    importe: number
-    creadoPor: string
-  }[]
+  shiftData?: { name: string; value: number }[]
+  turnoData?: { name: string; value: number }[]
+  expenseData: { supplier?: string; proveedor?: string; total: number }[]
+  exportData: Record<string, unknown>[]
+  exportExpenses: Record<string, unknown>[]
 }
 
 import { downloadBlob, downloadCSV } from "@/lib/csv"
 import { MONTH_NAMES } from "@/lib/constants"
 import { toN } from "@/lib/money"
-import VentaInventarioDashboard from "@/components/venta-inventario-dashboard"
+import SalesInventoryDashboard from "@/components/sales-inventory-dashboard"
 
 const COLORS = ["#3b82f6", "#f59e0b", "#10b981", "#ef4444", "#8b5cf6"]
 
@@ -67,14 +65,14 @@ export default function Dashboard() {
   const { data: session } = useSession()
   const [data, setData] = useState<DashboardData | null>(null)
   const [loading, setLoading] = useState(true)
-  const [exportingGestoria, setExportingGestoria] = useState(false)
+  const [exportingAccounting, setExportingAccounting] = useState(false)
   const [exportError, setExportError] = useState<string | null>(null)
 
   const now = new Date()
   const [selectedMonth, setSelectedMonth] = useState(now.getMonth() + 1)
   const [selectedYear, setSelectedYear] = useState(now.getFullYear())
 
-  const canExport = session?.user?.role === "ADMIN" || session?.user?.role === "SOCIO"
+  const canExport = hasAnyRole(session?.user?.role, [UserRole.ADMIN, UserRole.PARTNER])
 
   const fetchData = useCallback(async () => {
     setLoading(true)
@@ -106,8 +104,8 @@ export default function Dashboard() {
     downloadCSV(data.exportExpenses, filename)
   }
 
-  async function handleExportGestoria() {
-    setExportingGestoria(true)
+  async function handleExportAccounting() {
+    setExportingAccounting(true)
     setExportError(null)
     try {
       const response = await fetch(`/api/dashboard/export-gestoria?month=${selectedMonth}&year=${selectedYear}`)
@@ -118,7 +116,7 @@ export default function Dashboard() {
     } catch {
       setExportError("No se pudo generar la exportación de gestoría")
     } finally {
-      setExportingGestoria(false)
+      setExportingAccounting(false)
     }
   }
 
@@ -130,7 +128,21 @@ export default function Dashboard() {
     return <p className="text-gray-500">No hay datos disponibles</p>
   }
 
-  const { resumen, dailyData, turnoData, expenseData } = data
+  const summary = data.summary ?? {
+    totalShifts: data.resumen?.totalShifts ?? data.resumen?.totalTurnos ?? 0,
+    totalRevenue: data.resumen?.totalRevenue ?? data.resumen?.totalIngresos ?? 0,
+    totalExpenses: data.resumen?.totalExpenses ?? data.resumen?.totalGastos ?? 0,
+    netProfit: data.resumen?.netProfit ?? data.resumen?.beneficioNeto ?? 0,
+  }
+  const dailyData = data.dailyData.map((item) => ({
+    day: item.day ?? item.dia ?? "",
+    revenue: item.revenue ?? item.ingresos ?? 0,
+    expenses: item.expenses ?? item.gastos ?? 0,
+    morning: item.morning ?? item.mañana ?? 0,
+    afternoon: item.afternoon ?? item.tarde ?? 0,
+  }))
+  const shiftData = data.shiftData ?? data.turnoData ?? []
+  const expenseData = data.expenseData.map((item) => ({ supplier: item.supplier ?? item.proveedor ?? "", total: item.total }))
 
   return (
     <div className="space-y-6">
@@ -172,11 +184,11 @@ export default function Dashboard() {
               Exportar Gastos
             </button>
             <button
-              onClick={handleExportGestoria}
-              disabled={exportingGestoria}
+              onClick={handleExportAccounting}
+              disabled={exportingAccounting}
               className="w-full rounded-md bg-indigo-700 px-4 py-2 text-sm font-medium text-white hover:bg-indigo-800 disabled:opacity-50 sm:w-auto sm:py-1.5"
             >
-              {exportingGestoria ? "Preparando..." : "Exportar Gestoria"}
+              {exportingAccounting ? "Preparando..." : "Exportar Gestoria"}
             </button>
           </div>
         )}
@@ -184,14 +196,14 @@ export default function Dashboard() {
       </div>
 
       <div className="grid grid-cols-1 gap-3 min-[360px]:grid-cols-2 md:grid-cols-4">
-        <Card label="Turnos" value={resumen.totalTurnos.toString()} />
-        <Card label="Ingresos" value={`${resumen.totalIngresos.toFixed(2)} €`} color="text-green-600" />
-        <Card label="Gastos" value={`${resumen.totalGastos.toFixed(2)} €`} color="text-red-600" />
-        <Card label="Beneficio Neto" value={`${resumen.beneficioNeto.toFixed(2)} €`} color={resumen.beneficioNeto >= 0 ? "text-green-600" : "text-red-600"} />
+        <Card label="Turnos" value={summary.totalShifts.toString()} />
+        <Card label="Ingresos" value={`${summary.totalRevenue.toFixed(2)} €`} color="text-green-600" />
+        <Card label="Gastos" value={`${summary.totalExpenses.toFixed(2)} €`} color="text-red-600" />
+        <Card label="Beneficio Neto" value={`${summary.netProfit.toFixed(2)} €`} color={summary.netProfit >= 0 ? "text-green-600" : "text-red-600"} />
       </div>
 
-      {(session?.user?.role === "ADMIN" || session?.user?.role === "SOCIO") && (
-        <VentaInventarioDashboard month={selectedMonth} year={selectedYear} />
+      {hasAnyRole(session?.user?.role, [UserRole.ADMIN, UserRole.PARTNER]) && (
+        <SalesInventoryDashboard month={selectedMonth} year={selectedYear} />
       )}
 
       <div className="min-w-0 overflow-hidden rounded-lg border bg-white p-4 shadow-sm sm:p-6">
@@ -199,12 +211,12 @@ export default function Dashboard() {
         <ResponsiveContainer width="100%" height={300}>
           <BarChart data={dailyData}>
             <CartesianGrid strokeDasharray="3 3" />
-            <XAxis dataKey="dia" tick={{ fontSize: 12 }} />
+            <XAxis dataKey="day" tick={{ fontSize: 12 }} />
             <YAxis tick={{ fontSize: 12 }} />
             <Tooltip />
             <Legend />
-            <Bar dataKey="ingresos" fill="#3b82f6" name="Ingresos" />
-            <Bar dataKey="gastos" fill="#ef4444" name="Gastos" />
+            <Bar dataKey="revenue" fill="#3b82f6" name="Ingresos" />
+            <Bar dataKey="expenses" fill="#ef4444" name="Gastos" />
           </BarChart>
         </ResponsiveContainer>
       </div>
@@ -215,14 +227,14 @@ export default function Dashboard() {
           <ResponsiveContainer width="100%" height={250}>
             <PieChart>
               <Pie
-                data={turnoData}
+                data={shiftData}
                 cx="50%"
                 cy="50%"
                 outerRadius={80}
                 dataKey="value"
                 label={({ name, percent }) => `${name} ${((percent ?? 0) * 100).toFixed(0)}%`}
               >
-                {turnoData.map((_, index) => (
+                {shiftData.map((_, index) => (
                   <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
                 ))}
               </Pie>
@@ -236,12 +248,12 @@ export default function Dashboard() {
           <ResponsiveContainer width="100%" height={250}>
             <BarChart data={dailyData}>
               <CartesianGrid strokeDasharray="3 3" />
-              <XAxis dataKey="dia" tick={{ fontSize: 12 }} />
+              <XAxis dataKey="day" tick={{ fontSize: 12 }} />
               <YAxis tick={{ fontSize: 12 }} />
               <Tooltip />
               <Legend />
-              <Bar dataKey="mañana" fill="#3b82f6" name="Mañana" />
-              <Bar dataKey="tarde" fill="#f59e0b" name="Tarde" />
+              <Bar dataKey="morning" fill="#3b82f6" name="Mañana" />
+              <Bar dataKey="afternoon" fill="#f59e0b" name="Tarde" />
             </BarChart>
           </ResponsiveContainer>
         </div>
@@ -260,8 +272,8 @@ export default function Dashboard() {
               </thead>
               <tbody className="divide-y">
                 {expenseData.map((e) => (
-                  <tr key={e.proveedor}>
-                    <td className="break-words py-2 text-gray-900 [overflow-wrap:anywhere]">{e.proveedor}</td>
+                  <tr key={e.supplier}>
+                    <td className="break-words py-2 text-gray-900 [overflow-wrap:anywhere]">{e.supplier}</td>
                     <td className="py-2 text-right font-medium text-red-600">{e.total.toFixed(2)} €</td>
                   </tr>
                 ))}

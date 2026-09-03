@@ -1,14 +1,17 @@
 import { NextResponse } from "next/server"
 import { withAuth } from "@/lib/with-auth"
-import { createAdvance, createAdvanceSchema, requirePaymentFunction } from "@/lib/pagos"
-import { paymentErrorResponse, parseEntity } from "@/lib/pagos-http"
+import { createAdvance, createAdvanceSchema, requirePaymentFunction } from "@/lib/payments"
+import { paymentErrorResponse, parseEntity } from "@/lib/payments-http"
 import { prisma } from "@/lib/prisma"
+import { PaymentFunction, PaymentStatus } from "@/lib/database-enums"
+import { getFirstSearchParam } from "@/lib/request-params"
 
 export const GET = withAuth(async (req, session) => {
   try {
-    const entity = parseEntity(new URL(req.url).searchParams.get("entidad"))
-    await requirePaymentFunction(session.user.id, "SOLICITAR", entity, session.user.role)
-    const advances = await prisma.anticipo.findMany({ where: entity ? { entidad: entity } : {}, include: { acreedor: { select: { id: true, nombre: true } }, solicitadoPor: { select: { id: true, name: true, email: true } }, autorizadoPor: { select: { id: true, name: true, email: true } }, aplicaciones: { where: { pago: { estado: { not: "ANULADO" } } } } }, orderBy: { fecha: "desc" }, take: 200 })
+    const searchParams = new URL(req.url).searchParams
+    const entity = parseEntity(getFirstSearchParam(searchParams, "entity", "entidad"))
+    await requirePaymentFunction(session.user.id, PaymentFunction.REQUEST, entity, session.user.role)
+    const advances = await prisma.advance.findMany({ where: entity ? { entity: entity } : {}, include: { creditor: { select: { id: true, name: true } }, requestedBy: { select: { id: true, name: true, email: true } }, authorizedBy: { select: { id: true, name: true, email: true } }, applications: { where: { payment: { status: { not: PaymentStatus.VOID } } } } }, orderBy: { date: "desc" }, take: 200 })
     return NextResponse.json(advances)
   } catch (error) {
     return paymentErrorResponse(error)

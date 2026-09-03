@@ -2,9 +2,11 @@ import { NextResponse } from "next/server"
 import { prisma } from "@/lib/prisma"
 import { withAuth } from "@/lib/with-auth"
 import { toN, sum, toJSON, toFixed } from "@/lib/money"
+import { CurrentExpenseStatus, UserRole } from "@/lib/database-enums"
+import { hasAnyRole } from "@/lib/roles"
 
 export const GET = withAuth(async (req, session) => {
-  if (session.user.role !== "ADMIN" && session.user.role !== "SOCIO") {
+  if (!hasAnyRole(session.user.role, [UserRole.ADMIN, UserRole.PARTNER])) {
     return NextResponse.json({ error: "No autorizado" }, { status: 403 })
   }
 
@@ -31,125 +33,166 @@ export const GET = withAuth(async (req, session) => {
     },
     include: {
       expenses: true,
-      gastosCorrientes: {
-        where: { estado: { not: "ANULADO" } },
-        select: { concepto: true, importe: true, categoria: { select: { nombre: true } } },
+      currentExpenses: {
+        where: { status: { not: CurrentExpenseStatus.VOID } },
+        select: { concept: true, amount: true, category: { select: { name: true } } },
       },
       createdBy: { select: { name: true } },
     },
     orderBy: { date: "asc" },
   })
 
-  const totalIngresos = shifts.reduce(
-    (acc, s) => acc + sum(s.efectivo, s.caixa, s.santander),
+  const totalRevenue = shifts.reduce(
+    (acc, s) => acc + sum(s.cash, s.caixaBankAmount, s.santanderAmount),
     0
   )
-  const totalGastosShift = shifts.reduce((acc, s) => acc + toN(s.efectivoGasto), 0)
-  const totalGastosExpense = shifts.reduce(
-    (acc, s) => acc + s.expenses.reduce((e, exp) => e + toN(exp.importe), 0),
+  const totalExpensesShift = shifts.reduce((acc, s) => acc + toN(s.cashExpense), 0)
+  const totalExpensesExpense = shifts.reduce(
+    (acc, s) => acc + s.expenses.reduce((e, exp) => e + toN(exp.amount), 0),
     0
   )
-  const totalGastosCurrent = shifts.reduce(
-    (acc, s) => acc + (s.gastosCorrientes || []).reduce((e, expense) => e + toN(expense.importe), 0),
+  const totalExpensesCurrent = shifts.reduce(
+    (acc, s) => acc + (s.currentExpenses || []).reduce((e, expense) => e + toN(expense.amount), 0),
     0
   )
-  const totalGastos = totalGastosShift + totalGastosExpense + totalGastosCurrent
-  const beneficioNeto = totalIngresos - totalGastos
+  const totalExpenses = totalExpensesShift + totalExpensesExpense + totalExpensesCurrent
+  const netProfit = totalRevenue - totalExpenses
 
-  const porDia: Record<string, { ingresos: number; gastos: number; mañana: number; tarde: number }> = {}
+  const dailyTotals: Record<string, { revenue: number; expenses: number; morning: number; afternoon: number }> = {}
   for (const s of shifts) {
     const key = new Date(s.date).toLocaleDateString("es-ES", { day: "2-digit", month: "short" })
-    if (!porDia[key]) porDia[key] = { ingresos: 0, gastos: 0, mañana: 0, tarde: 0 }
-    const ingreso = sum(s.efectivo, s.caixa, s.santander)
-    const gasto = toN(s.efectivoGasto) + s.expenses.reduce((e, exp) => e + toN(exp.importe), 0) + (s.gastosCorrientes || []).reduce((e, expense) => e + toN(expense.importe), 0)
-    porDia[key].ingresos += ingreso
-    porDia[key].gastos += gasto
-    if (s.turno === "mañana") porDia[key].mañana += ingreso
-    else porDia[key].tarde += ingreso
+    if (!dailyTotals[key]) dailyTotals[key] = { revenue: 0, expenses: 0, morning: 0, afternoon: 0 }
+    const revenue = sum(s.cash, s.caixaBankAmount, s.santanderAmount)
+    const expense = toN(s.cashExpense) + s.expenses.reduce((e, exp) => e + toN(exp.amount), 0) + (s.currentExpenses || []).reduce((e, expense) => e + toN(expense.amount), 0)
+    dailyTotals[key].revenue += revenue
+    dailyTotals[key].expenses += expense
+    if (s.shift === "mañana") dailyTotals[key].morning += revenue
+    else dailyTotals[key].afternoon += revenue
   }
 
-  const dailyData = Object.entries(porDia).map(([dia, v]) => ({
-    dia,
-    ingresos: toJSON(v.ingresos),
-    gastos: toJSON(v.gastos),
-    mañana: toJSON(v.mañana),
-    tarde: toJSON(v.tarde),
+  const dailyData = Object.entries(dailyTotals).map(([day, totals]) => ({
+    day,
+    revenue: toJSON(totals.revenue),
+    expenses: toJSON(totals.expenses),
+    morning: toJSON(totals.morning),
+    afternoon: toJSON(totals.afternoon),
+    // Legacy response keys are kept for existing dashboard consumers.
+    dia: day,
+    ingresos: toJSON(totals.revenue),
+    gastos: toJSON(totals.expenses),
+    mañana: toJSON(totals.morning),
+    tarde: toJSON(totals.afternoon),
   }))
 
-  const morningTotal = shifts
-    .filter((s) => s.turno === "mañana")
-    .reduce((acc, s) => acc + sum(s.efectivo, s.caixa, s.santander), 0)
-  const afternoonTotal = shifts
-    .filter((s) => s.turno === "tarde")
-    .reduce((acc, s) => acc + sum(s.efectivo, s.caixa, s.santander), 0)
+  const morningRevenue = shifts
+    .filter((s) => s.shift === "mañana")
+    .reduce((acc, s) => acc + sum(s.cash, s.caixaBankAmount, s.santanderAmount), 0)
+  const afternoonRevenue = shifts
+    .filter((s) => s.shift === "tarde")
+    .reduce((acc, s) => acc + sum(s.cash, s.caixaBankAmount, s.santanderAmount), 0)
 
-  const turnoData = [
-    { name: "Mañana", value: toJSON(morningTotal) },
-    { name: "Tarde", value: toJSON(afternoonTotal) },
+  const shiftData = [
+    { name: "Mañana", value: toJSON(morningRevenue) },
+    { name: "Tarde", value: toJSON(afternoonRevenue) },
   ]
 
-  const gastosPorProveedor: Record<string, number> = {}
+  const expensesBySupplier: Record<string, number> = {}
   for (const s of shifts) {
     for (const e of s.expenses) {
-      gastosPorProveedor[e.proveedor] = (gastosPorProveedor[e.proveedor] || 0) + toN(e.importe)
+      expensesBySupplier[e.supplier] = (expensesBySupplier[e.supplier] || 0) + toN(e.amount)
     }
-    for (const e of s.gastosCorrientes || []) {
-      const label = `Gasto corriente · ${e.categoria.nombre}`
-      gastosPorProveedor[label] = (gastosPorProveedor[label] || 0) + toN(e.importe)
+    for (const e of s.currentExpenses || []) {
+      const label = `Gasto corriente · ${e.category.name}`
+      expensesBySupplier[label] = (expensesBySupplier[label] || 0) + toN(e.amount)
     }
   }
-  const expenseData = Object.entries(gastosPorProveedor)
-    .map(([proveedor, total]) => ({
-      proveedor,
+  const expenseData = Object.entries(expensesBySupplier)
+    .map(([supplier, total]) => ({
+      supplier,
+      proveedor: supplier,
       total: toJSON(total),
     }))
     .sort((a, b) => b.total - a.total)
 
-  const exportData = shifts.map((s) => ({
-    fecha: new Date(s.date).toLocaleDateString("es-ES"),
-    turno: s.turno,
-    estado: s.status,
-    creadoPor: s.createdBy?.name || "",
-    fondoInicial: toJSON(s.fondoInicial),
-    efectivo: toJSON(s.efectivo),
-    caixa: toJSON(s.caixa),
-    santander: toJSON(s.santander),
-    efectivoGasto: toJSON(s.efectivoGasto),
-    fondoFinal: toJSON(s.fondoFinal),
-    totalGastos: s.expenses.reduce((e, exp) => e + toN(exp.importe), 0) + (s.gastosCorrientes || []).reduce((e, expense) => e + toN(expense.importe), 0),
-    gastos: [...s.expenses.map((e) => `${e.proveedor}: ${toFixed(e.importe)}`), ...(s.gastosCorrientes || []).map((e) => `${e.concepto}: ${toFixed(e.importe)}`)].join("; "),
+  const exportRows = shifts.map((s) => ({
+    date: new Date(s.date).toLocaleDateString("es-ES"),
+    shift: s.shift,
+    status: s.status,
+    createdBy: s.createdBy?.name || "",
+    openingFund: toJSON(s.openingFund),
+    cash: toJSON(s.cash),
+    caixaBankAmount: toJSON(s.caixaBankAmount),
+    santanderAmount: toJSON(s.santanderAmount),
+    cashExpense: toJSON(s.cashExpense),
+    closingFund: toJSON(s.closingFund),
+    totalExpenses: s.expenses.reduce((e, exp) => e + toN(exp.amount), 0) + (s.currentExpenses || []).reduce((e, expense) => e + toN(expense.amount), 0),
+    expenses: [...s.expenses.map((e) => `${e.supplier}: ${toFixed(e.amount)}`), ...(s.currentExpenses || []).map((e) => `${e.concept}: ${toFixed(e.amount)}`)].join("; "),
   }))
 
-  const exportExpenses = shifts.flatMap((s) =>
+  const exportExpenseRows = shifts.flatMap((s) =>
     [
       ...s.expenses.map((e) => ({
-        fecha: new Date(s.date).toLocaleDateString("es-ES"),
-        turno: s.turno,
-        concepto: "",
-        proveedor: e.proveedor,
-        importe: toN(e.importe),
-        creadoPor: s.createdBy?.name || "",
+        date: new Date(s.date).toLocaleDateString("es-ES"),
+        shift: s.shift,
+        concept: "",
+        supplier: e.supplier,
+        amount: toN(e.amount),
+        createdBy: s.createdBy?.name || "",
       })),
-      ...(s.gastosCorrientes || []).map((e) => ({
-        fecha: new Date(s.date).toLocaleDateString("es-ES"),
-        turno: s.turno,
-        concepto: e.concepto,
-        proveedor: `Gasto corriente · ${e.categoria.nombre}`,
-        importe: toN(e.importe),
-        creadoPor: s.createdBy?.name || "",
+      ...(s.currentExpenses || []).map((e) => ({
+        date: new Date(s.date).toLocaleDateString("es-ES"),
+        shift: s.shift,
+        concept: e.concept,
+        supplier: `Gasto corriente · ${e.category.name}`,
+        amount: toN(e.amount),
+        createdBy: s.createdBy?.name || "",
       })),
     ]
   )
 
+  const exportData = exportRows.map((row) => ({
+    fecha: row.date,
+    turno: row.shift,
+    estado: row.status,
+    creadoPor: row.createdBy,
+    fondoInicial: row.openingFund,
+    efectivo: row.cash,
+    caixa: row.caixaBankAmount,
+    santander: row.santanderAmount,
+    efectivoGasto: row.cashExpense,
+    fondoFinal: row.closingFund,
+    totalGastos: row.totalExpenses,
+    gastos: row.expenses,
+  }))
+
+  const exportExpenses = exportExpenseRows.map((row) => ({
+    fecha: row.date,
+    turno: row.shift,
+    concepto: row.concept,
+    proveedor: row.supplier,
+    importe: row.amount,
+    creadoPor: row.createdBy,
+  }))
+
+  const summary = {
+    totalShifts: shifts.length,
+    totalRevenue: toJSON(totalRevenue),
+    totalExpenses: toJSON(totalExpenses),
+    netProfit: toJSON(netProfit),
+  }
+
   return NextResponse.json({
+    summary,
     resumen: {
-      totalTurnos: shifts.length,
-      totalIngresos: toJSON(totalIngresos),
-      totalGastos: toJSON(totalGastos),
-      beneficioNeto: toJSON(beneficioNeto),
+      ...summary,
+      totalTurnos: summary.totalShifts,
+      totalIngresos: toJSON(totalRevenue),
+      totalGastos: toJSON(totalExpenses),
+      beneficioNeto: toJSON(netProfit),
     },
     dailyData,
-    turnoData,
+    shiftData,
+    turnoData: shiftData,
     expenseData,
     exportData,
     exportExpenses,

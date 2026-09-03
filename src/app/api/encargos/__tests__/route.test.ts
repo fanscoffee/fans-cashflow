@@ -50,7 +50,7 @@ describe("Orders API /api/encargos", () => {
       expect(prisma.order.findMany).toHaveBeenCalled()
     })
 
-    it("filters by deliveryDate for EMPLEADO", async () => {
+    it("filters by deliveryDate for EMPLOYEE", async () => {
       vi.mocked(auth).mockResolvedValue({
         user: { id: "2", role: "EMPLEADO" },
       } as any)

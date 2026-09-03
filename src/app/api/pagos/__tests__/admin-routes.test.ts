@@ -7,19 +7,19 @@ const auditPaymentEvent = vi.hoisted(() => vi.fn())
 vi.mock("@/lib/auth", () => ({ auth: vi.fn() }))
 vi.mock("@/lib/prisma", () => ({
   prisma: {
-    medioPago: { findMany: vi.fn(), create: vi.fn() },
-    cuentaFondos: { findMany: vi.fn() },
-    categoriaGasto: { findMany: vi.fn(), create: vi.fn() },
-    acreedor: { findMany: vi.fn(), create: vi.fn() },
-    asignacionPagoUsuario: { findMany: vi.fn(), create: vi.fn() },
-    parametroAutorizacion: { findMany: vi.fn(), findFirst: vi.fn() },
-    reglaAutorizacion: { findMany: vi.fn(), create: vi.fn() },
-    movimientoFondos: { create: vi.fn() },
+    paymentMethod: { findMany: vi.fn(), create: vi.fn() },
+    fundsAccount: { findMany: vi.fn() },
+    expenseCategory: { findMany: vi.fn(), create: vi.fn() },
+    creditor: { findMany: vi.fn(), create: vi.fn() },
+    userPaymentAssignment: { findMany: vi.fn(), create: vi.fn() },
+    authorizationParameter: { findMany: vi.fn(), findFirst: vi.fn() },
+    authorizationRule: { findMany: vi.fn(), create: vi.fn() },
+    fundsMovement: { create: vi.fn() },
     $transaction: vi.fn(),
   },
 }))
-vi.mock("@/lib/pagos", async () => {
-  const actual = await vi.importActual<typeof import("@/lib/pagos")>("@/lib/pagos")
+vi.mock("@/lib/payments", async () => {
+  const actual = await vi.importActual<typeof import("@/lib/payments")>("@/lib/payments")
   return { ...actual, requirePaymentFunction, auditPaymentEvent }
 })
 
@@ -34,10 +34,10 @@ import { auth } from "@/lib/auth"
 import { prisma } from "@/lib/prisma"
 
 const tx = {
-  cuentaFondos: { create: vi.fn() },
-  movimientoFondos: { create: vi.fn() },
-  parametroAutorizacion: { updateMany: vi.fn(), create: vi.fn() },
-  eventoAuditoria: { create: vi.fn() },
+  fundsAccount: { create: vi.fn() },
+  fundsMovement: { create: vi.fn() },
+  authorizationParameter: { updateMany: vi.fn(), create: vi.fn() },
+  auditEvent: { create: vi.fn() },
 }
 
 function request(url: string, method = "GET", body?: unknown) {
@@ -58,110 +58,111 @@ describe("payment configuration routes", () => {
   })
 
   it("loads the payment configuration for an entity", async () => {
-    vi.mocked(prisma.categoriaGasto.findMany).mockResolvedValue([{ id: "cat-1" }] as any)
-    vi.mocked(prisma.acreedor.findMany).mockResolvedValue([{ id: "creditor-1" }] as any)
-    vi.mocked(prisma.cuentaFondos.findMany).mockResolvedValue([{ id: "account-1" }] as any)
-    vi.mocked(prisma.medioPago.findMany).mockResolvedValue([{ id: "method-1" }] as any)
+    vi.mocked(prisma.expenseCategory.findMany).mockResolvedValue([{ id: "cat-1" }] as any)
+    vi.mocked(prisma.creditor.findMany).mockResolvedValue([{ id: "creditor-1" }] as any)
+    vi.mocked(prisma.fundsAccount.findMany).mockResolvedValue([{ id: "account-1" }] as any)
+    vi.mocked(prisma.paymentMethod.findMany).mockResolvedValue([{ id: "method-1" }] as any)
 
     const response = await getConfiguration(request("http://localhost/api/pagos/configuracion?entidad=CAFETERIA"))
 
     expect(response.status).toBe(200)
     await expect(response.json()).resolves.toEqual({
-      categorias: [{ id: "cat-1" }],
-      acreedores: [{ id: "creditor-1" }],
-      cuentas: [{ id: "account-1" }],
-      medios: [{ id: "method-1" }],
+      categories: [{ id: "cat-1" }],
+      creditors: [{ id: "creditor-1" }],
+      accounts: [{ id: "account-1" }],
+      paymentMethods: [{ id: "method-1" }],
+      entities: ["BAKERY", "COFFEE_SHOP"],
       entidades: ["OBRADOR", "CAFETERIA"],
     })
   })
 
   it("lists and creates methods, categories, creditors and assignments", async () => {
-    vi.mocked(prisma.medioPago.findMany).mockResolvedValue([{ id: "method-1" }] as any)
+    vi.mocked(prisma.paymentMethod.findMany).mockResolvedValue([{ id: "method-1" }] as any)
     expect((await getMethods(request("http://localhost/api/pagos/medios"))).status).toBe(200)
-    vi.mocked(prisma.medioPago.create).mockResolvedValue({ id: "method-1" } as any)
+    vi.mocked(prisma.paymentMethod.create).mockResolvedValue({ id: "method-1" } as any)
     expect((await postMethod(request("http://localhost/api/pagos/medios", "POST", {
       id: "method-1",
-      tipo: "TRANSFERENCIA",
+      type: "TRANSFERENCIA",
     }))).status).toBe(201)
 
-    vi.mocked(prisma.categoriaGasto.findMany).mockResolvedValue([{ id: "cat-1" }] as any)
+    vi.mocked(prisma.expenseCategory.findMany).mockResolvedValue([{ id: "cat-1" }] as any)
     expect((await getCategories(request("http://localhost/api/pagos/categorias"))).status).toBe(200)
-    vi.mocked(prisma.categoriaGasto.create).mockResolvedValue({ id: "cat-1" } as any)
+    vi.mocked(prisma.expenseCategory.create).mockResolvedValue({ id: "cat-1" } as any)
     expect((await postCategory(request("http://localhost/api/pagos/categorias", "POST", {
-      codigo: "SUM",
-      nombre: "Suministros",
+      code: "SUM",
+      name: "Suministros",
     }))).status).toBe(201)
 
-    vi.mocked(prisma.acreedor.findMany).mockResolvedValue([{ id: "creditor-1" }] as any)
+    vi.mocked(prisma.creditor.findMany).mockResolvedValue([{ id: "creditor-1" }] as any)
     expect((await getCreditors(request("http://localhost/api/pagos/acreedores"))).status).toBe(200)
-    vi.mocked(prisma.acreedor.create).mockResolvedValue({ id: "creditor-1" } as any)
+    vi.mocked(prisma.creditor.create).mockResolvedValue({ id: "creditor-1" } as any)
     expect((await postCreditor(request("http://localhost/api/pagos/acreedores", "POST", {
-      codigo: "SERV-1",
-      tipo: "SERVICIOS",
-      nombre: "Servicio local",
+      code: "SERV-1",
+      type: "SERVICIOS",
+      name: "Servicio local",
     }))).status).toBe(201)
 
-    vi.mocked(prisma.asignacionPagoUsuario.findMany).mockResolvedValue([{ id: "assignment-1" }] as any)
+    vi.mocked(prisma.userPaymentAssignment.findMany).mockResolvedValue([{ id: "assignment-1" }] as any)
     expect((await getAssignments(request("http://localhost/api/pagos/asignaciones"))).status).toBe(200)
-    vi.mocked(prisma.asignacionPagoUsuario.create).mockResolvedValue({ id: "assignment-1" } as any)
+    vi.mocked(prisma.userPaymentAssignment.create).mockResolvedValue({ id: "assignment-1" } as any)
     expect((await postAssignment(request("http://localhost/api/pagos/asignaciones", "POST", {
       userId: "user-1",
-      funcion: "SOLICITAR",
+      function: "SOLICITAR",
     }))).status).toBe(201)
     expect(auditPaymentEvent).toHaveBeenCalled()
   })
 
   it("validates and creates fund accounts with an opening movement", async () => {
-    vi.mocked(prisma.cuentaFondos.findMany).mockResolvedValue([{ id: "account-1" }] as any)
+    vi.mocked(prisma.fundsAccount.findMany).mockResolvedValue([{ id: "account-1" }] as any)
     expect((await getAccounts(request("http://localhost/api/pagos/cuentas?entidad=OBRADOR"))).status).toBe(200)
 
     const missingFixedFund = await postAccount(request("http://localhost/api/pagos/cuentas", "POST", {
       id: "cash-1",
-      tipo: "CAJA_CHICA",
-      entidad: "OBRADOR",
-      descripcion: "Caja chica",
-      responsableId: "user-1",
+      type: "CAJA_CHICA",
+      entity: "OBRADOR",
+      description: "Caja chica",
+      responsibleUserId: "user-1",
     }))
     expect(missingFixedFund.status).toBe(400)
 
-    vi.mocked(tx.cuentaFondos.create).mockResolvedValue({ id: "account-1", tipo: "BANCO", entidad: "OBRADOR" } as any)
+    vi.mocked(tx.fundsAccount.create).mockResolvedValue({ id: "account-1", type: "BANCO", entity: "OBRADOR" } as any)
     const response = await postAccount(request("http://localhost/api/pagos/cuentas", "POST", {
       id: "account-1",
-      tipo: "BANCO",
-      entidad: "OBRADOR",
-      descripcion: "Banco principal",
-      responsableId: "user-1",
-      saldoInicial: 100,
+      type: "BANCO",
+      entity: "OBRADOR",
+      description: "Banco principal",
+      responsibleUserId: "user-1",
+      balanceInicial: 100,
     }))
     expect(response.status).toBe(201)
-    expect(tx.movimientoFondos.create).toHaveBeenCalledWith(expect.objectContaining({
-      data: expect.objectContaining({ tipo: "ENTRADA_DOTACION", importe: 100 }),
+    expect(tx.fundsMovement.create).toHaveBeenCalledWith(expect.objectContaining({
+      data: expect.objectContaining({ type: "ALLOCATION_INFLOW", amount: 100 }),
     }))
   })
 
   it("lists and versions authorization parameters and rules", async () => {
-    vi.mocked(prisma.parametroAutorizacion.findMany).mockResolvedValue([{ id: "parameter-1" }] as any)
-    vi.mocked(prisma.reglaAutorizacion.findMany).mockResolvedValue([{ id: "rule-1" }] as any)
+    vi.mocked(prisma.authorizationParameter.findMany).mockResolvedValue([{ id: "parameter-1" }] as any)
+    vi.mocked(prisma.authorizationRule.findMany).mockResolvedValue([{ id: "rule-1" }] as any)
     expect((await getParameters(request("http://localhost/api/pagos/parametros"))).status).toBe(200)
 
-    vi.mocked(prisma.parametroAutorizacion.findFirst).mockResolvedValue({ version: 2 } as any)
-    vi.mocked(tx.parametroAutorizacion.create).mockResolvedValue({ id: "parameter-3" } as any)
+    vi.mocked(prisma.authorizationParameter.findFirst).mockResolvedValue({ version: 2 } as any)
+    vi.mocked(tx.authorizationParameter.create).mockResolvedValue({ id: "parameter-3" } as any)
     const parameter = await postParameter(request("http://localhost/api/pagos/parametros", "POST", {
-      tipoRegistro: "PARAMETRO",
-      codigo: "LIMITE_PAGO",
-      valorDecimal: 500,
+      recordType: "PARAMETRO",
+      code: "LIMITE_PAGO",
+      decimalValue: 500,
     }))
     expect(parameter.status).toBe(201)
-    expect(tx.parametroAutorizacion.updateMany).toHaveBeenCalled()
-    expect(tx.parametroAutorizacion.create).toHaveBeenCalledWith(expect.objectContaining({
-      data: expect.objectContaining({ version: 3, valorDecimal: 500 }),
+    expect(tx.authorizationParameter.updateMany).toHaveBeenCalled()
+    expect(tx.authorizationParameter.create).toHaveBeenCalledWith(expect.objectContaining({
+      data: expect.objectContaining({ version: 3, decimalValue: 500 }),
     }))
 
-    vi.mocked(prisma.reglaAutorizacion.create).mockResolvedValue({ id: "rule-1" } as any)
+    vi.mocked(prisma.authorizationRule.create).mockResolvedValue({ id: "rule-1" } as any)
     const rule = await postParameter(request("http://localhost/api/pagos/parametros", "POST", {
-      tipoRegistro: "REGLA",
-      importeDesde: 100,
-      funcionRequerida: "AUTORIZAR",
+      recordType: "REGLA",
+      amountFrom: 100,
+      requiredFunction: "AUTORIZAR",
     }))
     expect(rule.status).toBe(201)
   })
