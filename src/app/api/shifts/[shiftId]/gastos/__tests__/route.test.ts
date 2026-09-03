@@ -46,6 +46,7 @@ describe("/api/shifts/[shiftId]/gastos", () => {
   it("allows the employee who owns an open shift to create a current expense", async () => {
     vi.mocked(prisma.categoriaGasto.findUnique).mockResolvedValue({ id: "cat-personal", codigo: "PER", activo: true } as any)
     vi.mocked(prisma.gastoCorriente.create).mockResolvedValue({ id: "expense-1" } as any)
+    vi.mocked(prisma.asignacionPagoUsuario.findFirst).mockResolvedValue(null)
 
     const response = await POST(request({
       categoriaId: "cat-personal",
@@ -63,6 +64,20 @@ describe("/api/shifts/[shiftId]/gastos", () => {
         solicitanteId: "employee-1",
       }),
     })
+  })
+
+  it("does not let an employee register an expense in another employee's shift", async () => {
+    vi.mocked(prisma.shift.findUnique).mockResolvedValue({ id: "shift-1", status: "ABIERTO", createdById: "employee-2" } as any)
+
+    const response = await POST(request({
+      categoriaId: "cat-personal",
+      concepto: "Horas extras del empleado",
+      fechaDevengo: "2026-08-31",
+      importe: 125.5,
+    }), context)
+
+    expect(response.status).toBe(404)
+    expect(prisma.gastoCorriente.create).not.toHaveBeenCalled()
   })
 
   it("rejects creating an expense when the shift is closed", async () => {
