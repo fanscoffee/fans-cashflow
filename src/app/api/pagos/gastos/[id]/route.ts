@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server"
 import { withAuth } from "@/lib/with-auth"
-import { deleteCurrentExpense } from "@/lib/pagos"
-import { paymentErrorResponse } from "@/lib/pagos-http"
+import { deleteCurrentExpense } from "@/lib/payments"
+import { paymentErrorResponse } from "@/lib/payments-http"
 
 export const DELETE = withAuth(async (_req, session, context) => {
   try {

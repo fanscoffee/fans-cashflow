@@ -3,9 +3,11 @@
 import { useForm } from "react-hook-form"
 import { zodResolver } from "@hookform/resolvers/zod"
 import { shiftSchema, type ShiftFormData } from "@/types/shift"
+import { UserRole } from "@/lib/database-enums"
+import { isRole } from "@/lib/roles"
 
 interface OpenShiftFormProps {
-  fondoInicial: number
+  openingFund: number
   hasOpenShift: boolean
   dateStr: string
   userRole?: string
@@ -13,14 +15,14 @@ interface OpenShiftFormProps {
   onSubmit: (data: ShiftFormData) => Promise<void>
 }
 
-export function OpenShiftForm({ fondoInicial, hasOpenShift, dateStr, userRole, onDateChange, onSubmit }: OpenShiftFormProps) {
+export function OpenShiftForm({ openingFund, hasOpenShift, dateStr, userRole, onDateChange, onSubmit }: OpenShiftFormProps) {
   const {
     register,
     handleSubmit,
     formState: { errors, isSubmitting },
   } = useForm<ShiftFormData>({
     resolver: zodResolver(shiftSchema),
-    defaultValues: { turno: "mañana" },
+    defaultValues: { shift: "mañana" },
   })
 
   return (
@@ -31,11 +33,11 @@ export function OpenShiftForm({ fondoInicial, hasOpenShift, dateStr, userRole, o
           <label className="block text-sm font-medium text-gray-700">Fecha</label>
           <input
             type="date"
-            readOnly={userRole === "EMPLEADO"}
+            readOnly={isRole(userRole, UserRole.EMPLOYEE)}
             value={dateStr}
             onChange={onDateChange ? (e) => onDateChange(e.target.value) : undefined}
             className={`mt-1 block w-full rounded-md border px-3 py-2 text-sm shadow-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500 ${
-              userRole === "EMPLEADO"
+              isRole(userRole, UserRole.EMPLOYEE)
                 ? "border-gray-200 bg-gray-50 text-gray-500"
                 : "border-gray-300 text-gray-900"
             }`}
@@ -45,14 +47,14 @@ export function OpenShiftForm({ fondoInicial, hasOpenShift, dateStr, userRole, o
         <div className="min-w-0 flex-1">
           <label className="block text-sm font-medium text-gray-700">Turno</label>
           <select
-            {...register("turno")}
+            {...register("shift")}
             className="mt-1 block w-full rounded-md border border-gray-300 px-3 py-2 text-sm text-gray-900 shadow-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
           >
             <option value="mañana">Mañana</option>
             <option value="tarde">Tarde</option>
           </select>
-          {errors.turno && (
-            <p className="mt-1 text-xs text-red-500">{errors.turno.message}</p>
+          {errors.shift && (
+            <p className="mt-1 text-xs text-red-500">{errors.shift.message}</p>
           )}
         </div>
 
@@ -61,7 +63,7 @@ export function OpenShiftForm({ fondoInicial, hasOpenShift, dateStr, userRole, o
           <input
             type="text"
             readOnly
-            value={fondoInicial.toFixed(2)}
+            value={openingFund.toFixed(2)}
             className="mt-1 block w-full rounded-md border border-gray-200 bg-gray-50 px-3 py-2 text-sm text-gray-500"
           />
         </div>

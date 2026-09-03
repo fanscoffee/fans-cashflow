@@ -2,6 +2,8 @@ import { NextResponse } from "next/server"
 import { z } from "zod"
 import { prisma } from "@/lib/prisma"
 import { withAuth } from "@/lib/with-auth"
+import { UserRole } from "@/lib/database-enums"
+import { hasAnyRole } from "@/lib/roles"
 
 const updateOrderSchema = z.object({
   clientName: z.string().trim().min(1).max(160).optional(),
@@ -24,7 +26,7 @@ export const PATCH = withAuth(async (req, session, context) => {
     const data = updateOrderSchema.parse(body)
 
     const hasDataFields = dataFields.some((f) => data[f as keyof typeof data] !== undefined)
-    if (hasDataFields && role !== "ADMIN" && role !== "SOCIO") {
+    if (hasDataFields && !hasAnyRole(role, [UserRole.ADMIN, UserRole.PARTNER])) {
       return NextResponse.json({ error: "No autorizado" }, { status: 403 })
     }
 
@@ -63,7 +65,7 @@ export const PATCH = withAuth(async (req, session, context) => {
 
 export const DELETE = withAuth(async (req, session, context) => {
   const role = session.user.role
-  if (role !== "ADMIN" && role !== "SOCIO") {
+  if (!hasAnyRole(role, [UserRole.ADMIN, UserRole.PARTNER])) {
     return NextResponse.json({ error: "No autorizado" }, { status: 403 })
   }
 

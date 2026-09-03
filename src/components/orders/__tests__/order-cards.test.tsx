@@ -51,10 +51,10 @@ describe("OrderCards", () => {
     expect(actionButtons.length).toBe(2)
   })
 
-  it("shows Pagado badge when order is paid", () => {
+  it("shows the paid badge when an order is paid", () => {
     render(<OrderCards {...defaultProps} />)
-    const pagadoBadges = screen.getAllByText("Pagado")
-    expect(pagadoBadges.length).toBeGreaterThanOrEqual(1)
+    const paidBadges = screen.getAllByText("Pagado")
+    expect(paidBadges.length).toBeGreaterThanOrEqual(1)
   })
 
   it("hides buttons when not permitted", () => {

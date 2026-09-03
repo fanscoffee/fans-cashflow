@@ -1,27 +1,27 @@
 export type ProductPricingInput = {
-  costeSinIva?: unknown
-  ivaCompraPct?: unknown
-  ivaVentaPct?: unknown
-  ivaPct?: unknown
-  metodoPrecio?: unknown
-  margenObjetivoPct?: unknown
-  pvpVentaConIva?: unknown
+  costSinVat?: unknown
+  purchaseVatPercentage?: unknown
+  salesVatPercentage?: unknown
+  vatPercentage?: unknown
+  pricingMethod?: unknown
+  targetMarginPercentage?: unknown
+  retailPriceIncludingVat?: unknown
 }
 
 export type ProductPricing = {
-  ivaCompraPct: number | null
-  ivaVentaPct: number | null
-  ivaPct: number | null
-  costeConIva: number | null
-  pvpObjetivoConIva: number | null
-  pvpFijoConIva: number | null
-  pvpAplicadoConIva: number | null
-  pvpVentaSinIva: number | null
-  gananciaEurUd: number | null
-  margenRealPct: number | null
-  desviacionPp: number | null
-  diferenciaEurUd: number | null
-  diagnosticoPrecio: string | null
+  purchaseVatPercentage: number | null
+  salesVatPercentage: number | null
+  vatPercentage: number | null
+  costIncludingVat: number | null
+  targetRetailPriceIncludingVat: number | null
+  fixedRetailPriceIncludingVat: number | null
+  appliedRetailPriceIncludingVat: number | null
+  retailPriceExcludingVat: number | null
+  profitPerUnit: number | null
+  actualMarginPercentage: number | null
+  percentagePointDeviation: number | null
+  unitDifference: number | null
+  pricingDiagnosis: string | null
 }
 
 function toNullableNumber(value: unknown) {
@@ -36,77 +36,77 @@ function round(value: number, decimals: number) {
 }
 
 export function calculateProductPricing(input: ProductPricingInput): ProductPricing {
-  const legacyIva = toNullableNumber(input.ivaPct)
-  const ivaCompraPct = input.ivaCompraPct === undefined ? legacyIva : toNullableNumber(input.ivaCompraPct)
-  const ivaVentaPct = input.ivaVentaPct === undefined ? legacyIva : toNullableNumber(input.ivaVentaPct)
-  const costeSinIva = toNullableNumber(input.costeSinIva)
-  const metodoPrecio = input.metodoPrecio === undefined ? null : String(input.metodoPrecio).trim().toUpperCase()
-  const margenObjetivoPct = toNullableNumber(input.margenObjetivoPct)
-  const pvpVentaConIva = toNullableNumber(input.pvpVentaConIva)
+  const legacyVat = toNullableNumber(input.vatPercentage)
+  const purchaseVatPercentage = input.purchaseVatPercentage === undefined ? legacyVat : toNullableNumber(input.purchaseVatPercentage)
+  const salesVatPercentage = input.salesVatPercentage === undefined ? legacyVat : toNullableNumber(input.salesVatPercentage)
+  const costSinVat = toNullableNumber(input.costSinVat)
+  const pricingMethod = input.pricingMethod === undefined ? null : String(input.pricingMethod).trim().toUpperCase()
+  const targetMarginPercentage = toNullableNumber(input.targetMarginPercentage)
+  const retailPriceIncludingVat = toNullableNumber(input.retailPriceIncludingVat)
 
-  const costeConIva = costeSinIva !== null && ivaCompraPct !== null
-    ? round(costeSinIva * (1 + ivaCompraPct / 100), 4)
-    : null
-
-  const pvpObjetivoSinIva = costeSinIva !== null && margenObjetivoPct !== null && margenObjetivoPct < 100
-    ? costeSinIva / (1 - margenObjetivoPct / 100)
-    : null
-  const pvpObjetivoConIva = pvpObjetivoSinIva !== null && ivaVentaPct !== null && ivaVentaPct !== -100
-    ? round(pvpObjetivoSinIva * (1 + ivaVentaPct / 100), 4)
+  const costIncludingVat = costSinVat !== null && purchaseVatPercentage !== null
+    ? round(costSinVat * (1 + purchaseVatPercentage / 100), 4)
     : null
 
-  const pvpFijoConIva = metodoPrecio === "FIJO" ? pvpVentaConIva : null
-  const pvpAplicadoConIva = metodoPrecio === "MARGEN"
-    ? pvpObjetivoConIva
-    : metodoPrecio === "FIJO"
-      ? pvpFijoConIva
-      : pvpVentaConIva
-  const pvpVentaSinIvaValue = pvpAplicadoConIva !== null && ivaVentaPct !== null && ivaVentaPct !== -100
-    ? pvpAplicadoConIva / (1 + ivaVentaPct / 100)
+  const targetRetailPriceExcludingVat = costSinVat !== null && targetMarginPercentage !== null && targetMarginPercentage < 100
+    ? costSinVat / (1 - targetMarginPercentage / 100)
     : null
-  const pvpVentaSinIva = pvpVentaSinIvaValue === null ? null : round(pvpVentaSinIvaValue, 4)
-  const gananciaValue = costeSinIva !== null && pvpVentaSinIvaValue !== null
-    ? pvpVentaSinIvaValue - costeSinIva
+  const targetRetailPriceIncludingVat = targetRetailPriceExcludingVat !== null && salesVatPercentage !== null && salesVatPercentage !== -100
+    ? round(targetRetailPriceExcludingVat * (1 + salesVatPercentage / 100), 4)
     : null
-  const gananciaEurUd = gananciaValue === null ? null : round(gananciaValue, 4)
-  const margenRealPct = gananciaValue !== null && pvpVentaSinIvaValue !== null && pvpVentaSinIvaValue !== 0
-    ? round((gananciaValue / pvpVentaSinIvaValue) * 100, 2)
+
+  const fixedRetailPriceIncludingVat = pricingMethod === "FIJO" ? retailPriceIncludingVat : null
+  const appliedRetailPriceIncludingVat = pricingMethod === "MARGEN"
+    ? targetRetailPriceIncludingVat
+    : pricingMethod === "FIJO"
+      ? fixedRetailPriceIncludingVat
+      : retailPriceIncludingVat
+  const retailPriceExcludingVatValue = appliedRetailPriceIncludingVat !== null && salesVatPercentage !== null && salesVatPercentage !== -100
+    ? appliedRetailPriceIncludingVat / (1 + salesVatPercentage / 100)
     : null
-  const desviacionPp = margenRealPct !== null && margenObjetivoPct !== null && pvpObjetivoConIva !== null
-    ? round(margenRealPct - margenObjetivoPct, 2)
+  const retailPriceExcludingVat = retailPriceExcludingVatValue === null ? null : round(retailPriceExcludingVatValue, 4)
+  const profitValue = costSinVat !== null && retailPriceExcludingVatValue !== null
+    ? retailPriceExcludingVatValue - costSinVat
     : null
-  const diferenciaEurUd = pvpAplicadoConIva !== null && pvpObjetivoConIva !== null
-    ? round(pvpAplicadoConIva - pvpObjetivoConIva, 4)
+  const profitPerUnit = profitValue === null ? null : round(profitValue, 4)
+  const actualMarginPercentage = profitValue !== null && retailPriceExcludingVatValue !== null && retailPriceExcludingVatValue !== 0
+    ? round((profitValue / retailPriceExcludingVatValue) * 100, 2)
     : null
-  const diagnosticoPrecio = margenObjetivoPct === null
+  const percentagePointDeviation = actualMarginPercentage !== null && targetMarginPercentage !== null && targetRetailPriceIncludingVat !== null
+    ? round(actualMarginPercentage - targetMarginPercentage, 2)
+    : null
+  const unitDifference = appliedRetailPriceIncludingVat !== null && targetRetailPriceIncludingVat !== null
+    ? round(appliedRetailPriceIncludingVat - targetRetailPriceIncludingVat, 4)
+    : null
+  const pricingDiagnosis = targetMarginPercentage === null
     ? "SIN OBJETIVO"
-    : pvpObjetivoConIva === null || margenRealPct === null || desviacionPp === null
+    : targetRetailPriceIncludingVat === null || actualMarginPercentage === null || percentagePointDeviation === null
       ? "FALTAN DATOS"
-      : margenRealPct < 0
+      : actualMarginPercentage < 0
         ? "PERDIDA"
-        : desviacionPp < -15
+        : percentagePointDeviation < -15
           ? "MUY POR DEBAJO"
-          : desviacionPp < -5
+          : percentagePointDeviation < -5
             ? "POR DEBAJO"
-            : desviacionPp < -2
+            : percentagePointDeviation < -2
               ? "AJUSTADO"
-              : desviacionPp <= 5
+              : percentagePointDeviation <= 5
                 ? "EN OBJETIVO"
                 : "POR ENCIMA"
 
   return {
-    ivaCompraPct,
-    ivaVentaPct,
-    ivaPct: ivaVentaPct,
-    costeConIva,
-    pvpObjetivoConIva,
-    pvpFijoConIva,
-    pvpAplicadoConIva,
-    pvpVentaSinIva,
-    gananciaEurUd,
-    margenRealPct,
-    desviacionPp,
-    diferenciaEurUd,
-    diagnosticoPrecio,
+    purchaseVatPercentage,
+    salesVatPercentage,
+    vatPercentage: salesVatPercentage,
+    costIncludingVat,
+    targetRetailPriceIncludingVat,
+    fixedRetailPriceIncludingVat,
+    appliedRetailPriceIncludingVat,
+    retailPriceExcludingVat,
+    profitPerUnit,
+    actualMarginPercentage,
+    percentagePointDeviation,
+    unitDifference,
+    pricingDiagnosis,
   }
 }

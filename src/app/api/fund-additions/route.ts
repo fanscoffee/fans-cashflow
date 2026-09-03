@@ -3,6 +3,8 @@ import { z } from "zod"
 import { Prisma } from "@/generated/prisma/client"
 import { prisma } from "@/lib/prisma"
 import { withAuth } from "@/lib/with-auth"
+import { UserRole } from "@/lib/database-enums"
+import { hasAnyRole } from "@/lib/roles"
 
 const fundAdditionSchema = z.object({
   amount: z.number().finite().min(0.01, "El monto debe ser mayor a 0").max(1_000_000_000),
@@ -10,7 +12,7 @@ const fundAdditionSchema = z.object({
 })
 
 export const GET = withAuth(async (_req, session) => {
-  if (session.user.role !== "SOCIO" && session.user.role !== "ADMIN") {
+  if (!hasAnyRole(session.user.role, [UserRole.PARTNER, UserRole.ADMIN])) {
     return NextResponse.json({ error: "No autorizado" }, { status: 403 })
   }
 
@@ -23,7 +25,7 @@ export const GET = withAuth(async (_req, session) => {
 })
 
 export const POST = withAuth(async (req, session) => {
-  if (session.user.role !== "SOCIO" && session.user.role !== "ADMIN") {
+  if (!hasAnyRole(session.user.role, [UserRole.PARTNER, UserRole.ADMIN])) {
     return NextResponse.json({ error: "No autorizado" }, { status: 403 })
   }
 
@@ -49,8 +51,8 @@ export const POST = withAuth(async (req, session) => {
         await tx.shift.update({
           where: { id: openShift.id },
           data: {
-            fondoInicial: { increment: data.amount },
-            fondoFinal: { increment: data.amount },
+            openingFund: { increment: data.amount },
+            closingFund: { increment: data.amount },
           },
         })
       }

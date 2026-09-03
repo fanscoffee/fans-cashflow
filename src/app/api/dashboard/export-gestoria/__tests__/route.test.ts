@@ -4,8 +4,8 @@ import type { NextRequest } from "next/server"
 
 vi.mock("@/lib/prisma", () => ({
   prisma: {
-    factura: { findMany: vi.fn() },
-    gastoCorriente: { findMany: vi.fn() },
+    invoice: { findMany: vi.fn() },
+    currentExpense: { findMany: vi.fn() },
     expense: { findMany: vi.fn() },
   },
 }))
@@ -25,8 +25,8 @@ function request(url: string) {
 describe("Dashboard API /api/dashboard/export-gestoria", () => {
   beforeEach(() => {
     vi.clearAllMocks()
-    vi.mocked(prisma.factura.findMany).mockResolvedValue([])
-    vi.mocked(prisma.gastoCorriente.findMany).mockResolvedValue([])
+    vi.mocked(prisma.invoice.findMany).mockResolvedValue([])
+    vi.mocked(prisma.currentExpense.findMany).mockResolvedValue([])
     vi.mocked(prisma.expense.findMany).mockResolvedValue([])
   })
 
@@ -42,7 +42,7 @@ describe("Dashboard API /api/dashboard/export-gestoria", () => {
     vi.mocked(auth).mockResolvedValue({ user: { id: "1", role: "ADMIN" } } as any)
     const response = await GET(request("http://localhost/api/dashboard/export-gestoria?month=13&year=2026"))
     expect(response.status).toBe(400)
-    expect(prisma.factura.findMany).not.toHaveBeenCalled()
+    expect(prisma.invoice.findMany).not.toHaveBeenCalled()
   })
 
   it("returns an xlsx workbook for the requested period", async () => {
@@ -56,9 +56,9 @@ describe("Dashboard API /api/dashboard/export-gestoria", () => {
     const workbook = new ExcelJS.Workbook()
     await workbook.xlsx.load(await response.arrayBuffer())
     expect(workbook.getWorksheet("Gastos y Compras Fans")).toBeDefined()
-    expect(prisma.factura.findMany).toHaveBeenCalledWith(expect.objectContaining({
+    expect(prisma.invoice.findMany).toHaveBeenCalledWith(expect.objectContaining({
       where: expect.objectContaining({
-        fechaExpedicion: {
+        issueDate: {
           gte: new Date("2026-07-01T00:00:00.000Z"),
           lt: new Date("2026-08-01T00:00:00.000Z"),
         },

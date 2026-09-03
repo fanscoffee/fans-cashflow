@@ -7,18 +7,18 @@ const mockShifts = [
   {
     id: "s1",
     date: "2026-07-22",
-    turno: "mañana",
+    shift: "mañana",
     status: "CERRADO",
-    efectivo: 500,
+    cash: 500,
     cashTracking: { id: "ct1", destination: "DEPOSITO", createdBy: { name: "Socio", email: "socio@test.com" } },
     createdBy: { name: "Empleado 1", email: "emp@test.com" },
   },
   {
     id: "s2",
     date: "2026-07-22",
-    turno: "tarde",
+    shift: "tarde",
     status: "CERRADO",
-    efectivo: 300,
+    cash: 300,
     cashTracking: null,
     createdBy: { name: "Empleado 2", email: "emp2@test.com" },
   },
@@ -52,11 +52,11 @@ vi.mock("@/components/app-header", () => ({
   ),
 }))
 
-import EfectivoPage from "../page"
+import CashPage from "../page"
 
 describe("EfectivoPage", () => {
   it("renders page title and subtitle", async () => {
-    render(<EfectivoPage />)
+    render(<CashPage />)
     await waitFor(() => {
       expect(screen.getByText("Tracking de Efectivo")).toBeInTheDocument()
     })
@@ -64,12 +64,12 @@ describe("EfectivoPage", () => {
   })
 
   it("shows loading state initially", () => {
-    render(<EfectivoPage />)
+    render(<CashPage />)
     expect(screen.getByText("Cargando...")).toBeInTheDocument()
   })
 
   it("renders shift data after loading", async () => {
-    render(<EfectivoPage />)
+    render(<CashPage />)
     await waitFor(() => {
       expect(screen.getByText("Tracking de Efectivo")).toBeInTheDocument()
     })
@@ -77,14 +77,14 @@ describe("EfectivoPage", () => {
   })
 
   it("renders month and year selectors", async () => {
-    render(<EfectivoPage />)
+    render(<CashPage />)
     await waitFor(() => {
       expect(screen.getByText("Efectivo por Turno")).toBeInTheDocument()
     })
   })
 
   it("shows export button", async () => {
-    render(<EfectivoPage />)
+    render(<CashPage />)
     await waitFor(() => {
       expect(screen.getByText("Exportar")).toBeInTheDocument()
     })
@@ -92,7 +92,7 @@ describe("EfectivoPage", () => {
 
   it("shows empty state when no shifts", async () => {
     server.use(http.get("/api/cash-tracking", () => HttpResponse.json([])))
-    render(<EfectivoPage />)
+    render(<CashPage />)
     await waitFor(() => {
       expect(screen.getByText("No hay turnos para este período.")).toBeInTheDocument()
     })

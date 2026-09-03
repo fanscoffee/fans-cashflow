@@ -6,12 +6,14 @@ import { zodResolver } from "@hookform/resolvers/zod"
 import { z } from "zod"
 import { useSession } from "next-auth/react"
 import AppHeader from "@/components/app-header"
+import { UserRole } from "@/lib/database-enums"
+import { normalizeRole } from "@/lib/roles"
 
 const userSchema = z.object({
   name: z.string().min(2, "El nombre debe tener al menos 2 caracteres"),
   email: z.string().email("Email no válido"),
   password: z.string().min(6, "La contraseña debe tener al menos 6 caracteres"),
-  role: z.enum(["ADMIN", "SOCIO", "EMPLEADO", "OBRADOR"]),
+  role: z.enum([UserRole.ADMIN, UserRole.PARTNER, UserRole.EMPLOYEE, UserRole.BAKERY]),
 })
 
 type UserFormData = z.infer<typeof userSchema>
@@ -25,16 +27,16 @@ interface User {
 
 const ROLE_LABELS: Record<string, string> = {
   ADMIN: "Admin",
-  SOCIO: "Socio",
-  EMPLEADO: "Empleado",
-  OBRADOR: "Obrador",
+  PARTNER: "Socio",
+  EMPLOYEE: "Empleado",
+  BAKERY: "Obrador",
 }
 
 const ROLE_COLORS: Record<string, string> = {
   ADMIN: "bg-purple-100 text-purple-800",
-  SOCIO: "bg-blue-100 text-blue-800",
-  EMPLEADO: "bg-green-100 text-green-800",
-  OBRADOR: "bg-orange-100 text-orange-800",
+  PARTNER: "bg-blue-100 text-blue-800",
+  EMPLOYEE: "bg-green-100 text-green-800",
+  BAKERY: "bg-orange-100 text-orange-800",
 }
 
 export default function AdminPage() {
@@ -71,7 +73,7 @@ export default function AdminPage() {
     formState: { errors, isSubmitting },
   } = useForm<UserFormData>({
     resolver: zodResolver(userSchema),
-    defaultValues: { role: "EMPLEADO" },
+    defaultValues: { role: UserRole.EMPLOYEE },
   })
 
   async function onSubmit(data: UserFormData) {
@@ -215,10 +217,10 @@ export default function AdminPage() {
                     {...register("role")}
                     className="mt-1 block w-full rounded-md border border-gray-300 px-3 py-2 text-sm text-gray-900 shadow-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
                   >
-                    <option value="EMPLEADO">Empleado</option>
-                    <option value="SOCIO">Socio</option>
-                    <option value="ADMIN">Admin</option>
-                    <option value="OBRADOR">Obrador</option>
+                    <option value={UserRole.EMPLOYEE}>Empleado</option>
+                    <option value={UserRole.PARTNER}>Socio</option>
+                    <option value={UserRole.ADMIN}>Admin</option>
+                    <option value={UserRole.BAKERY}>Obrador</option>
                   </select>
                   {errors.role && (
                     <p className="mt-1 text-xs text-red-500">{errors.role.message}</p>
@@ -249,8 +251,8 @@ export default function AdminPage() {
                         <p className="font-medium text-gray-900">{user.name || "—"}</p>
                         <p className="break-words text-sm text-gray-600 [overflow-wrap:anywhere]">{user.email}</p>
                       </div>
-                      <span className={`inline-block rounded-full px-2 py-0.5 text-xs font-medium ${ROLE_COLORS[user.role] || ""}`}>
-                        {ROLE_LABELS[user.role] || user.role}
+                      <span className={`inline-block rounded-full px-2 py-0.5 text-xs font-medium ${ROLE_COLORS[normalizeRole(user.role) || user.role] || ""}`}>
+                        {ROLE_LABELS[normalizeRole(user.role) || user.role] || user.role}
                       </span>
                     </div>
                     <div className="mt-3">
@@ -309,8 +311,8 @@ export default function AdminPage() {
                         <td className="py-2 text-gray-900">{user.name || "—"}</td>
                         <td className="py-2 text-gray-600">{user.email}</td>
                         <td className="py-2">
-                          <span className={`inline-block rounded-full px-2 py-0.5 text-xs font-medium ${ROLE_COLORS[user.role] || ""}`}>
-                            {ROLE_LABELS[user.role] || user.role}
+                    <span className={`inline-block rounded-full px-2 py-0.5 text-xs font-medium ${ROLE_COLORS[normalizeRole(user.role) || user.role] || ""}`}>
+                      {ROLE_LABELS[normalizeRole(user.role) || user.role] || user.role}
                           </span>
                         </td>
                         <td className="py-2 text-right">

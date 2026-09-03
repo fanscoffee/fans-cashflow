@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server"
 import { withAuth } from "@/lib/with-auth"
-import { authorizeExpense, authorizeExpenseSchema } from "@/lib/pagos"
-import { paymentErrorResponse } from "@/lib/pagos-http"
+import { authorizeExpense, authorizeExpenseSchema } from "@/lib/payments"
+import { paymentErrorResponse } from "@/lib/payments-http"
 
 export const PATCH = withAuth(async (req, session, context) => {
   try {

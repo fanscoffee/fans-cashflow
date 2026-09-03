@@ -5,7 +5,7 @@ import { useForm } from "react-hook-form"
 import { zodResolver } from "@hookform/resolvers/zod"
 import { z } from "zod"
 import { signIn } from "next-auth/react"
-import { ROLE_REDIRECT } from "@/lib/roles"
+import { normalizeRole, ROLE_REDIRECT } from "@/lib/roles"
 
 const loginSchema = z.object({
   email: z.string().email("Email no válido"),
@@ -47,7 +47,8 @@ export default function LoginPage() {
         const res = await fetch("/api/auth/session")
         const session = await res.json()
         if (session?.user?.role) {
-          window.location.href = ROLE_REDIRECT[session.user.role] ?? "/empleado" // eslint-disable-line react-hooks/immutability
+          const role = normalizeRole(session.user.role)
+          window.location.href = (role && ROLE_REDIRECT[role]) ?? "/empleado" // eslint-disable-line react-hooks/immutability
           return
         }
         await new Promise((r) => setTimeout(r, 200))

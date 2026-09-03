@@ -3,13 +3,15 @@ import { z } from "zod"
 import bcrypt from "bcryptjs"
 import { prisma } from "@/lib/prisma"
 import { withAuth } from "@/lib/with-auth"
+import { UserRole } from "@/lib/database-enums"
+import { isRole } from "@/lib/roles"
 
 const updatePasswordSchema = z.object({
   password: z.string().min(6, "La contraseña debe tener al menos 6 caracteres"),
 })
 
 export const PATCH = withAuth(async (req, session, context) => {
-  if (session.user.role !== "ADMIN") {
+  if (!isRole(session.user.role, UserRole.ADMIN)) {
     return NextResponse.json({ error: "No autorizado" }, { status: 401 })
   }
 

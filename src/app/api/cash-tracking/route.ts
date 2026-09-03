@@ -2,15 +2,17 @@ import { NextResponse } from "next/server"
 import { z } from "zod"
 import { prisma } from "@/lib/prisma"
 import { withAuth } from "@/lib/with-auth"
+import { cashDestinationSchema, UserRole } from "@/lib/database-enums"
+import { hasAnyRole } from "@/lib/roles"
 
 const cashTrackingSchema = z.object({
   shiftId: z.string(),
-  destination: z.enum(["DEPOSITO", "INGRESO_EN_FONDO", "GUARDADO", "FANS"]),
+  destination: cashDestinationSchema,
 })
 
 export const GET = withAuth(async (req, session) => {
   const role = session.user.role
-  if (role !== "ADMIN" && role !== "SOCIO") {
+  if (!hasAnyRole(role, [UserRole.ADMIN, UserRole.PARTNER])) {
     return NextResponse.json({ error: "No autorizado" }, { status: 403 })
   }
 
@@ -40,7 +42,7 @@ export const GET = withAuth(async (req, session) => {
 
 export const PATCH = withAuth(async (req, session) => {
   const role = session.user.role
-  if (role !== "ADMIN" && role !== "SOCIO") {
+  if (!hasAnyRole(role, [UserRole.ADMIN, UserRole.PARTNER])) {
     return NextResponse.json({ error: "No autorizado" }, { status: 403 })
   }
 

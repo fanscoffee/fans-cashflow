@@ -13,9 +13,9 @@ interface CashTracking {
 interface Shift {
   id: string
   date: string
-  turno: string
+  shift: string
   status: string
-  efectivo: number
+  cash: number
   cashTracking: CashTracking | null
   createdBy?: { name: string | null; email: string }
 }
@@ -24,7 +24,7 @@ import { downloadCSV } from "@/lib/csv"
 import { MONTH_NAMES, DESTINATION_LABELS, DESTINATION_KEYS } from "@/lib/constants"
 import { toFixed } from "@/lib/money"
 
-export default function EfectivoPage() {
+export default function CashPage() {
   const { data: session, status } = useSession()
   const [shifts, setShifts] = useState<Shift[]>([])
   const [loading, setLoading] = useState(true)
@@ -83,12 +83,12 @@ export default function EfectivoPage() {
 
   function handleExport() {
     const data = shifts.map((s) => ({
-      Fecha: new Date(s.date).toLocaleDateString("es-ES"),
-      Turno: s.turno,
-      Efectivo: toFixed(s.efectivo),
-      Destino: s.cashTracking ? DESTINATION_LABELS[s.cashTracking.destination] || s.cashTracking.destination : "Sin asignar",
+      Date: new Date(s.date).toLocaleDateString("es-ES"),
+      Shift: s.shift,
+      Cash: toFixed(s.cash),
+      Destination: s.cashTracking ? DESTINATION_LABELS[s.cashTracking.destination] || s.cashTracking.destination : "Sin asignar",
       AsignadoPor: s.cashTracking?.createdBy?.name || s.cashTracking?.createdBy?.email || "",
-      CreadoPor: s.createdBy?.name || s.createdBy?.email || "",
+      CreatedPor: s.createdBy?.name || s.createdBy?.email || "",
     }))
     const filename = `efectivo-${selectedYear}-${String(selectedMonth).padStart(2, "0")}.csv`
     downloadCSV(data, filename)
@@ -150,11 +150,11 @@ export default function EfectivoPage() {
                     <div className="mb-2 flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
                       <div className="flex items-center gap-2">
                         <span className="text-xs text-gray-500">{new Date(shift.date).toLocaleDateString("es-ES")}</span>
-                        <span className={`rounded px-1.5 py-0.5 text-xs font-medium ${shift.turno === "mañana" ? "bg-amber-100 text-amber-700" : "bg-blue-100 text-blue-700"}`}>
-                          {shift.turno}
+                        <span className={`rounded px-1.5 py-0.5 text-xs font-medium ${shift.shift === "mañana" ? "bg-amber-100 text-amber-700" : "bg-blue-100 text-blue-700"}`}>
+                          {shift.shift}
                         </span>
                       </div>
-                      <span className="text-sm font-bold text-gray-900">{toFixed(shift.efectivo)} €</span>
+                      <span className="text-sm font-bold text-gray-900">{toFixed(shift.cash)} €</span>
                     </div>
                       <div className="grid grid-cols-2 gap-2">
                         {DESTINATION_KEYS.map((dest) => (
@@ -199,9 +199,9 @@ export default function EfectivoPage() {
                         <td className="py-3 text-gray-900">
                           {new Date(shift.date).toLocaleDateString("es-ES")}
                         </td>
-                        <td className="py-3 text-gray-900">{shift.turno}</td>
+                        <td className="py-3 text-gray-900">{shift.shift}</td>
                         <td className="py-3 text-right font-medium text-gray-900">
-                          {toFixed(shift.efectivo)} €
+                          {toFixed(shift.cash)} €
                         </td>
                     {DESTINATION_KEYS.map((dest) => (
                           <td key={dest} className="py-3 text-center">

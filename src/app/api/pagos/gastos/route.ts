@@ -1,23 +1,25 @@
 import { NextResponse } from "next/server"
 import { withAuth } from "@/lib/with-auth"
-import { requirePaymentFunction } from "@/lib/pagos"
-import { paymentErrorResponse } from "@/lib/pagos-http"
+import { requirePaymentFunction } from "@/lib/payments"
+import { paymentErrorResponse } from "@/lib/payments-http"
 import { prisma } from "@/lib/prisma"
+import { CurrentExpenseStatus, PaymentFunction, UserRole } from "@/lib/database-enums"
+import { hasAnyRole } from "@/lib/roles"
 
 export const GET = withAuth(async (_req, session) => {
-  if (session.user.role !== "ADMIN" && session.user.role !== "SOCIO") {
+  if (!hasAnyRole(session.user.role, [UserRole.ADMIN, UserRole.PARTNER])) {
     return NextResponse.json({ error: "No autorizado" }, { status: 403 })
   }
 
   try {
-    await requirePaymentFunction(session.user.id, "SOLICITAR", undefined, session.user.role)
-    const gastos = await prisma.gastoCorriente.findMany({
-      where: { shiftId: { not: null }, estado: { not: "ANULADO" } },
-      include: { categoria: true, acreedor: { select: { id: true, codigo: true, nombre: true } }, solicitante: { select: { id: true, name: true, email: true } }, autorizador: { select: { id: true, name: true, email: true } }, shift: { select: { id: true, date: true, turno: true } }, aplicaciones: true },
+    await requirePaymentFunction(session.user.id, PaymentFunction.REQUEST, undefined, session.user.role)
+    const expenses = await prisma.currentExpense.findMany({
+      where: { shiftId: { not: null }, status: { not: CurrentExpenseStatus.VOID } },
+      include: { category: true, creditor: { select: { id: true, code: true, name: true } }, requester: { select: { id: true, name: true, email: true } }, authorizer: { select: { id: true, name: true, email: true } }, shift: { select: { id: true, date: true, shift: true } }, applications: true },
       orderBy: { createdAt: "desc" },
       take: 500,
     })
-    return NextResponse.json(gastos)
+    return NextResponse.json(expenses)
   } catch (error) {
     return paymentErrorResponse(error)
   }

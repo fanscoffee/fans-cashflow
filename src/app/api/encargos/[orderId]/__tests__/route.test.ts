@@ -79,7 +79,7 @@ describe("Orders API /api/encargos/[orderId]", () => {
       expect(prisma.order.update).toHaveBeenCalled()
     })
 
-    it("updates order for SOCIO role", async () => {
+  it("updates order for PARTNER role", async () => {
       vi.mocked(auth).mockResolvedValue({
         user: { id: "3", role: "SOCIO" },
       } as any)
@@ -164,7 +164,7 @@ describe("Orders API /api/encargos/[orderId]", () => {
       expect(res.status).toBe(401)
     })
 
-    it("returns 403 for OBRADOR role", async () => {
+  it("returns 403 for BAKERY role", async () => {
       vi.mocked(auth).mockResolvedValue({
         user: { id: "4", role: "OBRADOR" },
       } as any)

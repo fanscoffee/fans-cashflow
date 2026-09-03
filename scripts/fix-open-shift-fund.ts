@@ -14,7 +14,7 @@ async function main() {
   })
 
   if (!openShift) {
-    console.log("No hay ningun turno abierto.")
+    console.log("No open shift found.")
     return
   }
 
@@ -23,8 +23,8 @@ async function main() {
   })
 
   if (additions.length === 0) {
-    console.log("No se encontraron depositos durante el turno abierto.")
-    console.log(`Turno actual: fondoInicial=${toN(openShift.fondoInicial)} fondoFinal=${toN(openShift.fondoFinal)}`)
+    console.log("No fund additions found during the open shift.")
+    console.log(`Current shift: openingFund=${toN(openShift.openingFund)} closingFund=${toN(openShift.closingFund)}`)
     return
   }
 
@@ -33,16 +33,16 @@ async function main() {
   await prisma.shift.update({
     where: { id: openShift.id },
     data: {
-      fondoInicial: { increment: total },
-      fondoFinal: { increment: total },
+      openingFund: { increment: total },
+      closingFund: { increment: total },
     },
   })
 
-  console.log(`Turno "${openShift.turno}" del ${openShift.date.toISOString().slice(0, 10)} actualizado.`)
-  console.log(`Depositos encontrados durante el turno: ${additions.length}`)
-  console.log(`Total añadido: +${total.toFixed(2)}`)
-  console.log(`Nuevo fondoInicial: ${(toN(openShift.fondoInicial) + total).toFixed(2)}`)
-  console.log(`Nuevo fondoFinal: ${(toN(openShift.fondoFinal) + total).toFixed(2)}`)
+  console.log(`Shift "${openShift.shift}" on ${openShift.date.toISOString().slice(0, 10)} updated.`)
+  console.log(`Fund additions found during the shift: ${additions.length}`)
+  console.log(`Total added: +${total.toFixed(2)}`)
+  console.log(`New openingFund: ${(toN(openShift.openingFund) + total).toFixed(2)}`)
+  console.log(`New closingFund: ${(toN(openShift.closingFund) + total).toFixed(2)}`)
 }
 
 main()

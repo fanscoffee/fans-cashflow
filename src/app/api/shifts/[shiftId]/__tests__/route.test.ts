@@ -5,8 +5,8 @@ vi.mock("@/lib/prisma", () => ({
   prisma: {
     shift: { findUnique: vi.fn() },
     expense: { aggregate: vi.fn() },
-    gastoCorriente: { aggregate: vi.fn() },
-    cierreTurno: { findUnique: vi.fn(), findFirst: vi.fn(), upsert: vi.fn() },
+    currentExpense: { aggregate: vi.fn() },
+    shiftClose: { findUnique: vi.fn(), findFirst: vi.fn(), upsert: vi.fn() },
     $transaction: vi.fn(),
   },
 }))
@@ -25,7 +25,7 @@ describe("PATCH /api/shifts/[shiftId]", () => {
     id: "shift-1",
     createdById: "user-1",
     status: "ABIERTO",
-    fondoInicial: 100,
+    openingFund: 100,
     date: new Date("2026-08-27T00:00:00.000Z"),
     createdAt: new Date("2026-08-27T08:00:00.000Z"),
   }
@@ -34,8 +34,8 @@ describe("PATCH /api/shifts/[shiftId]", () => {
     vi.clearAllMocks()
     vi.mocked(auth).mockResolvedValue({ user: { id: "user-1", role: "EMPLEADO" } } as any)
     vi.mocked(prisma.shift.findUnique).mockResolvedValue(shift as any)
-    vi.mocked(prisma.expense.aggregate).mockResolvedValue({ _sum: { importe: 0 } } as any)
-    vi.mocked(prisma.gastoCorriente.aggregate).mockResolvedValue({ _sum: { importe: 0 } } as any)
+    vi.mocked(prisma.expense.aggregate).mockResolvedValue({ _sum: { amount: 0 } } as any)
+    vi.mocked(prisma.currentExpense.aggregate).mockResolvedValue({ _sum: { amount: 0 } } as any)
   })
 
   it("closes the shift without creating a ticket when explicitly requested", async () => {
@@ -43,14 +43,14 @@ describe("PATCH /api/shifts/[shiftId]", () => {
     const upsertClosure = vi.fn()
     vi.mocked((prisma as any).$transaction).mockImplementation(async (callback: (tx: unknown) => unknown) => callback({
       shift: { update: updateShift },
-      cierreTurno: { upsert: upsertClosure },
+      shiftClose: { upsert: upsertClosure },
     }))
 
     const response = await PATCH(
       new Request("http://localhost/api/shifts/shift-1", {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ status: "CERRADO", sinInformacion: true }),
+        body: JSON.stringify({ status: "CERRADO", noInformation: true }),
       }) as unknown as NextRequest,
       context,
     )
@@ -58,7 +58,7 @@ describe("PATCH /api/shifts/[shiftId]", () => {
     expect(response.status).toBe(200)
     expect(updateShift).toHaveBeenCalledWith(expect.objectContaining({
       where: { id: "shift-1" },
-      data: expect.objectContaining({ status: "CERRADO", fondoFinal: 100 }),
+      data: expect.objectContaining({ status: "CERRADO", closingFund: 100 }),
     }))
     expect(upsertClosure).not.toHaveBeenCalled()
   })
@@ -78,26 +78,26 @@ describe("PATCH /api/shifts/[shiftId]", () => {
   })
 
   it("includes current expenses when calculating the final fund", async () => {
-    vi.mocked(prisma.expense.aggregate).mockResolvedValue({ _sum: { importe: 10 } } as any)
-    vi.mocked(prisma.gastoCorriente.aggregate).mockResolvedValue({ _sum: { importe: 25 } } as any)
+    vi.mocked(prisma.expense.aggregate).mockResolvedValue({ _sum: { amount: 10 } } as any)
+    vi.mocked(prisma.currentExpense.aggregate).mockResolvedValue({ _sum: { amount: 25 } } as any)
     const updateShift = vi.fn().mockResolvedValue({ id: "shift-1", status: "CERRADO" })
     vi.mocked((prisma as any).$transaction).mockImplementation(async (callback: (tx: unknown) => unknown) => callback({
       shift: { update: updateShift },
-      cierreTurno: { upsert: vi.fn() },
+      shiftClose: { upsert: vi.fn() },
     }))
 
     const response = await PATCH(
       new Request("http://localhost/api/shifts/shift-1", {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ status: "CERRADO", sinInformacion: true }),
+        body: JSON.stringify({ status: "CERRADO", noInformation: true }),
       }) as unknown as NextRequest,
       context,
     )
 
     expect(response.status).toBe(200)
     expect(updateShift).toHaveBeenCalledWith(expect.objectContaining({
-      data: expect.objectContaining({ fondoFinal: 65 }),
+      data: expect.objectContaining({ closingFund: 65 }),
     }))
   })
 
@@ -106,7 +106,7 @@ describe("PATCH /api/shifts/[shiftId]", () => {
       new Request("http://localhost/api/shifts/shift-1", {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ fondoInicial: 999 }),
+        body: JSON.stringify({ openingFund: 999 }),
       }) as unknown as NextRequest,
       context,
     )

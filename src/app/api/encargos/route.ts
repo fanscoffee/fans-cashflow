@@ -2,6 +2,8 @@ import { NextResponse } from "next/server"
 import { z } from "zod"
 import { prisma } from "@/lib/prisma"
 import { withAuth } from "@/lib/with-auth"
+import { UserRole } from "@/lib/database-enums"
+import { hasAnyRole } from "@/lib/roles"
 
 const orderSchema = z.object({
   clientName: z.string().trim().min(1, "El nombre del cliente es obligatorio").max(160),
@@ -16,11 +18,11 @@ export const GET = withAuth(async (req, session) => {
   const year = searchParams.get("year")
 
   const role = session.user.role
-  const isAdminOrSocio = role === "ADMIN" || role === "SOCIO"
+  const isAdminOrPartner = hasAnyRole(role, [UserRole.ADMIN, UserRole.PARTNER])
 
   const where: Record<string, unknown> = {}
 
-  if (isAdminOrSocio && month && year) {
+  if (isAdminOrPartner && month && year) {
     const monthNumber = Number(month)
     const yearNumber = Number(year)
     if (!Number.isInteger(monthNumber) || monthNumber < 1 || monthNumber > 12 || !Number.isInteger(yearNumber) || yearNumber < 2000 || yearNumber > 2100) {
@@ -29,7 +31,7 @@ export const GET = withAuth(async (req, session) => {
     const startDate = new Date(yearNumber, monthNumber - 1, 1)
     const endDate = new Date(yearNumber, monthNumber, 1)
     where.deliveryDate = { gte: startDate, lt: endDate }
-  } else if (!isAdminOrSocio) {
+  } else if (!isAdminOrPartner) {
     const today = new Date()
     today.setHours(0, 0, 0, 0)
     where.deliveryDate = { gte: today }

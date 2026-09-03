@@ -2,13 +2,15 @@ import { NextResponse } from "next/server"
 import { z } from "zod"
 import { prisma } from "@/lib/prisma"
 import { withAuth } from "@/lib/with-auth"
-import { recalculateShiftFondoFinal } from "@/lib/shift-fondo"
+import { recalculateShiftFundFinal } from "@/lib/shift-fund"
+import { UserRole } from "@/lib/database-enums"
+import { hasAnyRole, isRole } from "@/lib/roles"
 
 async function checkAccess(shiftId: string, userId: string, userRole: string) {
   const shift = await prisma.shift.findUnique({ where: { id: shiftId } })
   if (!shift) return null
-  const isAdminOrSocio = userRole === "ADMIN" || userRole === "SOCIO"
-  if (!isAdminOrSocio && shift.createdById !== userId) return null
+  const isAdminOrPartner = hasAnyRole(userRole, [UserRole.ADMIN, UserRole.PARTNER])
+  if (!isAdminOrPartner && shift.createdById !== userId) return null
   return shift
 }
 
@@ -17,7 +19,7 @@ export const POST = withAuth(async () => {
 })
 
 export const PATCH = withAuth(async (req, session, context) => {
-  if (session.user.role === "OBRADOR") {
+  if (isRole(session.user.role, UserRole.BAKERY)) {
     return NextResponse.json({ error: "No autorizado" }, { status: 403 })
   }
   const { shiftId } = await context.params
@@ -33,8 +35,8 @@ export const PATCH = withAuth(async (req, session, context) => {
     const body = await req.json()
     const data = z.object({
       expenseId: z.string(),
-      proveedor: z.string().min(1).optional(),
-      importe: z.number().min(0.01).optional(),
+      supplier: z.string().min(1).optional(),
+      amount: z.number().min(0.01).optional(),
     }).parse(body)
 
     const existingExpense = await prisma.expense.findFirst({
@@ -48,12 +50,12 @@ export const PATCH = withAuth(async (req, session, context) => {
     const expense = await prisma.expense.update({
       where: { id: data.expenseId },
       data: {
-        ...(data.proveedor !== undefined && { proveedor: data.proveedor }),
-        ...(data.importe !== undefined && { importe: data.importe }),
+        ...(data.supplier !== undefined && { supplier: data.supplier }),
+        ...(data.amount !== undefined && { amount: data.amount }),
       },
     })
 
-    await recalculateShiftFondoFinal(shiftId)
+    await recalculateShiftFundFinal(shiftId)
 
     return NextResponse.json(expense)
   } catch (error) {
@@ -71,7 +73,7 @@ export const PATCH = withAuth(async (req, session, context) => {
 })
 
 export const DELETE = withAuth(async (req, session, context) => {
-  if (session.user.role === "OBRADOR") {
+  if (isRole(session.user.role, UserRole.BAKERY)) {
     return NextResponse.json({ error: "No autorizado" }, { status: 403 })
   }
   const { shiftId } = await context.params
@@ -91,7 +93,7 @@ export const DELETE = withAuth(async (req, session, context) => {
     })
     if (!existingExpense) return NextResponse.json({ error: "Gasto no encontrado" }, { status: 404 })
     await prisma.expense.delete({ where: { id: existingExpense.id } })
-    await recalculateShiftFondoFinal(shiftId)
+    await recalculateShiftFundFinal(shiftId)
     return NextResponse.json({ ok: true })
   } catch (error) {
     if (error instanceof z.ZodError) {

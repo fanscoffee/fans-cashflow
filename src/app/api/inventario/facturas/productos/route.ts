@@ -1,25 +1,27 @@
 import { NextResponse } from "next/server"
 import { prisma } from "@/lib/prisma"
 import { withAuth } from "@/lib/with-auth"
+import { UserRole } from "@/lib/database-enums"
+import { hasAnyRole } from "@/lib/roles"
 
 export const GET = withAuth(async (req, session) => {
-  if (session.user.role !== "ADMIN" && session.user.role !== "SOCIO") return NextResponse.json({ error: "No autorizado" }, { status: 403 })
+  if (!hasAnyRole(session.user.role, [UserRole.ADMIN, UserRole.PARTNER])) return NextResponse.json({ error: "No autorizado" }, { status: 403 })
   const { searchParams } = new URL(req.url)
   const search = searchParams.get("search") || ""
-  const productos = await prisma.producto.findMany({
+  const products = await prisma.product.findMany({
     where: {
-      esComprable: true,
+      isPurchasable: true,
       ...(search ? {
         OR: [
-          { codigo: { contains: search, mode: "insensitive" } },
-          { descripcionTpv: { contains: search, mode: "insensitive" } },
-          { descripcionCompleta: { contains: search, mode: "insensitive" } },
+          { code: { contains: search, mode: "insensitive" } },
+          { posDescription: { contains: search, mode: "insensitive" } },
+          { fullDescription: { contains: search, mode: "insensitive" } },
         ],
       } : {}),
     },
-    orderBy: { codigo: "asc" },
+    orderBy: { code: "asc" },
     take: 100,
-    select: { id: true, codigo: true, descripcionTpv: true, umCompra: true, umBaseStock: true },
+    select: { id: true, code: true, posDescription: true, purchaseUnit: true, baseStockUnit: true },
   })
-  return NextResponse.json({ productos })
+  return NextResponse.json({ products })
 })

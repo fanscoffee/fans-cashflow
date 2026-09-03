@@ -35,7 +35,7 @@ describe("Fund API /api/fund", () => {
     expect(res.status).toBe(401)
   })
 
-  it("returns fondo based on last shift and additions", async () => {
+  it("returns the fund based on the last shift and additions", async () => {
     vi.mocked(auth).mockResolvedValue({
       user: { id: "1", role: "ADMIN" },
     } as any)
@@ -43,7 +43,7 @@ describe("Fund API /api/fund", () => {
       .mockResolvedValueOnce(null)
       .mockResolvedValueOnce({
         id: "s1",
-        fondoFinal: 500,
+        closingFund: 500,
         createdAt: new Date("2026-07-20"),
         closedAt: new Date("2026-07-20T12:00:00Z"),
       } as any)
@@ -55,22 +55,22 @@ describe("Fund API /api/fund", () => {
     expect(res.status).toBe(200)
 
     const data = await res.json()
-    expect(data.fondo).toBe(650)
+    expect(data.fund).toBe(650)
   })
 
-  it("returns the open shift fondoFinal when a shift is open", async () => {
+  it("returns the open shift closingFund when a shift is open", async () => {
     vi.mocked(auth).mockResolvedValue({
       user: { id: "1", role: "ADMIN" },
     } as any)
     vi.mocked(prisma.shift.findFirst).mockResolvedValueOnce({
       id: "s-open",
       status: "ABIERTO",
-      fondoFinal: 999.5,
+      closingFund: 999.5,
     } as any)
 
     const res = await GET(mockRequest("http://localhost/api/fund"))
     const data = await res.json()
-    expect(data.fondo).toBe(999.5)
+    expect(data.fund).toBe(999.5)
   })
 
   it("returns 0 when no shifts and no additions", async () => {
@@ -84,6 +84,6 @@ describe("Fund API /api/fund", () => {
 
     const res = await GET(mockRequest("http://localhost/api/fund"))
     const data = await res.json()
-    expect(data.fondo).toBe(0)
+    expect(data.fund).toBe(0)
   })
 })

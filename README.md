@@ -1,6 +1,6 @@
 # Fans Cashflow
 
-Aplicación de gestión de caja y turnos para el local de Fans. Permite controlar ingresos, gastos, fondos, turnos de trabajo, encargos y tracking de efectivo.
+Cash and shift management application for the Fans venue. It controls revenue, expenses, funds, work shifts, orders, and cash tracking.
 
 ## Stack
 
@@ -8,150 +8,150 @@ Aplicación de gestión de caja y turnos para el local de Fans. Permite controla
 - **Auth**: NextAuth.js v5 (JWT + Credentials + WebAuthn/Face ID)
 - **DB**: PostgreSQL (Supabase) + Prisma ORM
 - **UI**: Tailwind CSS 4 + Recharts
-- **Validación**: Zod + React Hook Form
+- **Validation**: Zod + React Hook Form
 
 ## Roles
 
-| Rol | Acceso |
+| Role | Access |
 |---|---|
-| **ADMIN** | Total. Gestión de usuarios, todos los dashboards, Face ID |
-| **SOCIO** | Dashboard con gráficos, fondo, turnos, efectivo, encargos, Face ID |
-| **EMPLEADO** | Abrir/cerrar turnos, registrar recepciones y solicitar gastos cuando tenga función asignada. Auto-logout por inactividad (2 min) |
+| **ADMIN** | Full access: user management, all dashboards, and Face ID |
+| **SOCIO** | Dashboard with charts, funds, shifts, cash, orders, and Face ID |
+| **EMPLEADO** | Open/close shifts, record receipts, and request expenses when assigned a function. Automatic logout after inactivity (2 min) |
 
-## Pantallas y Funcionalidades
+## Screens and Features
 
 ### Login (`/`)
-- Email + contraseña
-- Face ID / huella dactilar (WebAuthn) — requiere HTTPS en producción
-- Auto-login al rol correspondiente según el usuario
+- Email + password
+- Face ID / fingerprint (WebAuthn) — HTTPS is required in production
+- Automatic login to the user's corresponding role
 
-### Empleado (`/empleado`)
-- **Abrir turno**: Selecciona mañana/tarde. El fondo inicial se calcula automáticamente (último fondoFinal + ingresos al fondo desde entonces)
-- **Registrar gastos**: Añade proveedor + importe a turno abierto
-- **Cerrar turno**: Introduce efectivo, Caixa, Santander. Se calcula fondoFinal = fondoInicial - gastos
-- **Recepciones** (`/empleado/recepciones`): Registra el proveedor y albarán, cuenta manualmente los productos entregados y guarda cantidades, precios, lotes y vencimientos
-- **Face ID**: Puede registrar Passkey desde esta pantalla
-- Solo puede ver su propio turno abierto y el último turno cerrado
-- Auto-logout tras 2 minutos de inactividad (dispositivo compartido)
+### Employee (`/empleado`)
+- **Open shift**: Selects mañana/tarde. The opening fund is calculated automatically (last `closingFund` + fund additions since then)
+- **Record expenses**: Adds a supplier and amount to an open shift
+- **Close shift**: Enters cash, Caixa, and Santander. `closingFund` is calculated as `openingFund - expenses`
+- **Receipts** (`/empleado/recepciones`): Records the supplier and delivery note, counts delivered products manually, and stores quantities, prices, batches, and due dates
+- **Face ID**: Can register a Passkey from this screen
+- Can only view their own open shift and the last closed shift
+- Automatic logout after 2 minutes of inactivity (shared device)
 
-### Socio - Dashboard (`/socio`)
-- **KPIs**: Total turnos, ingresos, gastos, beneficio neto
-- **Gráficos** (Recharts):
-  - Ingresos vs gastos por día (barras)
-  - Ingresos por turno mañana vs tarde (pie)
-  - Ingresos mañana vs tarde por día (barras)
-- **Tabla de gastos por proveedor**
-- **Exportar CSV**: turnos y gastos por mes/año
-- **Face ID**: Puede registrar Passkey
+### Partner - Dashboard (`/socio`)
+- **KPIs**: Total shifts, revenue, expenses, and net profit
+- **Charts** (Recharts):
+  - Revenue vs. expenses by day (bar)
+  - Revenue by shift, mañana vs. tarde (pie)
+  - Mañana vs. tarde revenue by day (bar)
+- **Expenses by supplier table**
+- **CSV export**: shifts and expenses by month/year
+- **Face ID**: Can register a Passkey
 
-### Socio - Fondo (`/socio/fondo`)
-- **Ingresar dinero al fondo**: Cantidad + descripción opcional
-- **Historial de ingresos**: Filtrable por rango de fechas, buscable, paginado (10/página)
+### Partner - Fund (`/socio/fondo`)
+- **Add money to the fund**: Amount + optional description
+- **Fund addition history**: Filterable by date range, searchable, and paginated (10/page)
 
-### Socio - Turnos (`/socio/turnos`)
-- **Historial de turnos**: Filtrable por mes/año
-- **Ver detalle de gastos** por turno
-- **Exportar CSV** de turnos y gastos
+### Partner - Shifts (`/socio/turnos`)
+- **Shift history**: Filterable by month/year
+- **View expense details** by shift
+- **Export shift and expense CSV files**
 
-### Socio - Efectivo (`/socio/efectivo`)
-- **Asignar destino del efectivo** por turno mediante radio buttons:
+### Partner - Cash (`/socio/efectivo`)
+- **Assign a cash destination** per shift using radio buttons:
   - Depósito (banco)
   - Ingreso en fondo (reinvertir)
   - Guardado (mantener en caja)
-- Filtrable por mes/año
-- Exportar CSV
+- Filterable by month/year
+- CSV export
 
 ### Admin (`/admin`)
-- **Crear usuarios**: Nombre, email, contraseña, rol (Empleado/Socio/Admin)
-- **Cambiar contraseñas** de usuarios existentes
+- **Create users**: Name, email, password, and role (Empleado/Socio/Admin)
+- **Change passwords** for existing users
 
-### Encargos (`/orders`)
-- **Crear encargo**: Nombre cliente, teléfono, fecha/hora de entrega, comentario
-- **Editar/Eliminar** (solo SOCIO/ADMIN)
-- **Ver todos** (EMPLEADO solo crea, no edita ni elimina)
-- Filtrable por mes/año (SOCIO/ADMIN)
-- Exportar CSV (SOCIO/ADMIN)
+### Orders (`/encargos`)
+- **Create an order**: Customer name, phone, delivery date/time, and comment
+- **Edit/Delete** (SOCIO/ADMIN only)
+- **View all** (EMPLEADO can create but cannot edit or delete)
+- Filterable by month/year (SOCIO/ADMIN)
+- CSV export (SOCIO/ADMIN)
 
 ### Face ID / WebAuthn
-- Registrar Passkey desde el dashboard de socio o empleado
-- Login biométrico en la pantalla de login
-- Compatible con Face ID (Safari/iOS) y huella dactilar (Chrome/Android)
-- Firefox no soporta biométrico WebAuthn
-- Requiere HTTPS para funcionar en móvil
+- Register a Passkey from the partner or employee dashboard
+- Biometric login on the login screen
+- Compatible with Face ID (Safari/iOS) and fingerprint (Chrome/Android)
+- Firefox does not support WebAuthn biometrics
+- HTTPS is required on mobile
 
-### Pagos (`/socio/pagos`, `/admin/pagos`)
-- Lista facturas conformadas y gastos autorizados pendientes.
-- Registra pagos con aplicación explícita, medio y cuenta de origen.
-- Controla autorización previa, segregación, libro de movimientos, conciliación y caja chica.
-- Los umbrales y funciones se configuran mediante `/api/pagos/parametros` y `/api/pagos/asignaciones`.
-- Los gastos nuevos ya no se registran desde el turno histórico; el endpoint antiguo responde `410`.
-- Desde un turno abierto se pueden registrar gastos corrientes en `CAFETERIA`; quedan pendientes de autorización y trazados al turno y usuario solicitante.
-- El seguimiento de gastos corrientes está disponible en las pantallas de facturas para `ADMIN` y `SOCIO`.
-- Los adjuntos de facturas usan el bucket privado de Supabase Storage `payment-documents`; los gastos corrientes no admiten adjuntos.
+### Payments (`/socio/pagos`, `/admin/pagos`)
+- Lists confirmed invoices and authorized current expenses awaiting payment.
+- Records payments with an explicit application, method, and source account.
+- Controls prior authorization, segregation of duties, the funds ledger, reconciliation, and petty cash.
+- Thresholds and functions are configured through `/api/pagos/parametros` and `/api/pagos/asignaciones`.
+- New expenses are no longer recorded from the historical shift; the old endpoint returns `410`.
+- Current expenses can be recorded from an open shift in `CAFETERIA`; they remain pending authorization and are traced to the requesting shift and user.
+- Current expense tracking is available on invoice screens for `ADMIN` and `SOCIO`.
+- Invoice attachments use the private Supabase Storage bucket `payment-documents`; current expenses do not support attachments.
 
-## Variables de Entorno (`.env`)
+## Environment Variables (`.env`)
 
-| Variable | Descripción |
+| Variable | Description |
 |---|---|
-| `DATABASE_URL` | URL de conexión PostgreSQL (Supabase pooler) |
-| `NEXT_PUBLIC_SUPABASE_URL` | URL del proyecto Supabase |
-| `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY` | API key de Supabase |
-| `SUPABASE_SERVICE_ROLE_KEY` | Clave solo servidor para adjuntos privados; nunca exponerla al cliente |
-| `NEXTAUTH_SECRET` | Secreto para firmar JWT |
+| `DATABASE_URL` | PostgreSQL connection URL (Supabase pooler) |
+| `NEXT_PUBLIC_SUPABASE_URL` | Supabase project URL |
+| `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY` | Supabase API key |
+| `SUPABASE_SERVICE_ROLE_KEY` | Server-only key for private attachments; never expose it to the client |
+| `NEXTAUTH_SECRET` | Secret used to sign JWTs |
 
-> **Nota**: `NEXTAUTH_URL` no debe estar en `.env`. Se usa `trustHost: true` en su lugar.
+> **Note**: `NEXTAUTH_URL` must not be in `.env`. `trustHost: true` is used instead.
 
-## Desarrollo
+## Development
 
 ```bash
-# Instalar dependencias
+# Install dependencies
 npm install
 
-# Generar cliente Prisma
+# Generate the Prisma client
 npx prisma generate
 
-# Ejecutar migraciones
+# Run migrations
 npx prisma migrate dev
 
-# Preparar acreedores y facturas históricas para revisión, sin conformarlas automáticamente
+# Prepare historical creditors and invoices for review without automatically confirming them
 npm run db:migrate-payments-legacy
 
-# Crear facturas y cuentas claramente marcadas como DEMO para probar Pagos
-npm run db:seed-pagos-demo
+# Create clearly marked DEMO invoices and accounts for payment testing
+npm run db:seed-payments-demo
 
-# Iniciar servidor de desarrollo
+# Start the development server
 npm run dev
 ```
 
-Abre [http://localhost:3000](http://localhost:3000).
+Open [http://localhost:3000](http://localhost:3000).
 
-## Despliegue (Vercel)
+## Deployment (Vercel)
 
-1. Conectar base de datos PostgreSQL (Supabase)
-2. Configurar variables de entorno en Vercel
-3. Ejecutar migraciones de Prisma en producción: `npx prisma migrate deploy`
-4. Face ID requiere HTTPS (Vercel lo provee automáticamente)
+1. Connect a PostgreSQL database (Supabase)
+2. Configure environment variables in Vercel
+3. Run Prisma migrations in production: `npx prisma migrate deploy`
+4. Face ID requires HTTPS (provided automatically by Vercel)
 
-## Base de Datos
+## Database
 
-### Modelos principales
+### Main models
 
-| Modelo | Descripción |
+| Model | Description |
 |---|---|
-| **User** | Usuarios con rol (ADMIN/SOCIO/EMPLEADO) |
-| **Shift** | Turnos con fondos, ingresos por método de pago, estado abierto/cerrado |
-| **Expense** | Gastos asociados a un turno (proveedor + importe) |
-| **FundAddition** | Ingresos al fondo |
-| **CashTracking** | Destino del efectivo por turno (Depósito/Ingreso en fondo/Guardado) |
-| **Order** | Encargos con cliente, teléfono, fecha de entrega, comentario |
-| **Passkey** | Credenciales WebAuthn para Face ID / biométrico |
-| **Acreedor / CuentaFondos** | Catálogo de destinatarios y cuentas de origen por entidad |
-| **Factura / GastoCorriente** | Documentos pagables con circuito de conformidad/autorización |
-| **Pago / PagoAplicacion** | Salida de dinero y reparto entre documentos |
-| **MovimientoFondos / MovimientoExtracto** | Libro de fondos y conciliación bancaria |
-| **ArqueoCaja / CierreMensual** | Control de caja chica e indicadores de cierre |
+| **User** | Users with a role (ADMIN/SOCIO/EMPLEADO) |
+| **Shift** | Shifts with funds, revenue by payment method, and open/closed status |
+| **Expense** | Expenses associated with a shift (supplier + amount) |
+| **FundAddition** | Additions to the fund |
+| **CashTracking** | Cash destination per shift (Depósito/Ingreso en fondo/Guardado) |
+| **Order** | Orders with customer, phone, delivery date, and comment |
+| **Passkey** | WebAuthn credentials for Face ID / biometrics |
+| **Creditor / FundsAccount** | Directory of payees and source accounts by entity |
+| **Invoice / CurrentExpense** | Payable documents with confirmation/authorization workflow |
+| **Payment / PaymentApplication** | Money outflows and allocation across documents |
+| **FundsMovement / StatementMovement** | Funds ledger and bank reconciliation |
+| **CashCount / MonthlyClose** | Petty-cash control and closing metrics |
 
 ### Enums
 
-- **Role**: `ADMIN`, `SOCIO`, `EMPLEADO`
-- **CashDestination**: `DEPOSITO`, `INGRESO_EN_FONDO`, `GUARDADO`
+- **UserRole**: `ADMIN`, `SOCIO`, `EMPLEADO`, `OBRADOR`
+- **CashDestination**: `DEPOSITO`, `INGRESO_EN_FONDO`, `GUARDADO`, `FANS`

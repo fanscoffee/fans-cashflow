@@ -3,15 +3,17 @@ import { z } from "zod"
 import { prisma } from "@/lib/prisma"
 import { withAuth } from "@/lib/with-auth"
 import { toN } from "@/lib/money"
-import { calculateFondoFinal } from "@/lib/fondo"
+import { calculateFundFinal } from "@/lib/fund"
+import { CurrentExpenseStatus, UserRole } from "@/lib/database-enums"
+import { hasAnyRole, isRole } from "@/lib/roles"
 
 const updateShiftSchema = z.object({
-  efectivo: z.number().min(0).optional(),
-  caixa: z.number().min(0).optional(),
-  santander: z.number().min(0).optional(),
-  fondoInicial: z.number().min(0).optional(),
+  cash: z.number().min(0).optional(),
+  caixaBankAmount: z.number().min(0).optional(),
+  santanderAmount: z.number().min(0).optional(),
+  openingFund: z.number().min(0).optional(),
   status: z.enum(["ABIERTO", "CERRADO"]).optional(),
-  sinInformacion: z.boolean().optional().default(false),
+  noInformation: z.boolean().optional().default(false),
 })
 
 const moneyInput = z
@@ -26,33 +28,33 @@ const signedMoneyInput = z
   .transform((value) => Number(String(value).replace(",", ".")))
   .refine((value) => Number.isFinite(value), "Importe no válido")
 
-const cierreTurnoSchema = z.object({
-  numeroCierreCaja: z.string().trim().min(1, "El número de cierre es obligatorio"),
-  tpv: z.string().trim().min(1, "El TPV es obligatorio"),
-  fechaHoraApertura: z.string().min(1, "La apertura del ticket es obligatoria"),
-  fechaHoraCierre: z.string().min(1, "El cierre del ticket es obligatorio"),
-  fondoCajaAnterior: moneyInput,
-  cobrosEfectivo: moneyInput,
-  reembolsosEfectivo: moneyInput,
-  depositado: moneyInput,
-  pagosSalidas: moneyInput,
-  efectivoTeoricoCaja: moneyInput,
-  cantidadEfectivoReal: moneyInput,
-  descuadre: signedMoneyInput,
-  ventasBrutas: moneyInput,
-  reembolsos: moneyInput,
-  descuentos: moneyInput,
-  ventasNetas: moneyInput,
-  ventasEfectivo: moneyInput,
-  ventasTarjeta: moneyInput,
-  ivaPan4Base: moneyInput,
-  ivaPan4Cuota: moneyInput,
-  iva10Base: moneyInput,
-  iva10Cuota: moneyInput,
-  observacionDescuadre: z.string().optional().default(""),
-  efectivo: moneyInput,
-  caixa: moneyInput,
-  santander: moneyInput,
+const shiftCloseSchema = z.object({
+  cashCloseNumber: z.string().trim().min(1, "El número de cierre es obligatorio"),
+  pos: z.string().trim().min(1, "El TPV es obligatorio"),
+  openingDateTime: z.string().min(1, "La apertura del ticket es obligatoria"),
+  closingDateTime: z.string().min(1, "El cierre del ticket es obligatorio"),
+  previousCashFund: moneyInput,
+  cashReceipts: moneyInput,
+  cashRefunds: moneyInput,
+  depositedAmount: moneyInput,
+  paymentOutflows: moneyInput,
+  theoreticalCash: moneyInput,
+  actualCash: moneyInput,
+  cashVariance: signedMoneyInput,
+  grossSales: moneyInput,
+  refunds: moneyInput,
+  discounts: moneyInput,
+  netSales: moneyInput,
+  cashSales: moneyInput,
+  cardSales: moneyInput,
+  breadVat4Base: moneyInput,
+  breadVat4Amount: moneyInput,
+  vat10Base: moneyInput,
+  vat10Amount: moneyInput,
+  varianceNote: z.string().optional().default(""),
+  cash: moneyInput,
+  caixaBankAmount: moneyInput,
+  santanderAmount: moneyInput,
   sinFoto: z.boolean().optional().default(false),
 })
 
@@ -60,16 +62,16 @@ function sameCalendarDate(value: string, shiftDate: Date) {
   return value.slice(0, 10) === shiftDate.toISOString().slice(0, 10)
 }
 
-function hasPaymentDifference(cierre: z.infer<typeof cierreTurnoSchema>) {
+function hasPaymentDifference(close: z.infer<typeof shiftCloseSchema>) {
   return (
-    Math.abs(cierre.efectivo - cierre.ventasEfectivo) > 0.009 ||
-    Math.abs(cierre.caixa + cierre.santander - cierre.ventasTarjeta) > 0.009 ||
-    Math.abs(cierre.descuadre) > 0.009
+    Math.abs(close.cash - close.cashSales) > 0.009 ||
+    Math.abs(close.caixaBankAmount + close.santanderAmount - close.cardSales) > 0.009 ||
+    Math.abs(close.cashVariance) > 0.009
   )
 }
 
 export const PATCH = withAuth(async (req, session, context) => {
-  if (session.user.role === "OBRADOR") {
+  if (isRole(session.user.role, UserRole.BAKERY)) {
     return NextResponse.json({ error: "No autorizado" }, { status: 403 })
   }
   const { shiftId } = await context.params
@@ -79,12 +81,12 @@ export const PATCH = withAuth(async (req, session, context) => {
     return NextResponse.json({ error: "Turno no encontrado" }, { status: 404 })
   }
 
-  const isAdminOrSocio = session.user.role === "ADMIN" || session.user.role === "SOCIO"
-  if (!isAdminOrSocio && shift.createdById !== session.user.id) {
+  const isAdminOrPartner = hasAnyRole(session.user.role, [UserRole.ADMIN, UserRole.PARTNER])
+  if (!isAdminOrPartner && shift.createdById !== session.user.id) {
     return NextResponse.json({ error: "Turno no encontrado" }, { status: 404 })
   }
 
-  if (!isAdminOrSocio && shift.status === "CERRADO") {
+  if (!isAdminOrPartner && shift.status === "CERRADO") {
     return NextResponse.json({ error: "El turno ya está cerrado" }, { status: 400 })
   }
 
@@ -95,48 +97,48 @@ export const PATCH = withAuth(async (req, session, context) => {
   }
   const data = parsedData.data
 
-  if (!isAdminOrSocio && data.fondoInicial !== undefined) {
+  if (!isAdminOrPartner && data.openingFund !== undefined) {
     return NextResponse.json({ error: "El fondo inicial solo puede cambiarse desde una operación autorizada" }, { status: 403 })
   }
 
-  if (data.sinInformacion && data.status !== "CERRADO") {
+  if (data.noInformation && data.status !== "CERRADO") {
     return NextResponse.json({ error: "El cierre sin información debe cerrar el turno" }, { status: 400 })
   }
 
-  if (data.status === "ABIERTO" && session.user.role !== "SOCIO") {
+  if (data.status === "ABIERTO" && !isRole(session.user.role, UserRole.PARTNER)) {
     return NextResponse.json(
       { error: "Solo los socios pueden reabrir un turno" },
       { status: 403 }
     )
   }
 
-  let cierre: z.infer<typeof cierreTurnoSchema> | null = null
-  if (data.status === "CERRADO" && !data.sinInformacion) {
-    if (!body.cierre) {
+  let close: z.infer<typeof shiftCloseSchema> | null = null
+  if (data.status === "CERRADO" && !data.noInformation) {
+    if (!body.close) {
       return NextResponse.json(
         { error: "El cierre de caja confirmado es obligatorio para cerrar el turno" },
         { status: 400 }
       )
     }
 
-    const parsedCierre = cierreTurnoSchema.safeParse(body.cierre)
-    if (!parsedCierre.success) {
-      return NextResponse.json({ error: parsedCierre.error.issues[0]?.message || "Datos del ticket no válidos" }, { status: 400 })
+    const parsedClose = shiftCloseSchema.safeParse(body.close)
+    if (!parsedClose.success) {
+      return NextResponse.json({ error: parsedClose.error.issues[0]?.message || "Datos del ticket no válidos" }, { status: 400 })
     }
-    cierre = parsedCierre.data
-    const currentCierre = await prisma.cierreTurno.findUnique({ where: { shiftId } })
-    if (!currentCierre) {
-      if (!sameCalendarDate(cierre.fechaHoraApertura, shift.date) || !sameCalendarDate(cierre.fechaHoraCierre, shift.date)) {
+    close = parsedClose.data
+    const currentClose = await prisma.shiftClose.findUnique({ where: { shiftId } })
+    if (!currentClose) {
+      if (!sameCalendarDate(close.openingDateTime, shift.date) || !sameCalendarDate(close.closingDateTime, shift.date)) {
         return NextResponse.json(
           { error: "La fecha del ticket no coincide con la fecha del turno" },
           { status: 400 }
         )
       }
 
-      const apertura = new Date(cierre.fechaHoraApertura).getTime()
-      const cierreFecha = new Date(cierre.fechaHoraCierre).getTime()
-      const tolerancia = 15 * 60 * 1000
-      if (!Number.isFinite(apertura) || !Number.isFinite(cierreFecha) || cierreFecha < apertura || apertura < shift.createdAt.getTime() - tolerancia || cierreFecha > Date.now() + tolerancia) {
+      const apertura = new Date(close.openingDateTime).getTime()
+      const closeDate = new Date(close.closingDateTime).getTime()
+      const tolerance = 15 * 60 * 1000
+      if (!Number.isFinite(apertura) || !Number.isFinite(closeDate) || closeDate < apertura || apertura < shift.createdAt.getTime() - tolerance || closeDate > Date.now() + tolerance) {
         return NextResponse.json(
           { error: "La fecha y hora del ticket están fuera del intervalo del turno" },
           { status: 400 }
@@ -144,18 +146,18 @@ export const PATCH = withAuth(async (req, session, context) => {
       }
     }
 
-    if (hasPaymentDifference(cierre) && !cierre.observacionDescuadre.trim()) {
+    if (hasPaymentDifference(close) && !close.varianceNote.trim()) {
       return NextResponse.json(
         { error: "Debes indicar una observación para guardar el descuadre" },
         { status: 400 }
       )
     }
 
-    const duplicate = await prisma.cierreTurno.findFirst({
+    const duplicate = await prisma.shiftClose.findFirst({
       where: {
-        tpv: cierre.tpv,
-        numeroCierreCaja: cierre.numeroCierreCaja,
-        ...(currentCierre ? { NOT: { id: currentCierre.id } } : {}),
+        pos: close.pos,
+        cashCloseNumber: close.cashCloseNumber,
+        ...(currentClose ? { NOT: { id: currentClose.id } } : {}),
       },
       select: { id: true },
     })
@@ -169,94 +171,94 @@ export const PATCH = withAuth(async (req, session, context) => {
 
   const [expensesAgg, currentExpensesAgg] = await Promise.all([
     prisma.expense.aggregate({
-      _sum: { importe: true },
+      _sum: { amount: true },
       where: { shiftId },
     }),
-    prisma.gastoCorriente.aggregate({
-      _sum: { importe: true },
-      where: { shiftId, estado: { not: "ANULADO" } },
+    prisma.currentExpense.aggregate({
+      _sum: { amount: true },
+      where: { shiftId, status: { not: CurrentExpenseStatus.VOID } },
     }),
   ])
-  const newFondoInicial = data.fondoInicial !== undefined ? data.fondoInicial : toN(shift.fondoInicial)
-  const fondoFinal = calculateFondoFinal(
-    newFondoInicial,
-    [{ importe: expensesAgg._sum.importe }],
-    [{ importe: currentExpensesAgg._sum.importe }],
+  const newFundInicial = data.openingFund !== undefined ? data.openingFund : toN(shift.openingFund)
+  const closingFund = calculateFundFinal(
+    newFundInicial,
+    [{ amount: expensesAgg._sum.amount }],
+    [{ amount: currentExpensesAgg._sum?.amount }],
   )
 
   const updated = await prisma.$transaction(async (tx) => {
     const updatedShift = await tx.shift.update({
       where: { id: shiftId },
       data: {
-        ...(cierre ? { efectivo: cierre.efectivo, caixa: cierre.caixa, santander: cierre.santander } : {}),
-        ...(data.efectivo !== undefined && !cierre && { efectivo: data.efectivo }),
-        ...(data.caixa !== undefined && !cierre && { caixa: data.caixa }),
-        ...(data.santander !== undefined && !cierre && { santander: data.santander }),
-        ...(data.fondoInicial !== undefined && { fondoInicial: data.fondoInicial }),
+        ...(close ? { cash: close.cash, caixaBankAmount: close.caixaBankAmount, santanderAmount: close.santanderAmount } : {}),
+        ...(data.cash !== undefined && !close && { cash: data.cash }),
+        ...(data.caixaBankAmount !== undefined && !close && { caixaBankAmount: data.caixaBankAmount }),
+        ...(data.santanderAmount !== undefined && !close && { santanderAmount: data.santanderAmount }),
+        ...(data.openingFund !== undefined && { openingFund: data.openingFund }),
         ...(data.status && { status: data.status }),
         ...(data.status === "CERRADO" && { closedAt: new Date() }),
         ...(data.status === "ABIERTO" && { closedAt: null }),
-        fondoFinal,
+        closingFund,
       },
-      include: { expenses: true, cierreTurno: true },
+      include: { expenses: true, shiftClose: true },
     })
 
-    if (cierre) {
-      await tx.cierreTurno.upsert({
+    if (close) {
+      await tx.shiftClose.upsert({
         where: { shiftId },
         create: {
           shiftId,
-          numeroCierreCaja: cierre.numeroCierreCaja,
-          tpv: cierre.tpv,
-          fechaHoraApertura: new Date(cierre.fechaHoraApertura),
-          fechaHoraCierre: new Date(cierre.fechaHoraCierre),
-          fondoCajaAnterior: cierre.fondoCajaAnterior,
-          cobrosEfectivo: cierre.cobrosEfectivo,
-          reembolsosEfectivo: cierre.reembolsosEfectivo,
-          depositado: cierre.depositado,
-          pagosSalidas: cierre.pagosSalidas,
-          efectivoTeoricoCaja: cierre.efectivoTeoricoCaja,
-          cantidadEfectivoReal: cierre.cantidadEfectivoReal,
-          descuadre: cierre.descuadre,
-          ventasBrutas: cierre.ventasBrutas,
-          reembolsos: cierre.reembolsos,
-          descuentos: cierre.descuentos,
-          ventasNetas: cierre.ventasNetas,
-          ventasEfectivo: cierre.ventasEfectivo,
-          ventasTarjeta: cierre.ventasTarjeta,
-          ivaPan4Base: cierre.ivaPan4Base,
-          ivaPan4Cuota: cierre.ivaPan4Cuota,
-          iva10Base: cierre.iva10Base,
-          iva10Cuota: cierre.iva10Cuota,
-          observacionDescuadre: cierre.observacionDescuadre.trim() || null,
-          confirmadoPorId: session.user.id,
+          cashCloseNumber: close.cashCloseNumber,
+          pos: close.pos,
+          openingDateTime: new Date(close.openingDateTime),
+          closingDateTime: new Date(close.closingDateTime),
+          previousCashFund: close.previousCashFund,
+          cashReceipts: close.cashReceipts,
+          cashRefunds: close.cashRefunds,
+          depositedAmount: close.depositedAmount,
+          paymentOutflows: close.paymentOutflows,
+          theoreticalCash: close.theoreticalCash,
+          actualCash: close.actualCash,
+          cashVariance: close.cashVariance,
+          grossSales: close.grossSales,
+          refunds: close.refunds,
+          discounts: close.discounts,
+          netSales: close.netSales,
+          cashSales: close.cashSales,
+          cardSales: close.cardSales,
+          breadVat4Base: close.breadVat4Base,
+          breadVat4Amount: close.breadVat4Amount,
+          vat10Base: close.vat10Base,
+          vat10Amount: close.vat10Amount,
+          varianceNote: close.varianceNote.trim() || null,
+          confirmedById: session.user.id,
         },
         update: {
-          numeroCierreCaja: cierre.numeroCierreCaja,
-          tpv: cierre.tpv,
-          fechaHoraApertura: new Date(cierre.fechaHoraApertura),
-          fechaHoraCierre: new Date(cierre.fechaHoraCierre),
-          fondoCajaAnterior: cierre.fondoCajaAnterior,
-          cobrosEfectivo: cierre.cobrosEfectivo,
-          reembolsosEfectivo: cierre.reembolsosEfectivo,
-          depositado: cierre.depositado,
-          pagosSalidas: cierre.pagosSalidas,
-          efectivoTeoricoCaja: cierre.efectivoTeoricoCaja,
-          cantidadEfectivoReal: cierre.cantidadEfectivoReal,
-          descuadre: cierre.descuadre,
-          ventasBrutas: cierre.ventasBrutas,
-          reembolsos: cierre.reembolsos,
-          descuentos: cierre.descuentos,
-          ventasNetas: cierre.ventasNetas,
-          ventasEfectivo: cierre.ventasEfectivo,
-          ventasTarjeta: cierre.ventasTarjeta,
-          ivaPan4Base: cierre.ivaPan4Base,
-          ivaPan4Cuota: cierre.ivaPan4Cuota,
-          iva10Base: cierre.iva10Base,
-          iva10Cuota: cierre.iva10Cuota,
-          observacionDescuadre: cierre.observacionDescuadre.trim() || null,
-          confirmadoPorId: session.user.id,
-          confirmadoAt: new Date(),
+          cashCloseNumber: close.cashCloseNumber,
+          pos: close.pos,
+          openingDateTime: new Date(close.openingDateTime),
+          closingDateTime: new Date(close.closingDateTime),
+          previousCashFund: close.previousCashFund,
+          cashReceipts: close.cashReceipts,
+          cashRefunds: close.cashRefunds,
+          depositedAmount: close.depositedAmount,
+          paymentOutflows: close.paymentOutflows,
+          theoreticalCash: close.theoreticalCash,
+          actualCash: close.actualCash,
+          cashVariance: close.cashVariance,
+          grossSales: close.grossSales,
+          refunds: close.refunds,
+          discounts: close.discounts,
+          netSales: close.netSales,
+          cashSales: close.cashSales,
+          cardSales: close.cardSales,
+          breadVat4Base: close.breadVat4Base,
+          breadVat4Amount: close.breadVat4Amount,
+          vat10Base: close.vat10Base,
+          vat10Amount: close.vat10Amount,
+          varianceNote: close.varianceNote.trim() || null,
+          confirmedById: session.user.id,
+          confirmedAt: new Date(),
         },
       })
     }

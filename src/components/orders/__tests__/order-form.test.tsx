@@ -51,12 +51,12 @@ describe("OrderForm", () => {
     expect(screen.getByText(/comentario/i)).toBeInTheDocument()
   })
 
-  it("shows 'Crear' button in create mode", () => {
+  it("shows the create button in create mode", () => {
     renderCreate()
     expect(screen.getByRole("button", { name: /crear/i })).toBeInTheDocument()
   })
 
-  it("shows 'Actualizar' button in edit mode", () => {
+  it("shows the update button in edit mode", () => {
     renderEdit()
     expect(screen.getByRole("button", { name: /actualizar/i })).toBeInTheDocument()
   })
@@ -100,7 +100,7 @@ describe("OrderForm", () => {
     expect(defaultCancel).toHaveBeenCalled()
   })
 
-  it("shows 'Guardando...' when saving is true", () => {
+  it("shows the saving state when saving is true", () => {
     render(
       <OrderForm onSubmit={defaultSubmit} onCancel={defaultCancel} saving={true} />
     )

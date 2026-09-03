@@ -2,9 +2,11 @@ import { createHash, randomUUID } from "node:crypto"
 import { NextResponse } from "next/server"
 import { withAuth } from "@/lib/with-auth"
 import { prisma } from "@/lib/prisma"
-import { auditPaymentEvent, requirePaymentFunction, PaymentDomainError } from "@/lib/pagos"
-import { paymentErrorResponse } from "@/lib/pagos-http"
-import { getPaymentStorage, paymentStorageBucket } from "@/lib/pagos-storage"
+import { auditPaymentEvent, requirePaymentFunction, PaymentDomainError } from "@/lib/payments"
+import { paymentErrorResponse } from "@/lib/payments-http"
+import { getPaymentStorage, paymentStorageBucket } from "@/lib/payments-storage"
+import { PaymentFunction } from "@/lib/database-enums"
+import { getFirstFormValue } from "@/lib/request-params"
 
 const allowedTypes = new Set(["application/pdf", "image/jpeg", "image/png"])
 const maxSize = 6 * 1024 * 1024
@@ -20,16 +22,16 @@ export const POST = withAuth(async (req, session) => {
   try {
     const form = await req.formData()
     const file = form.get("file")
-    const facturaId = String(form.get("facturaId") || "")
-    const gastoId = String(form.get("gastoId") || "")
-    if (gastoId) throw new PaymentDomainError("Los gastos corrientes no aceptan justificantes adjuntos", 409, "EXPENSE_ATTACHMENTS_DISABLED")
+    const invoiceId = String(getFirstFormValue(form, "invoiceId", "facturaId") || "")
+    const currentExpenseId = String(getFirstFormValue(form, "currentExpenseId", "gastoId") || "")
+    if (currentExpenseId) throw new PaymentDomainError("Los gastos corrientes no aceptan justificantes adjuntos", 409, "EXPENSE_ATTACHMENTS_DISABLED")
     if (!(file instanceof File)) throw new PaymentDomainError("El archivo es obligatorio", 400, "ATTACHMENT_REQUIRED")
-    if (!facturaId) throw new PaymentDomainError("Indica una factura para el adjunto", 400, "ATTACHMENT_TARGET_INVALID")
+    if (!invoiceId) throw new PaymentDomainError("Indica una factura para el adjunto", 400, "ATTACHMENT_TARGET_INVALID")
     if (!allowedTypes.has(file.type) || file.size <= 0 || file.size > maxSize) throw new PaymentDomainError("El adjunto debe ser PDF, JPG o PNG de hasta 6 MB", 400, "ATTACHMENT_INVALID")
 
-    const target = await prisma.factura.findUnique({ where: { id: facturaId }, select: { id: true, entidad: true } })
+    const target = await prisma.invoice.findUnique({ where: { id: invoiceId }, select: { id: true, entity: true } })
     if (!target) throw new PaymentDomainError("Documento no encontrado", 404, "DOCUMENT_NOT_FOUND")
-    await requirePaymentFunction(session.user.id, "REGISTRAR", target.entidad, session.user.role)
+    await requirePaymentFunction(session.user.id, PaymentFunction.REGISTER, target.entity, session.user.role)
 
     const storage = getPaymentStorage()
     if (!storage) throw new PaymentDomainError("El almacenamiento privado no está configurado", 503, "STORAGE_NOT_CONFIGURED")
@@ -39,14 +41,14 @@ export const POST = withAuth(async (req, session) => {
     const digest = createHash("sha256").update(bytes).digest("hex")
     const targetType = "facturas"
     const safeName = file.name.replace(/[^a-zA-Z0-9._-]/g, "_").slice(0, 120) || "documento"
-    const storageKey = `${target.entidad.toLowerCase()}/${targetType}/${target.id}/${randomUUID()}-${safeName}`
+    const storageKey = `${target.entity.toLowerCase()}/${targetType}/${target.id}/${randomUUID()}-${safeName}`
     const upload = await storage.storage.from(paymentStorageBucket).upload(storageKey, bytes, { contentType: file.type, upsert: false })
     if (upload.error) throw new PaymentDomainError("No se pudo guardar el adjunto", 502, "STORAGE_UPLOAD_FAILED")
 
     try {
       const attachment = await prisma.$transaction(async (tx) => {
-        const created = await tx.adjuntoPago.create({ data: { storageKey, nombreArchivo: file.name.slice(0, 255), mimeType: file.type, tamano: bytes.length, sha256: digest, facturaId, subidoPorId: session.user.id } })
-        await auditPaymentEvent(tx, { actorId: session.user.id, accion: "ADJUNTO_SUBIDO", tipoRegistro: "Factura", registroId: target.id, entidad: target.entidad, despues: { adjuntoId: created.id, sha256: digest } })
+        const created = await tx.paymentAttachment.create({ data: { storageKey, fileName: file.name.slice(0, 255), mimeType: file.type, sizeBytes: bytes.length, sha256: digest, invoiceId, uploadedById: session.user.id } })
+        await auditPaymentEvent(tx, { actorId: session.user.id, action: "ADJUNTO_SUBIDO", recordType: "Factura", recordId: target.id, entity: target.entity, after: { attachmentId: created.id, sha256: digest } })
         return created
       })
       return NextResponse.json(attachment, { status: 201 })

@@ -1,6 +1,6 @@
 import { describe, expect, it, vi } from "vitest"
 import { render, screen } from "@testing-library/react"
-import EmpleadoRecepcionesPage from "../page"
+import EmployeeReceiptsPage from "../page"
 
 vi.mock("@/components/app-header", () => ({
   default: ({ title, subtitle }: { title: string; subtitle?: string }) => (
@@ -11,7 +11,7 @@ vi.mock("@/components/app-header", () => ({
   ),
 }))
 
-vi.mock("@/components/inventario/recepciones-panel", () => ({
+vi.mock("@/components/inventory/receipts-panel", () => ({
   default: (props: { canDelete?: boolean; initialView?: string }) => (
     <div
       data-testid="recepciones-panel"
@@ -21,9 +21,9 @@ vi.mock("@/components/inventario/recepciones-panel", () => ({
   ),
 }))
 
-describe("EmpleadoRecepcionesPage", () => {
+describe("EmployeeReceiptsPage", () => {
   it("opens the reception form without delete actions", () => {
-    render(<EmpleadoRecepcionesPage />)
+    render(<EmployeeReceiptsPage />)
 
     expect(screen.getByText("Recepción de mercancía")).toBeInTheDocument()
     expect(screen.getByText("Registrar una entrega")).toBeInTheDocument()

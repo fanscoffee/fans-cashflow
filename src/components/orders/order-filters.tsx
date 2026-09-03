@@ -22,7 +22,7 @@ export default function OrderFilters({
       const delivery = new Date(order.deliveryDate)
       const created = new Date(order.createdAt)
       return {
-        Creado: created.toLocaleDateString("es-ES"),
+        Created: created.toLocaleDateString("es-ES"),
         Entrega: delivery.toLocaleDateString("es-ES"),
         HoraEntrega: delivery.toLocaleTimeString("es-ES", {
           hour: "2-digit",
@@ -31,7 +31,7 @@ export default function OrderFilters({
         Cliente: order.clientName,
         Telefono: order.clientPhone,
         Comentario: order.comment || "",
-        CreadoPor: order.createdBy?.name || order.createdBy?.email || "",
+        CreatedPor: order.createdBy?.name || order.createdBy?.email || "",
       }
     })
     const filename = `encargos-${selectedYear}-${String(selectedMonth).padStart(2, "0")}.csv`

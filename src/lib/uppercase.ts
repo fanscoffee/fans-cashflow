@@ -1,5 +1,6 @@
 const PRESERVE_CASE_KEYS = new Set([
   "turno",
+  "shift",
   "status",
   "estado",
   "tipo",

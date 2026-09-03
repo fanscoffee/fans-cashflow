@@ -2,22 +2,24 @@ import { NextResponse } from "next/server"
 import { z } from "zod"
 import { prisma } from "@/lib/prisma"
 import { withAuth } from "@/lib/with-auth"
+import { UserRole } from "@/lib/database-enums"
+import { hasAnyRole } from "@/lib/roles"
 
 const physicalInventorySchema = z.object({
-  notas: z.string().trim().max(1000).nullable().optional(),
-  lineas: z.array(z.object({
-    productoId: z.string().min(1),
-    cantidadUm1: z.coerce.number().finite().nonnegative().max(1_000_000_000),
-    cantidadUm2: z.coerce.number().finite().nonnegative().max(1_000_000_000),
-  }).strict()).min(1).max(10_000).superRefine((lineas, context) => {
-    if (new Set(lineas.map((linea) => linea.productoId)).size !== lineas.length) {
+  notes: z.string().trim().max(1000).nullable().optional(),
+  lines: z.array(z.object({
+    productId: z.string().min(1),
+    quantityUnit1: z.coerce.number().finite().nonnegative().max(1_000_000_000),
+    quantityUnit2: z.coerce.number().finite().nonnegative().max(1_000_000_000),
+  }).strict()).min(1).max(10_000).superRefine((lines, context) => {
+    if (new Set(lines.map((line) => line.productId)).size !== lines.length) {
       context.addIssue({ code: "custom", message: "No puedes repetir un producto en el conteo" })
     }
   }),
 }).strict()
 
 export const GET = withAuth(async (req, session) => {
-  if (session.user.role !== "ADMIN" && session.user.role !== "SOCIO") {
+  if (!hasAnyRole(session.user.role, [UserRole.ADMIN, UserRole.PARTNER])) {
     return NextResponse.json({ error: "No autorizado" }, { status: 403 })
   }
   const { searchParams } = new URL(req.url)
@@ -26,37 +28,37 @@ export const GET = withAuth(async (req, session) => {
   const page = Number.isInteger(requestedPage) ? Math.max(1, requestedPage) : 1
   const pageSize = Number.isInteger(requestedPageSize) ? Math.min(100, Math.max(1, requestedPageSize)) : 20
 
-  const [inventarios, total] = await Promise.all([
-    prisma.inventarioFisico.findMany({
+  const [inventories, total] = await Promise.all([
+    prisma.physicalInventory.findMany({
       skip: (page - 1) * pageSize,
       take: pageSize,
-      orderBy: { fechaConteo: "desc" },
+      orderBy: { countedAt: "desc" },
       include: {
-        creadoBy: { select: { name: true } },
-        _count: { select: { lineas: true } },
+        createdBy: { select: { name: true } },
+        _count: { select: { lines: true } },
       },
     }),
-    prisma.inventarioFisico.count(),
+    prisma.physicalInventory.count(),
   ])
 
-  return NextResponse.json({ inventarios, total, page, pageSize })
+  return NextResponse.json({ inventories, total, page, pageSize })
 })
 
 export const POST = withAuth(async (req, session) => {
-  if (session.user.role !== "ADMIN" && session.user.role !== "SOCIO") {
+  if (!hasAnyRole(session.user.role, [UserRole.ADMIN, UserRole.PARTNER])) {
     return NextResponse.json({ error: "No autorizado" }, { status: 403 })
   }
 
   try {
-    const { notas, lineas } = physicalInventorySchema.parse(await req.json())
+    const { notes, lines } = physicalInventorySchema.parse(await req.json())
 
     const now = new Date()
     const currentYear = now.getFullYear()
     const currentMonth = now.getMonth()
 
-    const existing = await prisma.inventarioFisico.findFirst({
+    const existing = await prisma.physicalInventory.findFirst({
       where: {
-        fechaConteo: {
+        countedAt: {
           gte: new Date(currentYear, currentMonth, 1),
           lt: new Date(currentYear, currentMonth + 1, 1),
         },
@@ -69,13 +71,13 @@ export const POST = withAuth(async (req, session) => {
       )
     }
 
-    const productoIds = lineas.map((l: { productoId: string }) => l.productoId)
-    const productos = await prisma.producto.findMany({
-      where: { id: { in: productoIds }, esComprable: true, estado: "Activo" },
+    const productIds = lines.map((l: { productId: string }) => l.productId)
+    const products = await prisma.product.findMany({
+      where: { id: { in: productIds }, isPurchasable: true, status: "Activo" },
       select: { id: true },
     })
-    const validIds = new Set(productos.map((p) => p.id))
-    const invalidIds = productoIds.filter((id: string) => !validIds.has(id))
+    const validIds = new Set(products.map((p) => p.id))
+    const invalidIds = productIds.filter((id: string) => !validIds.has(id))
     if (invalidIds.length > 0) {
       return NextResponse.json(
         { error: `Productos no válidos: ${invalidIds.join(", ")}` },
@@ -83,35 +85,35 @@ export const POST = withAuth(async (req, session) => {
       )
     }
 
-    const inventario = await prisma.$transaction(async (tx) => {
-      const inv = await tx.inventarioFisico.create({
+    const inventory = await prisma.$transaction(async (tx) => {
+      const inv = await tx.physicalInventory.create({
         data: {
-          creadoById: session.user.id,
-          notas: notas || null,
-          lineas: {
-            create: lineas.map(
+          createdById: session.user.id,
+          notes: notes || null,
+          lines: {
+            create: lines.map(
               (l: {
-                productoId: string
-                cantidadUm1: number
-                cantidadUm2: number
+                productId: string
+                quantityUnit1: number
+                quantityUnit2: number
               }) => ({
-                productoId: l.productoId,
-                cantidadUm1: l.cantidadUm1,
-                cantidadUm2: l.cantidadUm2,
+                productId: l.productId,
+                quantityUnit1: l.quantityUnit1,
+                quantityUnit2: l.quantityUnit2,
               })
             ),
           },
         },
         include: {
-          creadoBy: { select: { name: true } },
-          lineas: {
+          createdBy: { select: { name: true } },
+          lines: {
             include: {
-              producto: {
+              product: {
                 select: {
-                  codigo: true,
-                  descripcionTpv: true,
-                  umCompra: true,
-                  umBaseStock: true,
+                  code: true,
+                  posDescription: true,
+                  purchaseUnit: true,
+                  baseStockUnit: true,
                 },
               },
             },
@@ -121,7 +123,7 @@ export const POST = withAuth(async (req, session) => {
       return inv
     })
 
-    return NextResponse.json(inventario, { status: 201 })
+    return NextResponse.json(inventory, { status: 201 })
   } catch (error) {
     if (error instanceof z.ZodError) {
       return NextResponse.json({ error: error.issues[0]?.message || "Datos no válidos" }, { status: 400 })

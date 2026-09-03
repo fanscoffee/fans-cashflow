@@ -53,7 +53,7 @@ export const GET = withAuth(async (req, session) => {
 
     return NextResponse.json(options)
   } catch (error) {
-    console.error("Error generando opciones de registro:", error)
+    console.error("Error generating registration options:", error)
     return NextResponse.json(
       { error: "Error al generar opciones" },
       { status: 500 }
@@ -132,7 +132,7 @@ export const POST = withAuth(async (req, session) => {
 
     return NextResponse.json({ verified: true })
   } catch (error) {
-    console.error("Error en registro de passkey:", error)
+    console.error("Passkey registration error:", error)
     return NextResponse.json(
       { error: "Error al registrar passkey" },
       { status: 500 }

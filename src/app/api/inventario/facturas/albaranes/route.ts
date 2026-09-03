@@ -1,37 +1,40 @@
 import { NextResponse } from "next/server"
 import { prisma } from "@/lib/prisma"
 import { withAuth } from "@/lib/with-auth"
+import { UserRole } from "@/lib/database-enums"
+import { hasAnyRole } from "@/lib/roles"
+import { getFirstSearchParam } from "@/lib/request-params"
 
 export const GET = withAuth(async (req, session) => {
-  if (session.user.role !== "ADMIN" && session.user.role !== "SOCIO") return NextResponse.json({ error: "No autorizado" }, { status: 403 })
+  if (!hasAnyRole(session.user.role, [UserRole.ADMIN, UserRole.PARTNER])) return NextResponse.json({ error: "No autorizado" }, { status: 403 })
   const { searchParams } = new URL(req.url)
-  const proveedorId = searchParams.get("proveedorId") || ""
-  const facturaId = searchParams.get("facturaId") || ""
+  const supplierId = getFirstSearchParam(searchParams, "supplierId", "proveedorId") || ""
+  const invoiceId = getFirstSearchParam(searchParams, "invoiceId", "facturaId") || ""
   const search = searchParams.get("search") || ""
-  if (!proveedorId) return NextResponse.json({ albaranes: [] })
+  if (!supplierId) return NextResponse.json({ deliveryNotes: [] })
 
-  const albaranes = await prisma.recepcion.findMany({
+  const deliveryNotes = await prisma.receipt.findMany({
     where: {
-      proveedorId,
-      ...(facturaId ? { OR: [{ facturaId: null }, { facturaId }] } : { facturaId: null }),
-      ...(search ? { codigoAlbaran: { contains: search, mode: "insensitive" } } : {}),
+      supplierId,
+      ...(invoiceId ? { OR: [{ invoiceId: null }, { invoiceId }] } : { invoiceId: null }),
+      ...(search ? { deliveryNoteCode: { contains: search, mode: "insensitive" } } : {}),
     },
-    orderBy: { fechaRecepcion: "desc" },
+    orderBy: { receivedAt: "desc" },
     take: 100,
     select: {
       id: true,
-      codigoAlbaran: true,
-      fechaRecepcion: true,
-      lineas: {
+      deliveryNoteCode: true,
+      receivedAt: true,
+      lines: {
         select: {
-          productoId: true,
-          cantidadRecibida: true,
-          precioUnitario: true,
-          producto: { select: { codigo: true, descripcionTpv: true, umCompra: true } },
+          productId: true,
+          receivedQuantity: true,
+          unitPrice: true,
+          product: { select: { code: true, posDescription: true, purchaseUnit: true } },
         },
       },
     },
   })
 
-  return NextResponse.json({ albaranes })
+  return NextResponse.json({ deliveryNotes })
 })

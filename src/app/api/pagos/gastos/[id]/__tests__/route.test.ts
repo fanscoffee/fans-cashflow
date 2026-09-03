@@ -1,11 +1,11 @@
 import { beforeEach, describe, expect, it, vi } from "vitest"
 import type { NextRequest } from "next/server"
 
-vi.mock("@/lib/pagos", () => ({
+vi.mock("@/lib/payments", () => ({
   deleteCurrentExpense: vi.fn(),
 }))
 
-vi.mock("@/lib/pagos-http", () => ({
+vi.mock("@/lib/payments-http", () => ({
   paymentErrorResponse: vi.fn(),
 }))
 
@@ -14,7 +14,7 @@ vi.mock("@/lib/auth", () => ({
 }))
 
 import { DELETE } from "../route"
-import { deleteCurrentExpense } from "@/lib/pagos"
+import { deleteCurrentExpense } from "@/lib/payments"
 import { auth } from "@/lib/auth"
 
 const context = { params: Promise.resolve({ id: "expense-1" }) }
@@ -27,12 +27,12 @@ describe("DELETE /api/pagos/gastos/[id]", () => {
   })
 
   it("deletes the requested current expense", async () => {
-    vi.mocked(deleteCurrentExpense).mockResolvedValue({ id: "expense-1", estado: "ANULADO" } as any)
+    vi.mocked(deleteCurrentExpense).mockResolvedValue({ id: "expense-1", status: "ANULADO" } as any)
 
     const response = await DELETE(request, context)
 
     expect(response.status).toBe(200)
-    await expect(response.json()).resolves.toMatchObject({ ok: true, expense: { id: "expense-1", estado: "ANULADO" } })
+    await expect(response.json()).resolves.toMatchObject({ ok: true, expense: { id: "expense-1", status: "ANULADO" } })
     expect(deleteCurrentExpense).toHaveBeenCalledWith({ id: "partner-1", role: "SOCIO" }, "expense-1")
   })
 })

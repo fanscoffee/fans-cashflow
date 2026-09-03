@@ -3,11 +3,11 @@ import type { NextRequest } from "next/server"
 
 vi.mock("@/lib/prisma", () => ({
   prisma: {
-    proveedor: { findUnique: vi.fn(), findFirst: vi.fn(), update: vi.fn(), delete: vi.fn() },
-    proveedorProducto: { count: vi.fn() },
-    recepcion: { count: vi.fn() },
-    factura: { count: vi.fn() },
-    acreedor: { count: vi.fn() },
+    supplier: { findUnique: vi.fn(), findFirst: vi.fn(), update: vi.fn(), delete: vi.fn() },
+    supplierProduct: { count: vi.fn() },
+    receipt: { count: vi.fn() },
+    invoice: { count: vi.fn() },
+    creditor: { count: vi.fn() },
   },
 }))
 
@@ -26,48 +26,50 @@ describe("DELETE /api/inventario/proveedores/[id]", () => {
   beforeEach(() => {
     vi.clearAllMocks()
     vi.mocked(auth).mockResolvedValue({ user: { id: "admin-1", role: "ADMIN" } } as any)
-    vi.mocked(prisma.proveedor.findUnique).mockResolvedValue({ id: "provider-1" } as any)
-    vi.mocked(prisma.proveedorProducto.count).mockResolvedValue(0)
-    vi.mocked(prisma.recepcion.count).mockResolvedValue(0)
-    vi.mocked(prisma.factura.count).mockResolvedValue(0)
-    vi.mocked(prisma.acreedor.count).mockResolvedValue(0)
+    vi.mocked(prisma.supplier.findUnique).mockResolvedValue({ id: "provider-1" } as any)
+    vi.mocked(prisma.supplierProduct.count).mockResolvedValue(0)
+    vi.mocked(prisma.receipt.count).mockResolvedValue(0)
+    vi.mocked(prisma.invoice.count).mockResolvedValue(0)
+    vi.mocked(prisma.creditor.count).mockResolvedValue(0)
   })
 
   it("blocks deletion when the provider is linked to products", async () => {
-    vi.mocked(prisma.proveedorProducto.count).mockResolvedValue(2)
+    vi.mocked(prisma.supplierProduct.count).mockResolvedValue(2)
 
     const response = await DELETE(request, context)
 
     expect(response.status).toBe(409)
     await expect(response.json()).resolves.toMatchObject({
       code: "PROVIDER_HAS_LINKS",
-      vinculaciones: { productos: 2, recepciones: 0, facturas: 0, acreedores: 0 },
+      links: { products: 2, receipts: 0, invoices: 0, creditors: 0 },
+      vinculaciones: { products: 2, receipts: 0, invoices: 0, creditors: 0 },
     })
-    expect(prisma.proveedor.delete).not.toHaveBeenCalled()
+    expect(prisma.supplier.delete).not.toHaveBeenCalled()
   })
 
   it("blocks deletion when the provider has any other link", async () => {
-    vi.mocked(prisma.recepcion.count).mockResolvedValue(1)
-    vi.mocked(prisma.factura.count).mockResolvedValue(3)
-    vi.mocked(prisma.acreedor.count).mockResolvedValue(1)
+    vi.mocked(prisma.receipt.count).mockResolvedValue(1)
+    vi.mocked(prisma.invoice.count).mockResolvedValue(3)
+    vi.mocked(prisma.creditor.count).mockResolvedValue(1)
 
     const response = await DELETE(request, context)
 
     expect(response.status).toBe(409)
     await expect(response.json()).resolves.toMatchObject({
-      vinculaciones: { productos: 0, recepciones: 1, facturas: 3, acreedores: 1 },
+      links: { products: 0, receipts: 1, invoices: 3, creditors: 1 },
+      vinculaciones: { products: 0, receipts: 1, invoices: 3, creditors: 1 },
     })
-    expect(prisma.proveedor.delete).not.toHaveBeenCalled()
+    expect(prisma.supplier.delete).not.toHaveBeenCalled()
   })
 
   it("deletes a provider with no links", async () => {
-    vi.mocked(prisma.proveedor.delete).mockResolvedValue({ id: "provider-1" } as any)
+    vi.mocked(prisma.supplier.delete).mockResolvedValue({ id: "provider-1" } as any)
 
     const response = await DELETE(request, context)
 
     expect(response.status).toBe(200)
     await expect(response.json()).resolves.toMatchObject({ ok: true })
-    expect(prisma.proveedor.delete).toHaveBeenCalledWith({ where: { id: "provider-1" } })
+    expect(prisma.supplier.delete).toHaveBeenCalledWith({ where: { id: "provider-1" } })
   })
 
   it("blocks a regular SOCIO from deleting a provider", async () => {
@@ -77,17 +79,17 @@ describe("DELETE /api/inventario/proveedores/[id]", () => {
 
     expect(response.status).toBe(403)
     await expect(response.json()).resolves.toMatchObject({ error: expect.stringContaining("Yomi") })
-    expect(prisma.proveedor.delete).not.toHaveBeenCalled()
+    expect(prisma.supplier.delete).not.toHaveBeenCalled()
   })
 
   it("allows Yomi to delete a provider with no links", async () => {
     vi.mocked(auth).mockResolvedValue({ user: { id: "partner-1", role: "SOCIO", name: "Yomi" } } as any)
-    vi.mocked(prisma.proveedor.delete).mockResolvedValue({ id: "provider-1" } as any)
+    vi.mocked(prisma.supplier.delete).mockResolvedValue({ id: "provider-1" } as any)
 
     const response = await DELETE(request, context)
 
     expect(response.status).toBe(200)
-    expect(prisma.proveedor.delete).toHaveBeenCalledWith({ where: { id: "provider-1" } })
+    expect(prisma.supplier.delete).toHaveBeenCalledWith({ where: { id: "provider-1" } })
   })
 })
 
@@ -103,38 +105,38 @@ describe("GET/PATCH /api/inventario/proveedores/[id]", () => {
   beforeEach(() => {
     vi.clearAllMocks()
     vi.mocked(auth).mockResolvedValue({ user: { id: "admin-1", role: "ADMIN" } } as any)
-    vi.mocked(prisma.proveedor.findUnique).mockResolvedValue({ id: "provider-1", razonSocial: "Proveedor", productos: [] } as any)
-    vi.mocked(prisma.proveedor.findFirst).mockResolvedValue(null)
-    vi.mocked(prisma.proveedor.update).mockResolvedValue({ id: "provider-1", razonSocial: "Proveedor actualizado" } as any)
+    vi.mocked(prisma.supplier.findUnique).mockResolvedValue({ id: "provider-1", legalName: "Proveedor", products: [] } as any)
+    vi.mocked(prisma.supplier.findFirst).mockResolvedValue(null)
+    vi.mocked(prisma.supplier.update).mockResolvedValue({ id: "provider-1", legalName: "Proveedor actualizado" } as any)
   })
 
   it("gets a provider and returns not found when it is missing", async () => {
     const response = await GET(getRequest, context)
     expect(response.status).toBe(200)
-    await expect(response.json()).resolves.toMatchObject({ id: "provider-1", productos: [] })
+    await expect(response.json()).resolves.toMatchObject({ id: "provider-1", products: [] })
 
-    vi.mocked(prisma.proveedor.findUnique).mockResolvedValue(null)
+    vi.mocked(prisma.supplier.findUnique).mockResolvedValue(null)
     expect((await GET(getRequest, context)).status).toBe(404)
   })
 
   it("updates a provider and rejects duplicate CIF/NIF values", async () => {
-    const response = await PATCH(patchRequest({ razonSocial: "Proveedor actualizado" }), context)
+    const response = await PATCH(patchRequest({ legalName: "Proveedor actualizado" }), context)
     expect(response.status).toBe(200)
-    expect(prisma.proveedor.update).toHaveBeenCalledWith({
+    expect(prisma.supplier.update).toHaveBeenCalledWith({
       where: { id: "provider-1" },
-      data: { razonSocial: "Proveedor actualizado" },
+      data: { legalName: "Proveedor actualizado" },
     })
 
-    vi.mocked(prisma.proveedor.findFirst).mockResolvedValue({ id: "provider-2" } as any)
-    const conflict = await PATCH(patchRequest({ cifNif: "B12345678" }), context)
+    vi.mocked(prisma.supplier.findFirst).mockResolvedValue({ id: "provider-2" } as any)
+    const conflict = await PATCH(patchRequest({ taxId: "B12345678" }), context)
     expect(conflict.status).toBe(400)
     await expect(conflict.json()).resolves.toMatchObject({ error: expect.stringContaining("B12345678") })
   })
 
   it("returns persistence errors from provider updates", async () => {
-    vi.mocked(prisma.proveedor.update).mockRejectedValue(new Error("provider update failed"))
+    vi.mocked(prisma.supplier.update).mockRejectedValue(new Error("provider update failed"))
 
-    const response = await PATCH(patchRequest({ razonSocial: "Proveedor actualizado" }), context)
+    const response = await PATCH(patchRequest({ legalName: "Proveedor actualizado" }), context)
     expect(response.status).toBe(500)
     await expect(response.json()).resolves.toEqual({ error: "provider update failed" })
   })
