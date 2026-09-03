@@ -455,8 +455,9 @@ export async function createPayment(user: { id: string; role: string }, input: C
   })
 }
 
-export async function createExpense(user: { id: string; role: string }, input: CreateExpenseInput, options: { shiftId?: string } = {}) {
-  await requirePaymentFunction(user.id, "SOLICITAR", input.entidad, user.role)
+export async function createExpense(user: { id: string; role: string }, input: CreateExpenseInput, options: { shiftId?: string; employeeShiftRegistration?: boolean } = {}) {
+  const isEmployeeShiftRegistration = options.employeeShiftRegistration === true && options.shiftId && user.role === "EMPLEADO"
+  if (!isEmployeeShiftRegistration) await requirePaymentFunction(user.id, "SOLICITAR", input.entidad, user.role)
   const date = parseDate(input.fechaDevengo)
   const amount = decimal(input.importe)
   await requireOpenAccountingPeriod(prisma, input.entidad, date)
@@ -504,7 +505,7 @@ export async function createExpenseFromShift(user: { id: string; role: string },
   if (!shift || (!canManageAllShifts && shift.createdById !== user.id)) throw new PaymentDomainError("Turno no encontrado", 404, "SHIFT_NOT_FOUND")
   if (shift.status !== "ABIERTO") throw new PaymentDomainError("El turno debe estar abierto para registrar el gasto", 409, "SHIFT_NOT_OPEN")
 
-  const expense = await createExpense(user, { ...input, entidad: "CAFETERIA", justificante: "SIN_JUSTIFICANTE" }, { shiftId })
+  const expense = await createExpense(user, { ...input, entidad: "CAFETERIA", justificante: "SIN_JUSTIFICANTE" }, { shiftId, employeeShiftRegistration: user.role === "EMPLEADO" })
   await recalculateShiftFondoFinal(shiftId)
   return expense
 }
