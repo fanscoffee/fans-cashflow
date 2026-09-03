@@ -12,9 +12,24 @@ const WRITE_OPERATIONS = new Set([
   "upsert",
 ])
 
+function applicationDatabaseUrl() {
+  const connectionString = process.env.DATABASE_URL
+  if (!connectionString) return connectionString
+
+  try {
+    const url = new URL(connectionString)
+    if (url.port === "6543" && url.hostname.endsWith(".pooler.supabase.com")) {
+      url.searchParams.set("pgbouncer", "true")
+    }
+    return url.toString()
+  } catch {
+    return connectionString
+  }
+}
+
 function createPrismaClient() {
   const client = new PrismaClient({
-    adapter: new PrismaPg({ connectionString: process.env.DATABASE_URL! }),
+    adapter: new PrismaPg({ connectionString: applicationDatabaseUrl()! }),
   }).$extends({
     name: "uppercase-persisted-text",
     query: {
