@@ -40,7 +40,7 @@ const layouts = [
       "TOTAL BRUTO TOTAL NETO TOTAL IVA + RE TOTAL",
       "337.79 337.79 26.90 EUR 364.69",
     ),
-    expected: { invoice: "2608A000729", date: "2026-08-31", taxId: "B58443821", payment: "A la Vista", form: { base4: "155.38", vat4: "6.22", base10: "160.24", vat10: "16.02", base21: "22.18", vat21: "4.66", totalBase: "337.79", totalVat: "26.90", invoiceTotal: "364.69" } },
+    expected: { invoice: "2608A000729", date: "2026-08-31", taxId: "B58443821", payment: "A la Vista", supplier: "Drinks Madrid S.L.", form: { base4: "155.38", vat4: "6.22", base10: "160.24", vat10: "16.02", base21: "22.18", vat21: "4.66", totalBase: "337.79", totalVat: "26.90", invoiceTotal: "364.69" } },
   },
   {
     name: "Rent with IRPF",
@@ -176,5 +176,159 @@ describe("parseInvoiceText real invoice layouts", () => {
     if ("concept" in expected) expect(form.concept).toBe(expected.concept)
     if ("supplier" in expected) expect(form.supplierOrCreditor).toBe(expected.supplier)
     expect(form).toMatchObject(expected.form)
+  })
+
+  it("parses tabular PDFs when labels and values are emitted on separate rows", () => {
+    const lasBallinas = parseInvoiceText(text(
+      "SOCIEDAD INMOBILIARIA LAS BALLINAS S.L.",
+      "NIF: B79117073",
+      "SUPLIDOS B. EXENTA B. IMPONIBLE CUOTA IVA TOTAL FACTURA",
+      "3.379,15",
+      "1094 01/09/2026 591 B09711078",
+      "SERIE FECHA OPERACION CÓDIGO CLIENTE NIF",
+      "591",
+      "Nº FACTURA",
+      "FECHA EXPEDICION",
+      "01/09/2026",
+      "% IVA",
+      "2.792,69 21,00 586,46",
+    ))
+    expect(lasBallinas.number).toBe("1094")
+    expect(lasBallinas.issuerLegalName).toBe("SOCIEDAD INMOBILIARIA LAS BALLINAS S.L.")
+    expect(lasBallinas.taxes).toEqual([{ type: "IVA", percentage: "21.00", taxableBase: "2792.69", taxAmount: "586.46" }])
+
+    const drinks = parseInvoiceText(text(
+      "Drinks Madrid S.L.",
+      "FACTURA :",
+      "FECHA :",
+      "Nif. B58443821",
+      "Forma de Pago",
+      "GI A la Vista",
+      "596755",
+      "2608A000729",
+      "31/08/2026",
+    ))
+    expect(drinks.number).toBe("2608A000729")
+    expect(drinks.issueDate).toBe("2026-08-31")
+    expect(drinks.issuerLegalName).toBe("Drinks Madrid S.L.")
+
+    const qualianza = parseInvoiceText(text(
+      "QUALIANZA S. INT DIST,SLU",
+      "CIF:ESB09547167",
+      "FACTURA",
+      "Factura Nº",
+      "2206878702 31.08.2026 Transferencia 07.09.2026",
+      "B.Imponible % IVA Cuota IVA",
+      "673,11 4,00 26,92",
+      "306,85 10,00 30,69",
+      "31,49 21,00 6,61",
+    ))
+    expect(qualianza.number).toBe("2206878702")
+    expect(qualianza.taxes).toEqual([
+      { type: "IVA", percentage: "4.00", taxableBase: "673.11", taxAmount: "26.92" },
+      { type: "IVA", percentage: "10.00", taxableBase: "306.85", taxAmount: "30.69" },
+      { type: "IVA", percentage: "21.00", taxableBase: "31.49", taxAmount: "6.61" },
+    ])
+
+    const garcia = parseInvoiceText(text(
+      "GARCIA DE POU, S.A.",
+      "CIF . . . . . . . . : A17060864",
+      "FACTURA",
+      "Nº. F02034965 FECHA : 24/08/2026",
+      "SUBTOTAL DESCUENTO TOTAL P.P. PORTES B.IMP. I.V.A. / I.G.I.C. REC.EQUIVALENCIA TOTAL FACTURA",
+      "430,82 430,82 21,00 % 90,47 Euro 521,29",
+    ))
+    expect(garcia.number).toBe("F02034965")
+    expect(garcia.taxes).toEqual([{ type: "IVA", percentage: "21.00", taxableBase: "430.82", taxAmount: "90.47" }])
+  })
+
+  it("parses Grupo Traza when the invoice total only appears in the summary columns", () => {
+    const draft = parseInvoiceText(text(
+      "FACTURA",
+      "F2603711",
+      "Fecha: 15/06/2026 FANS COFFEE FRIENDS, S.L.L.",
+      "Fecha vencimiento: 15/06/2026 B09711078",
+      "CALLE DOCTOR ESQUERDO, 180 - LOC B",
+      "CONCEPTO PRECIO UNIDADES SUBTOTAL IVA TOTAL",
+      "00001 101,65€ 1 101,65€ 21% 123,00€",
+      "CONTRATO SANITARIO",
+      "BASE IMPONIBLE IMPUESTO TOTAL IMPUESTO TOTAL",
+      "101,65€ IVA 21% 21,35€ 123,00€",
+      "101,65€ 123,00€",
+      "Pagar por transferencia bancaria al siguiente número de cuenta",
+    ))
+    const form = invoiceDraftToAccounting(draft, "")
+    expect(form).toMatchObject({ date: "2026-06-15", invoiceNumber: "F2603711", totalBase: "101.65", totalVat: "21.35", invoiceTotal: "123.00" })
+  })
+
+  it("parses Qualianza tax rows emitted before their table header", () => {
+    const draft = parseInvoiceText(text(
+      "QUALIANZA S. INT DIST,SLU",
+      "CIF:ESB09547167",
+      "Factura Nº",
+      "2206878702",
+      "Fecha Factura",
+      "31.08.2026",
+      "673,11 4,00 26,92",
+      "306,85 10,00 30,69 Importe I.V.A. 64,22",
+      "31,49 21,00 6,61",
+      "B.Imponible % IVA % RE Cuota IVA Cuota R.E.",
+      "1.011,45 TOTALES 64,22",
+      "Importe(sin I.V.A.) 1.011,45",
+      "Importe I.V.A. 64,22",
+      "IMPORTE TOTAL (EUR) 1.075,67",
+    ))
+    const form = invoiceDraftToAccounting(draft, "")
+    expect(form).toMatchObject({ invoiceNumber: "2206878702", base4: "673.11", vat4: "26.92", base10: "306.85", vat10: "30.69", base21: "31.49", vat21: "6.61" })
+  })
+
+  it("parses Princesitas when the document values are separated from their headers", () => {
+    const draft = parseInvoiceText(text(
+      "Documento Número Página Fecha",
+      "N.I.F. AGENTE",
+      "ARTÍCULO DESCRIPCIÓN CANTIDAD PRECIO UD. SUBTOTAL DTO. TOTAL",
+      "TIPO IMPORTE DESCUENTO PRONTO PAGO PORTES FINANCIACIÓN BASE I.V.A. R.E.",
+      "OBSERVACIONES: TOTAL:",
+      "Vencimientos Importe Domiciliación Número de cuenta",
+      "Factura",
+      "Oficina",
+      "FORMA DE PAGO",
+      "PRINCESITAS FACTORY, S.L.",
+      "B88460738",
+      "16",
+      "B09711078",
+      "FANS COFFEE FRIENDS, S.L.L.",
+      "000484 1 03/08/2026",
+      "RECIBO BANCO",
+      "10 111,72 111,72 11,18",
+      "03/08/2026 122,90",
+    ))
+    const form = invoiceDraftToAccounting(draft, "")
+    expect(form).toMatchObject({ date: "2026-08-03", invoiceNumber: "000484", base10: "111.72", vat10: "11.18" })
+  })
+
+  it("parses Candelas when invoice and date values are emitted below their labels", () => {
+    const draft = parseInvoiceText(text(
+      "RSI: 40.26315/LU",
+      "FANS COFFEE FRIENDS SLL",
+      "CIF: B09711078",
+      "Cliente:",
+      "Nº Factura:",
+      "Fecha",
+      "Oficina de Ventas",
+      "Vendedor:",
+      "227195",
+      "2401332685",
+      "31.08.2026",
+      "2000 Centro",
+      "143 - LUIS ALBERTO HERNANDEZ",
+      "Cafés Candelas, SLU",
+      "CIF: B27013713",
+      "Bruto Descuento Punto Verde Imp.Plas. Base IVA % IVA Cuota IVA % REC Cuota REC Total Factura",
+      "1,251.55 0.00 3.42 0.00 1,158.27 10.00 % 115.83",
+      "96.70 21.00 % 20.31 1,391.11",
+    ))
+    const form = invoiceDraftToAccounting(draft, "")
+    expect(form).toMatchObject({ date: "2026-08-31", invoiceNumber: "2401332685", base10: "1158.27", vat10: "115.83", base21: "96.70", vat21: "20.31", totalBase: "1254.97", totalVat: "136.14", invoiceTotal: "1391.11" })
   })
 })

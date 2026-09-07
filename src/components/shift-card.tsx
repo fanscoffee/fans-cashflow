@@ -407,7 +407,7 @@ export function ShiftCard({ shift, userRole, onSave, onClose, onReopen, closingS
                 Categoría
                 <select
                   value={currentExpenseValues.categoryId}
-                  onChange={(event) => setCurrentExpenseValues({ ...currentExpenseValues, categoryId: event.target.value })}
+                  onChange={(event) => setCurrentExpenseValues((current) => ({ ...current, categoryId: event.target.value }))}
                   className="mt-1 w-full rounded-md border border-gray-300 px-2 py-1.5 text-xs text-gray-900"
                   required
                 >
@@ -419,7 +419,7 @@ export function ShiftCard({ shift, userRole, onSave, onClose, onReopen, closingS
                 Acreedor <span className="text-gray-400">(opcional para Personal/MEN)</span>
                 <select
                   value={currentExpenseValues.creditorId}
-                  onChange={(event) => setCurrentExpenseValues({ ...currentExpenseValues, creditorId: event.target.value })}
+                  onChange={(event) => setCurrentExpenseValues((current) => ({ ...current, creditorId: event.target.value }))}
                   className="mt-1 w-full rounded-md border border-gray-300 px-2 py-1.5 text-xs text-gray-900"
                 >
                   <option value="">Sin acreedor</option>
@@ -430,8 +430,13 @@ export function ShiftCard({ shift, userRole, onSave, onClose, onReopen, closingS
                 Concepto
                 <input
                   value={currentExpenseValues.concept}
-                  onChange={(event) => setCurrentExpenseValues({ ...currentExpenseValues, concept: event.target.value })}
+                  onChange={(event) => setCurrentExpenseValues((current) => ({ ...current, concept: event.target.value }))}
                   placeholder="Ej.: Horas extras de Juan"
+                  autoComplete="off"
+                  autoCorrect="off"
+                  autoCapitalize="none"
+                  data-preserve-input="true"
+                  spellCheck={false}
                   className="mt-1 w-full rounded-md border border-gray-300 px-2 py-1.5 text-xs text-gray-900"
                   required
                 />
@@ -443,7 +448,7 @@ export function ShiftCard({ shift, userRole, onSave, onClose, onReopen, closingS
                   min="0.01"
                   step="0.01"
                   value={currentExpenseValues.amount}
-                  onChange={(event) => setCurrentExpenseValues({ ...currentExpenseValues, amount: event.target.value })}
+                  onChange={(event) => setCurrentExpenseValues((current) => ({ ...current, amount: event.target.value }))}
                   className="mt-1 w-full rounded-md border border-gray-300 px-2 py-1.5 text-xs text-gray-900"
                   required
                 />
