@@ -364,6 +364,58 @@ function candidateAfterDate(value: string) {
   return invoiceCandidates(value.slice(dateMatch.index + dateMatch[0].length))[0] || ""
 }
 
+function candidateBeforeDate(value: string) {
+  const dateMatch = value.match(/\b\d{1,2}[./-]\d{1,2}[./-]\d{2,4}\b/)
+  if (!dateMatch || dateMatch.index == null) return ""
+  return invoiceCandidates(value.slice(0, dateMatch.index))[0] || ""
+}
+
+function isTaxIdLikeInvoiceCandidate(value: string, line: string) {
+  const compact = normalizeAlpha(value)
+  if (matchesRecipientTaxId(value)) return true
+  if (!/\b(?:nif|cif|vat|iva)\b/i.test(line)) return false
+  return /^(?:es)?[a-z]\d{7,8}[a-z]?$/.test(compact)
+}
+
+function scoredInvoiceCandidates(value: string, line: string, distance: number) {
+  return invoiceCandidates(value).flatMap((candidate) => {
+    if (/^\d+[.,]\d+$/.test(candidate) || isTaxIdLikeInvoiceCandidate(candidate, line) || /\b(?:rsi|p[aá]gina|pagina|cliente|oficina|vendedor|fecha|nif|cif)\b/i.test(line)) return []
+    let score = Math.min(candidate.length, 12) * 2 - distance
+    if (/[a-z]/i.test(candidate)) score += 20
+    if (/\//.test(candidate)) score += 25
+    if (/^\d+[a-z]/i.test(candidate)) score += 10
+    if (/\b(?:cliente|pedido|albar[aá]n|c[oó]digo|cuenta|registro|p[aá]gina|hoja)\b/i.test(line)) score -= 20
+    return [{ candidate, score }]
+  })
+}
+
+function findInvoiceCandidateNear(lines: string[], index: number, radius: number) {
+  const candidates: Array<{ candidate: string; score: number; index: number }> = []
+  const start = Math.max(0, index - radius)
+  const end = Math.min(lines.length, index + radius + 1)
+  for (let lineIndex = start; lineIndex < end; lineIndex += 1) {
+    for (const item of scoredInvoiceCandidates(lines[lineIndex], lines[lineIndex], Math.abs(lineIndex - index))) candidates.push({ ...item, index: lineIndex })
+  }
+  return candidates.sort((left, right) => right.score - left.score || left.index - right.index)[0]?.candidate || ""
+}
+
+function findMixedInvoiceCandidate(lines: string[]) {
+  const candidates: Array<{ candidate: string; score: number; index: number }> = []
+  for (let index = 0; index < lines.length; index += 1) {
+    for (const item of scoredInvoiceCandidates(lines[index], lines[index], 0)) {
+      if (!/[a-z]/i.test(item.candidate) || !/\d/.test(item.candidate) || item.candidate.length < 6 || /^(?:es)?[a-z]\d{7,8}[a-z]?$/i.test(normalizeAlpha(item.candidate))) continue
+      candidates.push({ ...item, index })
+    }
+  }
+  return candidates.sort((left, right) => right.score - left.score || right.candidate.length - left.candidate.length || left.index - right.index)[0]?.candidate || ""
+}
+
+function findDateNearInvoice(lines: string[], invoiceNumber: string) {
+  const index = lines.findIndex((line) => invoiceCandidates(line).some((candidate) => candidate.toUpperCase() === invoiceNumber.toUpperCase()))
+  if (index < 0) return ""
+  return parseDateText(lines.slice(Math.max(0, index - 2), Math.min(lines.length, index + 4)).join(" "))
+}
+
 function extractInvoiceNumber(lines: string[]) {
   for (let index = 0; index < lines.length; index += 1) {
     const line = normalize(lines[index])
@@ -423,6 +475,29 @@ function extractInvoiceNumber(lines: string[]) {
     const candidate = firstInvoiceCandidate(lines[index + 1] || "")
     if (candidate) return candidate
   }
+
+  const documentHeaderIndex = lines.findIndex((line) => /documento\s+numero\s+pagina\s+fecha/i.test(normalize(line)))
+  if (documentHeaderIndex >= 0) {
+    const valueLine = lines.slice(documentHeaderIndex + 1, documentHeaderIndex + 21).find((line) => candidateBeforeDate(line)) || ""
+    const candidate = candidateBeforeDate(valueLine)
+    if (candidate) return candidate
+  }
+
+  const seriesHeaderIndex = lines.findIndex((line) => /\bserie\b/i.test(line) && /\bfactura\b/i.test(line))
+  if (seriesHeaderIndex >= 0) {
+    const candidate = findInvoiceCandidateNear(lines, seriesHeaderIndex, 3)
+    if (candidate) return candidate
+  }
+
+  for (let index = 0; index < lines.length; index += 1) {
+    const line = lines[index]
+    if (/\btotal\b/i.test(line) || !/(?:\bfactura\b|n[º°o.]?\s*factura\b)/i.test(line)) continue
+    const candidate = findInvoiceCandidateNear(lines, index, 8)
+    if (candidate) return candidate
+  }
+
+  const mixedCandidate = findMixedInvoiceCandidate(lines)
+  if (mixedCandidate) return mixedCandidate
 
   for (let index = 0; index < lines.length; index += 1) {
     const candidates = invoiceCandidates(lines[index])
@@ -638,12 +713,33 @@ function addTaxRow(rows: InvoiceTaxDraft[], type: InvoiceTaxDraft["type"], perce
 function parseTaxRows(lines: string[]) {
   const rows: InvoiceTaxDraft[] = []
   const headerIndexes = lines.map((line, index) => isTaxSummaryHeader(line) ? index : -1).filter((index) => index >= 0)
+  const addPlainTaxRow = (line: string, maxValues = Number.POSITIVE_INFINITY) => {
+    const normalizedLine = normalize(line)
+    if (/\b(?:fecha|albar[aá]n|pedido|caducidad|lote)\b/.test(normalizedLine)) return
+    const values = numericValues(line.replace(/\bR\d+\b/gi, " "))
+    if (values.length < 3 || values.length > maxValues) return
+    const rateIndex = values.findIndex((value) => TAX_RATES.includes(Number(value)))
+    if (rateIndex < 0) return
+    const percentage = Number(values[rateIndex])
+    if (percentage === 0 || !TAX_RATES.includes(percentage)) return
+    let base = values[rateIndex - 1] || "0"
+    let quota = values[rateIndex + 1] || "0"
+    if (rateIndex === 0 && values.length >= 3) {
+      base = values[1]
+      quota = values[values.length - 1]
+    }
+    addTaxRow(rows, "IVA", percentage, base, quota)
+  }
 
   for (let index = 0; index < lines.length; index += 1) {
     const line = lines[index]
     const normalizedLine = normalize(line)
     const rateMatch = line.match(/(\d+(?:[,.]\d+)?)\s*%/)
-    const inTaxBlock = headerIndexes.some((headerIndex) => headerIndex < index && index - headerIndex <= 5)
+    const inTaxBlock = headerIndexes.some((headerIndex) => {
+      const header = normalize(lines[headerIndex])
+      const window = /tipo\s+importe.*base.*(?:iva|i\.v\.a)/.test(header) ? 32 : 12
+      return headerIndex < index && index - headerIndex <= window
+    })
     const isTaxLine = /\biva\b|\bvat\b|\bimpuesto\b|\birpf\b|sin\s+iva|exento|superreducido|reducido|\bnormal\b|base\s*(?:imponible|imp)/.test(normalizedLine)
     const isIkeaTaxBlock = headerIndexes.some((headerIndex) => headerIndex < index && index - headerIndex <= 5 && /codigo.*base.*(?:iva|va)/.test(normalize(lines[headerIndex])))
 
@@ -693,19 +789,13 @@ function parseTaxRows(lines: string[]) {
     }
 
     if (!inTaxBlock || /\b(?:fecha|albar[aá]n|pedido|caducidad|lote)\b/.test(normalizedLine)) continue
-    const values = numericValues(line.replace(/\bR\d+\b/gi, " "))
-    if (values.length < 3) continue
-    const rateIndex = values.findIndex((value) => TAX_RATES.includes(Number(value)))
-    if (rateIndex < 0) continue
-    const percentage = Number(values[rateIndex])
-    if (percentage === 0 || !TAX_RATES.includes(percentage)) continue
-    let base = values[rateIndex - 1] || "0"
-    let quota = values[rateIndex + 1] || "0"
-    if (rateIndex === 0 && values.length >= 3) {
-      base = values[1]
-      quota = values[values.length - 1]
+    addPlainTaxRow(line)
+  }
+
+  for (const headerIndex of headerIndexes) {
+    for (let index = Math.max(0, headerIndex - 8); index < headerIndex; index += 1) {
+      addPlainTaxRow(lines[index], 4)
     }
-    addTaxRow(rows, "IVA", percentage, base, quota)
   }
 
   return rows.sort((left, right) => Number(left.percentage) - Number(right.percentage) || (left.type === "IVA" ? -1 : 1))
@@ -858,6 +948,7 @@ export function parseInvoiceText(text: string): InvoiceDraft {
     if (invoiceLabelIndex >= 0) draft.issueDate = parseDateText(lines.slice(Math.max(0, invoiceLabelIndex - 2), invoiceLabelIndex + 1).join(" "))
   }
   if (!draft.issueDate) draft.issueDate = findDate(lines, ["fecha"])
+  if (!draft.issueDate && number) draft.issueDate = findDateNearInvoice(lines, number)
   if (!draft.issueDate) {
     const documentLine = lines.find((line) => /\bfactura\b/i.test(line) && (parseDateText(line) || /\d{1,2}[./-]\d{1,2}[./-]\d{2,4}/.test(line)))
     if (documentLine) draft.issueDate = parseDateText(documentLine)

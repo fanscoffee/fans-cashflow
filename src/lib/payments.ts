@@ -511,21 +511,20 @@ export async function createPayment(user: { id: string; role: string }, input: C
   })
 }
 
-export async function createExpense(user: { id: string; role: string }, input: CreateExpenseInput, options: { shiftId?: string; employeeShiftRegistration?: boolean } = {}) {
-  const normalizedRole = parseUserRole(user.role)
-  const isEmployeeShiftRegistration = options.employeeShiftRegistration === true && options.shiftId && normalizedRole === UserRole.EMPLOYEE
-  if (!isEmployeeShiftRegistration) await requirePaymentFunction(user.id, PaymentFunctionValues.REQUEST, input.entity, user.role)
+export async function createExpense(user: { id: string; role: string }, input: CreateExpenseInput, options: { shiftId?: string } = {}) {
+  const isShiftRegistration = Boolean(options.shiftId)
+  if (!isShiftRegistration) await requirePaymentFunction(user.id, PaymentFunctionValues.REQUEST, input.entity, user.role)
   const date = parseDate(input.accrualDate)
   const amount = decimal(input.amount)
-  await requireOpenAccountingPeriod(prisma, input.entity, date)
+  if (!isShiftRegistration) await requireOpenAccountingPeriod(prisma, input.entity, date)
 
   const category = await prisma.expenseCategory.findUnique({ where: { id: input.categoryId }, select: { id: true, code: true, active: true } })
   if (!category?.active) throw new PaymentDomainError("Categoría de gasto no disponible", 409, "CATEGORY_UNAVAILABLE")
 
-  if (input.concept.trim().split(/\s+/).length === 1) throw new PaymentDomainError("El concepto debe ser específico y no una sola palabra", 400, "GENERIC_CONCEPT")
-  if (!input.creditorId && category.code !== "PER" && !(category.code === "MEN" && input.receipt === ExpenseReceiptType.NO_RECEIPT)) throw new PaymentDomainError("El acreedor es obligatorio para este gasto", 400, "CREDITOR_REQUIRED")
+  if (!isShiftRegistration && input.concept.trim().split(/\s+/).length === 1) throw new PaymentDomainError("El concepto debe ser específico y no una sola palabra", 400, "GENERIC_CONCEPT")
+  if (!isShiftRegistration && !input.creditorId && category.code !== "PER" && !(category.code === "MEN" && input.receipt === ExpenseReceiptType.NO_RECEIPT)) throw new PaymentDomainError("El acreedor es obligatorio para este gasto", 400, "CREDITOR_REQUIRED")
 
-  if (category.code === "OTR") {
+  if (category.code === "OTR" && !isShiftRegistration) {
     const direction = await userHasPaymentFunction(user.id, PaymentFunctionValues.AUTHORIZE, input.entity, user.role)
     if (!direction) throw new PaymentDomainError("La categoría OTR requiere autorización de dirección", 403, "OTHER_CATEGORY_REQUIRES_DIRECTION")
   }
@@ -563,7 +562,7 @@ export async function createExpenseFromShift(user: { id: string; role: string },
   if (!shift || (!canManageAllShifts && shift.createdById !== user.id)) throw new PaymentDomainError("Turno no encontrado", 404, "SHIFT_NOT_FOUND")
   if (shift.status !== "ABIERTO") throw new PaymentDomainError("El turno debe estar abierto para registrar el gasto", 409, "SHIFT_NOT_OPEN")
 
-  const expense = await createExpense(user, { ...input, entity: PaymentEntityValues.COFFEE_SHOP, receipt: ExpenseReceiptType.NO_RECEIPT }, { shiftId, employeeShiftRegistration: normalizedRole === UserRole.EMPLOYEE })
+  const expense = await createExpense(user, { ...input, entity: PaymentEntityValues.COFFEE_SHOP, receipt: ExpenseReceiptType.NO_RECEIPT }, { shiftId })
   await recalculateShiftFundFinal(shiftId)
   return expense
 }

@@ -11,6 +11,7 @@ function handleInputCapture(event: React.FormEvent<HTMLDivElement>) {
   if (!isTextArea && !isTextInput) return
 
   const input = target as HTMLInputElement | HTMLTextAreaElement
+  if (input.dataset.preserveInput === "true") return
   const nextValue = uppercaseInputValue(input.value)
   if (nextValue === input.value) return
 

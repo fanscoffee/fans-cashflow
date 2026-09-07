@@ -66,6 +66,31 @@ describe("/api/shifts/[shiftId]/gastos", () => {
     })
   })
 
+  it("keeps a one-word minor-purchase concept unchanged for an employee", async () => {
+    vi.mocked(prisma.expenseCategory.findUnique).mockResolvedValue({ id: "cat-men", code: "MEN", active: true } as any)
+    vi.mocked(prisma.creditor.findUnique).mockResolvedValue({ id: "creditor-men", type: "OTHER", status: "ACTIVE" } as any)
+    vi.mocked(prisma.currentExpense.create).mockResolvedValue({ id: "expense-men" } as any)
+
+    const response = await POST(request({
+      categoryId: "cat-men",
+      creditorId: "creditor-men",
+      concept: "CREMOSITO",
+      accrualDate: "2026-08-31",
+      amount: 20,
+    }), context)
+
+    expect(response.status).toBe(201)
+    expect(prisma.currentExpense.create).toHaveBeenCalledWith({
+      data: expect.objectContaining({
+        categoryId: "cat-men",
+        creditorId: "creditor-men",
+        concept: "CREMOSITO",
+        amount: expect.anything(),
+        shiftId: "shift-1",
+      }),
+    })
+  })
+
   it("does not let an employee register an expense in another employee's shift", async () => {
     vi.mocked(prisma.shift.findUnique).mockResolvedValue({ id: "shift-1", status: "ABIERTO", createdById: "employee-2" } as any)
 
