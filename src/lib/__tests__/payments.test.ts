@@ -386,6 +386,29 @@ describe("payment module rules", () => {
     expect(prisma.shift.update).toHaveBeenCalledWith({ where: { id: "shift-1" }, data: { closingFund: 470 } })
   })
 
+  it("lets an employee add any valid expense from an open shift without workflow restrictions", async () => {
+    vi.mocked(prisma.shift.findUnique)
+      .mockResolvedValueOnce({ id: "shift-1", status: "ABIERTO", createdById: "user-1" } as any)
+      .mockResolvedValueOnce({ openingFund: 500 } as any)
+    vi.mocked(prisma.expenseCategory.findUnique).mockResolvedValue({ id: "cat-other", code: "OTR", active: true } as any)
+    vi.mocked(prisma.currentExpense.create).mockResolvedValue({ id: "shift-expense-other" } as any)
+    vi.mocked(prisma.expense.aggregate).mockResolvedValue({ _sum: { amount: 0 } } as any)
+    vi.mocked(prisma.currentExpense.aggregate).mockResolvedValue({ _sum: { amount: 50 } } as any)
+    vi.mocked(prisma.shift.update).mockResolvedValue({ id: "shift-1", closingFund: 450 } as any)
+
+    await expect(createExpenseFromShift({ id: "user-1", role: "EMPLEADO" }, "shift-1", {
+      categoryId: "cat-other",
+      concept: "Varios",
+      accrualDate: "2026-08-23",
+      amount: 50,
+    })).resolves.toMatchObject({ id: "shift-expense-other" })
+    expect(prisma.monthlyClose.findUnique).not.toHaveBeenCalled()
+    expect(prisma.userPaymentAssignment.findFirst).not.toHaveBeenCalled()
+    expect(prisma.currentExpense.create).toHaveBeenCalledWith(expect.objectContaining({
+      data: expect.objectContaining({ categoryId: "cat-other", creditorId: null, shiftId: "shift-1" }),
+    }))
+  })
+
   it("creates and authorizes an advance for a service creditor", async () => {
     vi.mocked(prisma.creditor.findUnique).mockResolvedValue({ id: "creditor-1", type: "SERVICES", status: "ACTIVE" } as any)
     vi.mocked(prisma.advance.create).mockResolvedValue({ id: "advance-1" } as any)

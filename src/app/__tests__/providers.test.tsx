@@ -1,4 +1,4 @@
-import { render, screen, waitFor } from "@testing-library/react"
+import { fireEvent, render, screen, waitFor } from "@testing-library/react"
 import userEvent from "@testing-library/user-event"
 import { useState } from "react"
 import { describe, expect, it } from "vitest"
@@ -28,5 +28,33 @@ describe("Providers", () => {
     expect(screen.getByLabelText("texto")).toHaveValue("MAÑANA")
     expect(screen.getByLabelText("email")).toHaveValue("Ana@Example.com")
     expect(screen.getByLabelText("contraseña")).toHaveValue("Secreta")
+  })
+
+  it("does not lose characters entered rapidly in a controlled input", async () => {
+    render(
+      <Providers>
+        <ControlledTextInput />
+      </Providers>,
+    )
+    const input = await screen.findByLabelText("texto")
+
+    for (const value of ["C", "CR", "CRE", "CREM", "CREMO", "CREMOS", "CREMOSI", "CREMOSIT", "CREMOSITO"]) {
+      fireEvent.input(input, { target: { value } })
+    }
+
+    expect(input).toHaveValue("CREMOSITO")
+  })
+
+  it("does not rewrite inputs marked to preserve their value", async () => {
+    render(
+      <Providers>
+        <input aria-label="concepto" data-preserve-input="true" />
+      </Providers>,
+    )
+    const input = await screen.findByLabelText("concepto")
+
+    fireEvent.input(input, { target: { value: "Cremosito" } })
+
+    expect(input).toHaveValue("Cremosito")
   })
 })
