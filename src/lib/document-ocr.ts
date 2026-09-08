@@ -47,6 +47,37 @@ async function isPdfFile(file: File) {
   return header === "%PDF-"
 }
 
+function normalizeTaxId(value: string) {
+  return value.replace(/[\s./-]/g, "").toUpperCase()
+}
+
+function taxIds(text: string) {
+  const matches = text.match(/(?<![A-Z0-9])(?:ES[- \t]?[A-Z][- \t]?\d{7,8}(?:[- \t]?[A-Z])?|EU\d{9}|[A-Z][- \t]?\d{2}\/\d{6}|[A-Z][- \t]?\d{8}|[A-Z][- \t]?\d{7}[- \t]?[A-Z]|\d{7,8}[- \t]?[A-Z])(?![A-Z0-9])/gi) || []
+  return Array.from(new Set(matches.map(normalizeTaxId)))
+}
+
+function isRecipientTaxId(value: string) {
+  const normalized = normalizeTaxId(value)
+  return normalized === "B09711078" || normalized === "ESB09711078"
+}
+
+function hasIssuerTaxId(text: string) {
+  return taxIds(text).some((taxId) => !isRecipientTaxId(taxId))
+}
+
+function ocrIdentitySupplement(text: string) {
+  const lines = text.split(/\r?\n/).map((line) => line.trim()).filter(Boolean)
+  const taxLineIndexes = lines.map((line, index) => taxIds(line).some((taxId) => !isRecipientTaxId(taxId)) ? index : -1).filter((index) => index >= 0)
+  const selected = new Set<number>()
+  for (const index of taxLineIndexes) {
+    for (let offset = -2; offset <= 2; offset += 1) {
+      const lineIndex = index + offset
+      if (lineIndex >= 0 && lineIndex < lines.length) selected.add(lineIndex)
+    }
+  }
+  return lines.filter((_, index) => selected.has(index)).join("\n")
+}
+
 function pdfItemsToText(items: unknown[]) {
   const rows: Array<{ y: number; items: Array<{ x: number; text: string }> }> = []
   for (const rawItem of items) {
@@ -81,21 +112,29 @@ export async function extractDocument(file: File, setStatus: (value: string) => 
     pages.push(pdfItemsToText(textContent.items))
   }
   const text = pages.join("\n")
-  if (text.trim().length > 40) return text
+  const hasText = text.trim().length > 40
+  if (hasText && hasIssuerTaxId(text)) return text
 
   const ocrPages: string[] = []
-  for (let pageNumber = 1; pageNumber <= pdf.numPages; pageNumber += 1) {
-    const page = await pdf.getPage(pageNumber)
-    const viewport = page.getViewport({ scale: 2 })
-    const canvas = document.createElement("canvas")
-    canvas.width = viewport.width
-    canvas.height = viewport.height
-    const canvasContext = canvas.getContext("2d")
-    if (!canvasContext) throw new Error("El navegador no permite renderizar el PDF")
-    await page.render({ canvas, canvasContext, viewport }).promise
-    ocrPages.push(await recognizeImage(canvas, setStatus, languages))
+  try {
+    for (let pageNumber = 1; pageNumber <= pdf.numPages; pageNumber += 1) {
+      const page = await pdf.getPage(pageNumber)
+      const viewport = page.getViewport({ scale: 2 })
+      const canvas = document.createElement("canvas")
+      canvas.width = viewport.width
+      canvas.height = viewport.height
+      const canvasContext = canvas.getContext("2d")
+      if (!canvasContext) throw new Error("El navegador no permite renderizar el PDF")
+      await page.render({ canvas, canvasContext, viewport }).promise
+      ocrPages.push(await recognizeImage(canvas, setStatus, languages))
+    }
+  } catch (error) {
+    if (hasText) return text
+    throw error
   }
   const ocrText = ocrPages.join("\n")
   if (!ocrText.trim()) throw new Error("El PDF no contiene texto legible")
-  return ocrText
+  if (!hasText) return ocrText
+  const supplement = ocrIdentitySupplement(ocrText)
+  return supplement ? `${text}\n${supplement}` : text
 }

@@ -234,4 +234,215 @@ describe("parseInvoiceText", () => {
     expect(legacyNumberFallback.series).toBe("ABC-1-2")
     expect(legacyNumberFallback.number).toBe("3")
   })
+
+  it("parses the IGNIS PDF layout with inline labels and tax breakdown", () => {
+    const draft = parseInvoiceText([
+      "Loop Electricidad y Gas, S.L. CIF B87095543",
+      "B09711078",
+      "FANS COFFE FRIENDS S.L.L",
+      "Datos de la factura:",
+      "Nº Factura: IGNIS 260266119 Tipo de factura:",
+      "Fecha factura: 17 de agosto de 2026 Forma de pago: DOMICILIADO",
+      "Resumen de la factura:",
+      "Impuesto Aplicado 200,41 €",
+      "Total Factura: 1.154,72 €",
+      "Desglose factura:",
+      "Base Imponible 954,31€ 21% sobre 954,31 € 200,41 €",
+      "TOTAL FACTURA 1.154,72 €",
+    ].join("\n"))
+
+    expect(draft.series).toBe("")
+    expect(draft.number).toBe("IGNIS 260266119")
+    expect(draft.taxes).toEqual([{ type: "IVA", percentage: "21.00", taxableBase: "954.31", taxAmount: "200.41" }])
+
+    const splitColumns = parseInvoiceText([
+      "Datos de la factura:",
+      "Fecha factura:",
+      "Nº Factura:",
+      "Tipo de factura:",
+      "17 de agosto de 2026",
+      "IGNIS 260266119",
+      "Base Imponible",
+      "954,31€",
+      "21% sobre",
+      "954,31 €",
+      "200,41 €",
+      "TOTAL FACTURA",
+      "1.154,72 €",
+    ].join("\n"))
+
+    expect(splitColumns.number).toBe("IGNIS 260266119")
+    expect(splitColumns.taxes).toEqual([{ type: "IVA", percentage: "21.00", taxableBase: "954.31", taxAmount: "200.41" }])
+  })
+
+  it("parses Vandemoortele NIF and invoice number without treating the product code as an IVA rate", () => {
+    const draft = parseInvoiceText([
+      "Factura 13386932",
+      "NIF Cliente: ES B09711078",
+      "Cód IVA %IVA Base Imp. Importe IVA Total Neto 92,11 EUR",
+      "1E 10,00 % 92,11 EUR 9,21 EUR Total IVA 9,21 EUR",
+      "Total Factura 101,32 EUR",
+      "Fecha factura: 14/08/2026 Incoterms 2020: CPT MADRID",
+      "Pos Artículo Descripción artículo Ctd UdV Pr. Br. Pr. Neto/ UdV Base Imp. Imp Total",
+      "000010 53316 Rocky Road Cake 1 CAR 153,5200 92,1100 CAR 92,11 1E 101,32",
+      "Nº NIF ESW0174826H",
+    ].join("\n"))
+
+    expect(draft.number).toBe("13386932")
+    expect(draft.issuerTaxId).toBe("ESW0174826H")
+    expect(draft.taxes).toEqual([{ type: "IVA", percentage: "10.00", taxableBase: "92.11", taxAmount: "9.21" }])
+    expect(draft.totalVat).toBe("9.21")
+
+    expect(parseInvoiceText("NIF Cliente: ES B09711078\nNº NIF ES W0174826H").issuerTaxId).toBe("ESW0174826H")
+  })
+
+  it("parses the Asalma layout with separated invoice header values", () => {
+    const draft = parseInvoiceText([
+      "C/ Sebastián Herrera 12",
+      "28012 Madrid",
+      "FANS COFFE FRIEDS, S.L.L.",
+      "B09711078",
+      "C/ Doctor Esquerdo, 180 Local B",
+      "Fecha FACTURA Hoja",
+      "01/08/2026 AA/26/1262 1/1",
+      "Descripción Cantidad Precio % Dcto Importe",
+      "Servicios contables del mes de la fecha 1,00 200,00 200,00",
+      "Servicios laborales 8,00 14,50 116,00",
+      "Base Imponible % I.V.A. Importe",
+      "316,00 21,00 66,36 382,36",
+      "Total 382,36",
+      "Forma de Pago Recibo bancario",
+      "Vencimientos: 01/08/2026 382,36",
+      "C/ Sebastian Herrera, 12-14 - 28012 Madrid - Teléf.: 91 522 15 33",
+      "Inscrita en el Mº de Trabajo y S.Social, Dirección Prov. de Madrid con el nº 1.493 C.I.F G 78458809",
+    ].join("\n"))
+
+    expect(draft.series).toBe("AA/26")
+    expect(draft.number).toBe("1262")
+    expect(draft.issuerTaxId).toBe("G-78458809")
+    expect(draft.taxes).toEqual([{ type: "IVA", percentage: "21.00", taxableBase: "316.00", taxAmount: "66.36" }])
+    expect(invoiceDraftToAccounting(draft, "")).toMatchObject({ invoiceNumber: "AA/26/1262", taxId: "G-78458809", base21: "316.00", vat21: "66.36", totalBase: "316.00", totalVat: "66.36", invoiceTotal: "382.36" })
+  })
+
+  it("parses the Nicnat layout with invoice, date and tax values in separate rows", () => {
+    const draft = parseInvoiceText([
+      "FACTURA",
+      "NICNAT GOURMET SL",
+      "FANS COFFEE FRIENDS SLL",
+      "CANOA 31 3C",
+      "28042 MADRID",
+      "DOCTOR ESQUERDO 180",
+      "C.I.F. B86903721",
+      "B09711078",
+      "Nº Factura Fecha Fecha Valor Referencia",
+      "A/2051 31/07/2026 31/07/2026",
+      "Descripción",
+      "Cantidad Código Artículo Precio IVA Subtotal",
+      "2,00 38-3028 MATCHA EN POLVO 100% PURO FORMATO 250 GR O&O 44,75 10,00 89,50",
+      "2,00 Subtotal 89,50",
+      "Descuento Dto P.Pago IVA Base Imponible Importe IVA Importe R.E.",
+      "% %",
+      "10,00% 89,50 8,95",
+      "TOTAL FACTURA",
+      "98,45 €",
+    ].join("\n"))
+
+    expect(draft.series).toBe("A")
+    expect(draft.number).toBe("2051")
+    expect(draft.issueDate).toBe("2026-07-31")
+    expect(draft.issuerTaxId).toBe("B-86903721")
+    expect(draft.taxes).toEqual([{ type: "IVA", percentage: "10.00", taxableBase: "89.50", taxAmount: "8.95" }])
+    expect(invoiceDraftToAccounting(draft, "")).toMatchObject({ invoiceNumber: "A/2051", date: "2026-07-31", base10: "89.50", vat10: "8.95", totalBase: "89.50", totalVat: "8.95", invoiceTotal: "98.45" })
+
+    const shortDate = parseInvoiceText("Nº Factura Fecha Fecha Valor Referencia\nA/2051 31/07/26 31/07/26")
+    expect([shortDate.series, shortDate.number].filter(Boolean).join("/")).toBe("A/2051")
+  })
+
+  it("keeps Okin PDF text values and accepts the issuer identity from OCR supplement", () => {
+    const draft = parseInvoiceText([
+      "Cliente: 6095",
+      "FANS COFFEE FRIENDS SLL",
+      "B09711078",
+      "FACTURA Nº FECHA",
+      "14046 31-08-2026 1",
+      "Base Imponible % IVA Cuota IVA Total Factura",
+      "667,17 265,13 10,00% 26,51 709,76",
+      "402,04 4,00% 16,08",
+      "Giro vto 5 dias F/F",
+      "DCA Okin S.L.",
+      "B84151760",
+    ].join("\n"))
+
+    expect(draft.number).toBe("14046")
+    expect(draft.issueDate).toBe("2026-08-31")
+    expect(draft.issuerTaxId).toBe("B84151760")
+    expect(draft.taxes).toEqual([
+      { type: "IVA", percentage: "4.00", taxableBase: "402.04", taxAmount: "16.08" },
+      { type: "IVA", percentage: "10.00", taxableBase: "265.13", taxAmount: "26.51" },
+    ])
+    expect(draft.totalAmount).toBe("709.76")
+  })
+
+  it("parses the Makro reverse-charge layout from the PDF text layer", () => {
+    const draft = parseInvoiceText([
+      "Factura",
+      "Fans Coffee Friends S.l.l.,",
+      "GTIN Descripción del Artículo Cant. Imp. Precio neto Total neto",
+      "4894208347656 METRO Professional Exprimidor GJU2001 1 0% 220,00 € 220,00 €",
+      "Total Neto: 220,00 €",
+      "Total IVA 0%: 0,00 €",
+      "Total Bruto: 220,00 €",
+      "Operación sujeta a la inversión del sujeto pasivo.",
+      "Fecha de Factura",
+      "31.03.2026",
+      "Número de Pedido",
+      "O26-749563631502",
+      "Número de Factura",
+      "F26-03527339",
+      "Fecha de Orden",
+      "31.03.2026",
+      "NIF",
+      "B09711078",
+      "CIF",
+      "ESB09711078",
+      "Método de pago: Tarjeta de Crédito",
+      "Metro Markets GmbH | Schlüterstr. 5. | 40235 Düsseldorf | IVA ESN0022044B",
+    ].join("\n"))
+
+    expect(draft.number).toBe("F26-03527339")
+    expect(draft.issueDate).toBe("2026-03-31")
+    expect(draft.issuerTaxId).toBe("ESN0022044B")
+    expect(draft.paymentMethod).toBe("Tarjeta")
+    expect(draft.taxes).toEqual([{ type: "IVA", percentage: "0.00", taxableBase: "220.00", taxAmount: "0.00" }])
+    expect(invoiceDraftToAccounting(draft, "")).toMatchObject({ invoiceNumber: "F26-03527339", exemptBase: "220.00", totalBase: "220.00", totalVat: "0.00", invoiceTotal: "220.00" })
+  })
+
+  it("parses the Makro delivery invoice with structured number and coded tax rates", () => {
+    const draft = parseInvoiceText([
+      "Makro Distribucion Mayorista, S.A.",
+      "NIF: A-28/647451",
+      "Factura 0/0(031)0053/(2026)036722 (053-240372) 031/400 2185",
+      "Fecha de venta: 12/08/2026 04:16",
+      "Fans Coffee Friends S.l.l. N.I.F.: B09711078",
+      "Número de pedido 9-218753407",
+      "Mercancía % IMP Total Imp.",
+      "112,81 1=10,00% 11,28",
+      "158,21 2=21,00% 33,22",
+      "25,82 5= 4,00% 1,03",
+      "296,84 45,53",
+      "Total a pagar 342,37",
+      "Pago en entrega 342,37",
+    ].join("\n"))
+
+    expect(draft.number).toBe("0/0(031)0053/(2026)036722")
+    expect(draft.issueDate).toBe("2026-08-12")
+    expect(draft.issuerTaxId).toBe("A-28647451")
+    expect(draft.taxes).toEqual([
+      { type: "IVA", percentage: "4.00", taxableBase: "25.82", taxAmount: "1.03" },
+      { type: "IVA", percentage: "10.00", taxableBase: "112.81", taxAmount: "11.28" },
+      { type: "IVA", percentage: "21.00", taxableBase: "158.21", taxAmount: "33.22" },
+    ])
+    expect(draft.totalAmount).toBe("342.37")
+    expect(draft.paymentMethod).toBe("Pago en entrega")
+  })
 })
