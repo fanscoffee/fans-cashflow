@@ -190,7 +190,7 @@ function cleanCompanyName(value: string) {
 }
 
 function correctCif(value: string) {
-  const clean = value.replace(/[\s.-]/g, "").toUpperCase()
+  const clean = value.replace(/[\s./-]/g, "").toUpperCase()
   if (!/^[A-Z]\d{8}$/.test(clean)) return clean
   const control = (candidate: string) => {
     let sum = 0
@@ -276,7 +276,7 @@ function findValue(lines: string[], labels: string[]) {
 }
 
 function findPaymentMethod(lines: string[]) {
-  const paymentPattern = /sepa\s+domi|domiciliaci[oó]n|domiciliad[oa]|transferencia(?:\s+bancaria)?|efectivo|tarjeta(?:\s+de\s+cr[eé]dito)?|\bvisa\b|\bmastercard\b|\bstripe\b|recibo\s+banc(?:ario|o)|giro\s+vto|anticipo\s+de\s+fondos|pago[_ ]anticipado|a\s+la\s+vista/i
+  const paymentPattern = /sepa\s+domi|domiciliaci[oó]n|domiciliad[oa]|transferencia(?:\s+bancaria)?|efectivo|tarjeta(?:\s+de\s+cr[eé]dito)?|\bvisa\b|\bmastercard\b|\bstripe\b|recibo\s+banc(?:ario|o)|giro\s+vto|pago\s+en\s+entrega|anticipo\s+de\s+fondos|pago[_ ]anticipado|a\s+la\s+vista/i
   const canonical = (value: string) => {
     const normalized = normalize(value)
     if (/sepa\s+domi/.test(normalized)) return "SEPA DOMI"
@@ -287,6 +287,7 @@ function findPaymentMethod(lines: string[]) {
     if (/stripe/.test(normalized)) return "STRIPE"
     if (/recibo\s+banc/.test(normalized)) return "Recibo bancario"
     if (/giro\s+vto/.test(normalized)) return "Giro"
+    if (/pago\s+en\s+entrega/.test(normalized)) return "Pago en entrega"
     if (/anticipo\s+de\s+fondos/.test(normalized)) return "Anticipo de fondos"
     if (/pago[_ ]anticipado/.test(normalized)) return "Pago anticipado"
     if (/a\s+la\s+vista/.test(normalized)) return "A la Vista"
@@ -319,7 +320,7 @@ function findPaymentMethod(lines: string[]) {
     if (method) return canonical(method[0])
   }
 
-  const paymentFallback = lines.find((line) => /giro\s+vto|pago[_ ]anticipado|anticipo\s+de\s+fondos|a\s+la\s+vista/i.test(line))
+  const paymentFallback = lines.find((line) => /giro\s+vto|pago\s+en\s+entrega|pago[_ ]anticipado|anticipo\s+de\s+fondos|a\s+la\s+vista/i.test(line))
   if (paymentFallback) return canonical(paymentFallback)
 
   if (lines.some((line) => /mandaremos el recibo a tu cuenta|recibo a tu cuenta/i.test(normalize(line)))) return "DOMICILIACION"
@@ -328,6 +329,7 @@ function findPaymentMethod(lines: string[]) {
 
 function splitInvoiceNumber(value: string) {
   const clean = value.replace(/^factura\s*/i, "").trim()
+  if (/[()]/.test(clean)) return { series: "", number: clean }
   const slash = clean.lastIndexOf("/")
   if (slash > 0 && slash < clean.length - 1) return { series: clean.slice(0, slash).trim().replace(/([_-])[-_]+/g, "$1"), number: clean.slice(slash + 1).trim() }
   return { series: "", number: clean }
@@ -343,13 +345,19 @@ function cleanInvoiceCandidate(value: string) {
 }
 
 function invoiceCandidates(value: string) {
-  return Array.from(value.matchAll(/[A-Z0-9]+(?:[._-][A-Z0-9]+)*(?:\s*\/\s*[A-Z0-9]+(?:[._-][A-Z0-9]+)*)*/gi))
-    .map((match) => cleanInvoiceCandidate(match[0]))
+  const structured = Array.from(value.matchAll(/\b[A-Z0-9]+(?:\/[A-Z0-9]+)*\([A-Z0-9]+\)[A-Z0-9]+(?:\/\([A-Z0-9]+\))?[A-Z0-9]+\b/gi)).map((match) => match[0])
+  const prefixed = Array.from(value.matchAll(/\b[A-Z]{2,12}\s+\d{3,}\b/gi)).map((match) => match[0])
+  const compact = Array.from(value.matchAll(/[A-Z0-9]+(?:[._-][A-Z0-9]+)*(?:\s*\/\s*[A-Z0-9]+(?:[._-][A-Z0-9]+)*)*/gi)).map((match) => match[0])
+  return [...structured, ...prefixed, ...compact]
+    .filter((candidate, index, candidates) => candidates.findIndex((item) => item.toUpperCase() === candidate.toUpperCase()) === index)
+    .map((candidate) => cleanInvoiceCandidate(candidate))
     .filter(Boolean)
 }
 
 function firstInvoiceCandidate(value: string) {
   const cleanValue = value.trim().replace(/^[:#—-]\s*/, "")
+  const structured = invoiceCandidates(cleanValue).find((candidate) => /[()]/.test(candidate))
+  if (structured) return structured
   const match = cleanValue.match(/^([A-Z0-9]+(?:[._-][A-Z0-9]+)*(?:\s*\/\s*[A-Z0-9]+(?:[._-][A-Z0-9]+)*)*)/i)
   const direct = match ? cleanInvoiceCandidate(match[1]) : ""
   if (direct) return direct
@@ -368,6 +376,27 @@ function candidateBeforeDate(value: string) {
   const dateMatch = value.match(/\b\d{1,2}[./-]\d{1,2}[./-]\d{2,4}\b/)
   if (!dateMatch || dateMatch.index == null) return ""
   return invoiceCandidates(value.slice(0, dateMatch.index))[0] || ""
+}
+
+function invoiceCandidateFromValueLines(lines: string[], index: number) {
+  const candidates: Array<{ value: string; score: number; lineIndex: number }> = []
+  for (let lineIndex = index + 1; lineIndex < Math.min(lines.length, index + 9); lineIndex += 1) {
+    const line = lines[lineIndex]
+    const dateMatch = line.match(/\b\d{1,2}[./-]\d{1,2}[./-]\d{2,4}\b/)
+    const candidateSource = dateMatch ? line.slice(0, dateMatch.index) : line
+    if (!dateMatch && /^\s*\d+[.,]\d/.test(line)) continue
+    if (!candidateSource.trim()) continue
+    const lineCandidates = [firstInvoiceCandidate(candidateSource), ...invoiceCandidates(candidateSource)].filter(Boolean)
+    for (const candidate of lineCandidates) {
+      if (/^\d+[.,]\d+$/.test(candidate) || /^\d{1,2}[./-]\d{1,2}[./-]\d{2,4}$/.test(candidate) || /^\d+$/.test(candidate) && candidate.length < 3) continue
+      let score = Math.min(candidate.length, 12) * 2 - (lineIndex - index)
+      if (/[a-z]/i.test(candidate)) score += 20
+      if (/\//.test(candidate)) score += 25
+      candidates.push({ value: candidate, score, lineIndex })
+    }
+    if (dateMatch && lineCandidates.length) return candidates[candidates.length - 1]?.value || ""
+  }
+  return candidates.sort((left, right) => right.score - left.score || left.lineIndex - right.lineIndex)[0]?.value || ""
 }
 
 function isTaxIdLikeInvoiceCandidate(value: string, line: string) {
@@ -448,6 +477,12 @@ function extractInvoiceNumber(lines: string[]) {
   }
 
   for (let index = 0; index < lines.length; index += 1) {
+    if (!/(?:n[uú]mero|n[º°o])\s*(?:de\s+)?factura|factura\s+(?:n[uú]mero|n[º°o])/i.test(lines[index])) continue
+    const candidate = invoiceCandidateFromValueLines(lines, index)
+    if (candidate) return candidate
+  }
+
+  for (let index = 0; index < lines.length; index += 1) {
     const line = lines[index]
     const previous = lines.slice(Math.max(0, index - 2), index).join(" ")
     if (/^\s*(?:n[º°o]|n\.)\s*[:.]?/i.test(line) && /factura/i.test(previous) && !/referencia\s+de\s+pago|pedido|albar[aá]n|cuenta|cliente|registro/i.test(line)) {
@@ -461,8 +496,8 @@ function extractInvoiceNumber(lines: string[]) {
     const valueLine = lines.slice(index + 1, index + 4).find((candidate) => parseDateText(candidate) || invoiceCandidates(candidate).length) || ""
     if (!parseDateText(lines[index]) && /cliente\s+fecha\s+numero\s+hoja|fecha\s+factura\s+hoja|factura\s+n[º°o]?\s+fecha|fecha\s+n[º°o]?\s+de\s+cliente\s+factura|n[º°o]?\s+factura\s+fecha|serie\s+n[º°o]?\s+factura\s+fecha/i.test(line)) {
       const usesDateFirst = /cliente\s+fecha\s+numero\s+hoja|fecha\s+factura\s+hoja|fecha\s+n[º°o]?\s+de\s+cliente\s+factura/i.test(line)
-      const dateIndex = valueLine.search(/\b\d{1,2}[./-]\d{1,2}[./-]\d{2,4}\b/)
-      const afterDateCandidates = dateIndex >= 0 ? invoiceCandidates(valueLine.slice(dateIndex + 10)) : []
+      const dateMatch = valueLine.match(/\b\d{1,2}[./-]\d{1,2}[./-]\d{2,4}\b/)
+      const afterDateCandidates = dateMatch?.index != null ? invoiceCandidates(valueLine.slice(dateMatch.index + dateMatch[0].length)) : []
       const candidate = usesDateFirst
         ? (/fecha\s+n[º°o]?\s+de\s+cliente\s+factura/i.test(line) ? afterDateCandidates[afterDateCandidates.length - 1] : candidateAfterDate(valueLine))
         : invoiceCandidates(valueLine)[0]
@@ -519,11 +554,11 @@ function extractInvoiceNumber(lines: string[]) {
 }
 
 function normalizeTaxId(value: string) {
-  return value.replace(/[\s]/g, "").toUpperCase()
+  return value.replace(/[\s./]/g, "").toUpperCase()
 }
 
 function extractTaxIds(text: string) {
-  const matches = text.match(/(?<![A-Z0-9])(?:ES[A-Z][-\s]?\d{7,8}(?:[-\s]?[A-Z])?|EU\d{9}|[A-Z][-\s]?\d{8}|[A-Z][-\s]?\d{7}[-\s]?[A-Z]|\d{7,8}[-\s]?[A-Z])(?![A-Z0-9])/gi) || []
+  const matches = text.match(/(?<![A-Z0-9])(?:ES[- \t]?[A-Z][- \t]?\d{7,8}(?:[- \t]?[A-Z])?|EU\d{9}|[A-Z][- \t]?\d{2}\/\d{6}|[A-Z][- \t]?\d{8}|[A-Z][- \t]?\d{7}[- \t]?[A-Z]|\d{7,8}[- \t]?[A-Z])(?![A-Z0-9])/gi) || []
   return Array.from(new Set(matches.map(normalizeTaxId)))
 }
 
@@ -718,6 +753,7 @@ function parseTaxRows(lines: string[]) {
     if (/\b(?:fecha|albar[aá]n|pedido|caducidad|lote)\b/.test(normalizedLine)) return
     const values = numericValues(line.replace(/\bR\d+\b/gi, " "))
     if (values.length < 3 || values.length > maxValues) return
+    if (values.length > 4 && !/\bR\d+\b/i.test(line)) return
     const rateIndex = values.findIndex((value) => TAX_RATES.includes(Number(value)))
     if (rateIndex < 0) return
     const percentage = Number(values[rateIndex])
@@ -741,12 +777,13 @@ function parseTaxRows(lines: string[]) {
       return headerIndex < index && index - headerIndex <= window
     })
     const isTaxLine = /\biva\b|\bvat\b|\bimpuesto\b|\birpf\b|sin\s+iva|exento|superreducido|reducido|\bnormal\b|base\s*(?:imponible|imp)/.test(normalizedLine)
+    const isMakroTaxLine = /\b\d+\s*=\s*\d+(?:[,.]\d+)?\s*%/.test(line)
     const isIkeaTaxBlock = headerIndexes.some((headerIndex) => headerIndex < index && index - headerIndex <= 5 && /codigo.*base.*(?:iva|va)/.test(normalize(lines[headerIndex])))
 
-    if (rateMatch && (isTaxLine || inTaxBlock)) {
+    if (rateMatch && (isTaxLine || inTaxBlock || isMakroTaxLine)) {
       if (isIkeaTaxBlock) continue
       const rateIndex = rateMatch.index || 0
-      const before = numericValues(line.slice(0, rateIndex))
+      const before = numericValues(line.slice(0, rateIndex).replace(/\b\d+\s*=\s*$/, " "))
       const afterText = line.slice(rateIndex + rateMatch[0].length).split(/\btotal\s+(?:iva|re|bruto|neto|factura|bases?|impuestos?)\b/i)[0]
       const after = numericValues(afterText)
       const isWithholdingTaxLine = /\birpf\b/.test(normalizedLine)
@@ -795,6 +832,41 @@ function parseTaxRows(lines: string[]) {
   for (const headerIndex of headerIndexes) {
     for (let index = Math.max(0, headerIndex - 8); index < headerIndex; index += 1) {
       addPlainTaxRow(lines[index], 4)
+    }
+  }
+
+  const detachedTaxHeaders = lines
+    .map((line, index) => /^(?:base\s*(?:imponible|imp)|b\.?\s*imp\.?)\s*[:.]?$/i.test(normalize(line)) ? index : -1)
+    .filter((index) => index >= 0)
+  for (const headerIndex of detachedTaxHeaders) {
+    for (let rateIndex = headerIndex + 1; rateIndex < Math.min(lines.length, headerIndex + 8); rateIndex += 1) {
+      const rateMatch = lines[rateIndex].match(/(\d+(?:[,.]\d+)?)\s*%/)
+      if (!rateMatch) continue
+      const percentage = taxRate(rateMatch[1])
+      if (percentage == null) continue
+
+      const valuesBeforeRate = lines.slice(headerIndex + 1, rateIndex).flatMap((line) => numericValues(line))
+      const valuesAfterRate: string[] = []
+      const baseAppearsAfterRate = !valuesBeforeRate.length || /\bsobre\b|\ben\b/.test(normalize(lines[rateIndex]))
+      for (let valueIndex = rateIndex; valueIndex < Math.min(lines.length, rateIndex + 4); valueIndex += 1) {
+        if (valueIndex > rateIndex && /\btotal\b/i.test(normalize(lines[valueIndex]))) break
+        if (valueIndex > rateIndex && /\d+(?:[,.]\d+)?\s*%/.test(lines[valueIndex])) break
+        const valueLine = valueIndex === rateIndex
+          ? lines[valueIndex].slice((rateMatch.index || 0) + rateMatch[0].length)
+          : lines[valueIndex]
+        valuesAfterRate.push(...numericValues(valueLine))
+        if (valuesAfterRate.length >= (baseAppearsAfterRate ? 2 : 1)) break
+      }
+
+      const base = baseAppearsAfterRate ? valuesAfterRate[0] || valuesBeforeRate[valuesBeforeRate.length - 1] || "0" : valuesBeforeRate[valuesBeforeRate.length - 1] || "0"
+      const quota = percentage === 0 ? "0" : baseAppearsAfterRate ? valuesAfterRate[1] || "0" : valuesAfterRate[0] || "0"
+      if (base === "0" && quota === "0") continue
+      const existing = rows.find((row) => row.type === "IVA" && row.percentage === percentage.toFixed(2))
+      if (!existing) addTaxRow(rows, "IVA", percentage, base, quota)
+      else if (Number(existing.taxableBase) === 0 && Number(base) > 0) {
+        existing.taxableBase = amount(base)
+        existing.taxAmount = amount(quota)
+      }
     }
   }
 
