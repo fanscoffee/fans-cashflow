@@ -6,7 +6,7 @@ import type { Resolver } from "react-hook-form"
 import { zodResolver } from "@hookform/resolvers/zod"
 import { z } from "zod"
 import { getProductTypeBehavior } from "@/lib/product-types"
-import { calculateProductPricing, calculateProductUnitCost } from "@/lib/product-pricing"
+import { calculateProductPricing, calculateProductPricingCost, calculateProductUnitCost } from "@/lib/product-pricing"
 
 const productSchema = z.object({
   code: z.string().min(1, "El código es obligatorio"),
@@ -459,18 +459,22 @@ export default function ProductForm({
   const pricingMethod = useWatch({ control, name: "pricingMethod" })
   const targetMarginPercentage = useWatch({ control, name: "targetMarginPercentage" })
   const retailPriceIncludingVat = useWatch({ control, name: "appliedRetailPriceIncludingVat" })
+  const productUnitCost = calculateProductUnitCost({
+    baseUnitCost: costSinVat,
+    purchaseToBaseFactor,
+  })
   const pricing = calculateProductPricing({
-    costSinVat,
+    costSinVat: calculateProductPricingCost({
+      baseUnitCost: costSinVat,
+      purchaseToBaseFactor,
+    }),
+    purchaseCostSinVat: costSinVat,
     purchaseVatPercentage,
     salesVatPercentage,
     vatPercentage: legacyVatPct,
     pricingMethod,
     targetMarginPercentage,
     retailPriceIncludingVat,
-  })
-  const productUnitCost = calculateProductUnitCost({
-    baseUnitCost: costSinVat,
-    purchaseToBaseFactor,
   })
   const [codeLoading, setCodeLoading] = useState(false)
   const [codeError, setCodeError] = useState("")

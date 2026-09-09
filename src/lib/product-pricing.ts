@@ -1,5 +1,6 @@
 export type ProductPricingInput = {
   costSinVat?: unknown
+  purchaseCostSinVat?: unknown
   purchaseVatPercentage?: unknown
   salesVatPercentage?: unknown
   vatPercentage?: unknown
@@ -47,17 +48,28 @@ export function calculateProductUnitCost(input: {
   return round(baseUnitCost / purchaseToBaseFactor, 4)
 }
 
+export function calculateProductPricingCost(input: {
+  baseUnitCost?: unknown
+  purchaseToBaseFactor?: unknown
+}) {
+  const baseUnitCost = toNullableNumber(input.baseUnitCost)
+  return calculateProductUnitCost(input) ?? baseUnitCost
+}
+
 export function calculateProductPricing(input: ProductPricingInput): ProductPricing {
   const legacyVat = toNullableNumber(input.vatPercentage)
   const purchaseVatPercentage = input.purchaseVatPercentage === undefined ? legacyVat : toNullableNumber(input.purchaseVatPercentage)
   const salesVatPercentage = input.salesVatPercentage === undefined ? legacyVat : toNullableNumber(input.salesVatPercentage)
   const costSinVat = toNullableNumber(input.costSinVat)
+  const purchaseCostSinVat = input.purchaseCostSinVat === undefined
+    ? costSinVat
+    : toNullableNumber(input.purchaseCostSinVat)
   const pricingMethod = input.pricingMethod === undefined ? null : String(input.pricingMethod).trim().toUpperCase()
   const targetMarginPercentage = toNullableNumber(input.targetMarginPercentage)
   const retailPriceIncludingVat = toNullableNumber(input.retailPriceIncludingVat)
 
-  const costIncludingVat = costSinVat !== null && purchaseVatPercentage !== null
-    ? round(costSinVat * (1 + purchaseVatPercentage / 100), 4)
+  const costIncludingVat = purchaseCostSinVat !== null && purchaseVatPercentage !== null
+    ? round(purchaseCostSinVat * (1 + purchaseVatPercentage / 100), 4)
     : null
 
   const targetRetailPriceExcludingVat = costSinVat !== null && targetMarginPercentage !== null && targetMarginPercentage < 100
