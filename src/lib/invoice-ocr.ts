@@ -725,6 +725,10 @@ const TAX_RATES = [21, 10, 4, 2, 0]
 
 function isTaxSummaryHeader(line: string) {
   const normalizedLine = normalize(line)
+  const hasProductColumns = /\b(?:descripcion|articulo)\b/.test(normalizedLine)
+    && /\b(?:unid(?:ad)?|cantidad)\b/.test(normalizedLine)
+    && /p\.?\s*unitario/.test(normalizedLine)
+  if (hasProductColumns) return false
   return /(?:base\s*(?:imponible|imp)|b\.\s*imp|cuota\s+iva|\btotal\s+(?:iva|impuesto|bases?)|iva\s+base|bases?\b.*(?:iva|i\.v\.a|importe)|vencimientos.*base.*importe|^iva\s*%.*(?:precio|importe)|importe\s*\(sin\s+i\.?v\.?a\.?\)|tipo\s+base)/.test(normalizedLine) && /iva|i\.v\.a|vat|impuesto|vencimientos/.test(normalizedLine)
 }
 
@@ -764,6 +768,7 @@ function parseTaxRows(lines: string[]) {
       base = values[1]
       quota = values[values.length - 1]
     }
+    if (Number(base) <= 0 || Number(quota) <= 0 || Math.abs(Number(base) * percentage / 100 - Number(quota)) > 0.02) return
     addTaxRow(rows, "IVA", percentage, base, quota)
   }
 

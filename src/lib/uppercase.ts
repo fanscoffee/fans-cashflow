@@ -19,6 +19,8 @@ const PRESERVE_CASE_KEYS = new Set([
   "familia",
   "subfamilia",
   "seccion",
+  "subfamily",
+  "section",
   "umBaseStock",
   "umCompra",
   "umVenta",

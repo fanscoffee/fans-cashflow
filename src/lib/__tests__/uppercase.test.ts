@@ -35,4 +35,14 @@ describe("uppercase normalization", () => {
       lines: [{ description: "HARINA" }],
     })
   })
+
+  it("preserves renamed product classification values", () => {
+    expect(uppercasePersistedValue({
+      subfamily: "Cremas y rellenos",
+      section: "Pastelería/Obrador",
+    })).toEqual({
+      subfamily: "Cremas y rellenos",
+      section: "Pastelería/Obrador",
+    })
+  })
 })
