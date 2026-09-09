@@ -40,9 +40,15 @@ describe("uppercase normalization", () => {
     expect(uppercasePersistedValue({
       subfamily: "Cremas y rellenos",
       section: "Pastelería/Obrador",
+      baseStockUnit: "Kilogramo",
+      purchaseUnit: "Caja",
+      salesUnit: "Unidad",
     })).toEqual({
       subfamily: "Cremas y rellenos",
       section: "Pastelería/Obrador",
+      baseStockUnit: "Kilogramo",
+      purchaseUnit: "Caja",
+      salesUnit: "Unidad",
     })
   })
 })

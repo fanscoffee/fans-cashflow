@@ -1,7 +1,27 @@
 import { describe, expect, it } from "vitest"
-import { calculateProductPricing } from "../product-pricing"
+import { calculateProductPricing, calculateProductUnitCost } from "../product-pricing"
 
 describe("calculateProductPricing", () => {
+  it("calculates the sales unit cost from the base unit cost and conversion factor", () => {
+    expect(calculateProductUnitCost({
+      baseUnitCost: 26.29,
+      purchaseToBaseFactor: 25,
+    })).toBe(1.0516)
+  })
+
+  it("calculates the unit price for a box of twenty units", () => {
+    expect(calculateProductUnitCost({
+      baseUnitCost: 26.29,
+      purchaseToBaseFactor: 20,
+    })).toBe(1.3145)
+  })
+
+  it("leaves the sales unit cost empty when conversion data is missing", () => {
+    expect(calculateProductUnitCost({
+      baseUnitCost: 26.29,
+    })).toBeNull()
+  })
+
   it("calculates VAT-inclusive cost, net sale price, gain and margin", () => {
     expect(calculateProductPricing({
       costSinVat: 10,
