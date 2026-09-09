@@ -369,8 +369,9 @@ describe("parseInvoiceText", () => {
       "667,17 265,13 10,00% 26,51 709,76",
       "402,04 4,00% 16,08",
       "Giro vto 5 dias F/F",
-      "DCA Okin S.L.",
-      "B84151760",
+      "DCA Okin S.L. - Okin delegación Madrid",
+      "B84151760 - C/ Eje, 1.Ed. Friologic, 2*Planta. 28053, Madrid.",
+      "Tel. Atención al cliente 917 375 299 atencioncliente@dcaokin.com",
     ].join("\n"))
 
     expect(draft.number).toBe("14046")
@@ -381,6 +382,7 @@ describe("parseInvoiceText", () => {
       { type: "IVA", percentage: "10.00", taxableBase: "265.13", taxAmount: "26.51" },
     ])
     expect(draft.totalAmount).toBe("709.76")
+    expect(invoiceDraftToAccounting(draft, "")).toMatchObject({ base2: "0.00", totalBase: "667.17", totalVat: "42.59", invoiceTotal: "709.76" })
   })
 
   it("parses the Makro reverse-charge layout from the PDF text layer", () => {
