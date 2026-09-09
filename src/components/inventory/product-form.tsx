@@ -6,7 +6,7 @@ import type { Resolver } from "react-hook-form"
 import { zodResolver } from "@hookform/resolvers/zod"
 import { z } from "zod"
 import { getProductTypeBehavior } from "@/lib/product-types"
-import { calculateProductPricing } from "@/lib/product-pricing"
+import { calculateProductPricing, calculateProductUnitCost } from "@/lib/product-pricing"
 
 const productSchema = z.object({
   code: z.string().min(1, "El código es obligatorio"),
@@ -222,6 +222,7 @@ function CatalogSelect({
   error,
   locked = false,
   lockedValue,
+  currentValue,
 }: {
   label: string
   name: keyof ProductFormValues
@@ -231,8 +232,10 @@ function CatalogSelect({
   error?: string
   locked?: boolean
   lockedValue?: string
+  currentValue?: string | null
 }) {
-  const hasLockedValue = lockedValue ? options.some((option) => option.value === lockedValue) : false
+  const fallbackValue = lockedValue || currentValue || ""
+  const hasFallbackValue = fallbackValue ? options.some((option) => option.value === fallbackValue) : false
   const selectId = `producto-${String(name)}`
 
   return (
@@ -247,7 +250,7 @@ function CatalogSelect({
         className={`mt-1 block w-full rounded-md border border-gray-300 px-3 py-2 text-sm text-gray-900 shadow-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500 ${locked ? "bg-gray-100" : ""}`}
       >
         <option value="">{placeholder}</option>
-        {locked && lockedValue && !hasLockedValue && <option value={lockedValue}>{lockedValue}</option>}
+        {fallbackValue && !hasFallbackValue && <option value={fallbackValue}>{fallbackValue}</option>}
         {options.map((opt) => (
           <option key={opt.id} value={opt.value}>
             {opt.description || opt.value}{opt.codePrefix ? ` (${opt.codePrefix})` : ""}
@@ -333,11 +336,13 @@ function CalculatedField({
   const displayValue = value === null || value === undefined || (typeof value === "number" && !Number.isFinite(value))
     ? ""
     : typeof value === "number" ? value.toFixed(decimals) : value
+  const inputId = `calculado-${label.toLowerCase().replace(/[^a-z0-9]+/g, "-")}`
 
   return (
     <div>
-      <label className="block text-sm font-medium text-gray-700">{label}</label>
+      <label htmlFor={inputId} className="block text-sm font-medium text-gray-700">{label}</label>
       <input
+        id={inputId}
         type="text"
         value={displayValue}
         readOnly
@@ -446,6 +451,7 @@ export default function ProductForm({
   const isPrepared = useWatch({ control, name: "isPrepared" })
   const isSellable = useWatch({ control, name: "isSellable" })
   const hasRecipe = useWatch({ control, name: "hasRecipe" })
+  const purchaseToBaseFactor = useWatch({ control, name: "purchaseToBaseFactor" })
   const costSinVat = useWatch({ control, name: "baseUnitCost" })
   const legacyVatPct = useWatch({ control, name: "vatPercentage" })
   const purchaseVatPercentage = useWatch({ control, name: "purchaseVatPercentage" })
@@ -461,6 +467,10 @@ export default function ProductForm({
     pricingMethod,
     targetMarginPercentage,
     retailPriceIncludingVat,
+  })
+  const productUnitCost = calculateProductUnitCost({
+    baseUnitCost: costSinVat,
+    purchaseToBaseFactor,
   })
   const [codeLoading, setCodeLoading] = useState(false)
   const [codeError, setCodeError] = useState("")
@@ -670,8 +680,8 @@ export default function ProductForm({
             locked={isEditing}
             lockedValue={initialValues?.family}
           />
-          <CatalogSelect label="Subfamilia" name="subfamily" register={register} options={catalogOptions("SUBFAMILIA")} placeholder="Seleccionar subfamilia..." error={errors.subfamily?.message} />
-          <CatalogSelect label="Sección *" name="section" register={register} options={catalogOptions("SECCION")} placeholder="Seleccionar sección..." error={errors.section?.message} />
+          <CatalogSelect label="Subfamilia" name="subfamily" register={register} options={catalogOptions("SUBFAMILIA")} placeholder="Seleccionar subfamilia..." error={errors.subfamily?.message} currentValue={initialValues?.subfamily} />
+          <CatalogSelect label="Sección *" name="section" register={register} options={catalogOptions("SECCION")} placeholder="Seleccionar sección..." error={errors.section?.message} currentValue={initialValues?.section} />
           <div className="flex flex-wrap gap-6 pt-2">
             <CheckboxField label="Es comprable" name="isPurchasable" register={register} checked={isPurchasable} derived />
             <CheckboxField label="Es elaborado" name="isPrepared" register={register} checked={isPrepared} derived />
@@ -683,10 +693,10 @@ export default function ProductForm({
 
       <Section title="Unidades de medida">
         <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-          <CatalogSelect label="UM base stock *" name="baseStockUnit" register={register} options={catalogOptions("UNIDAD_MEDIDA")} placeholder="Seleccionar unidad..." error={errors.baseStockUnit?.message} />
-          <CatalogSelect label="UM compra" name="purchaseUnit" register={register} options={catalogOptions("UNIDAD_MEDIDA")} placeholder="Seleccionar unidad..." error={errors.purchaseUnit?.message} />
+          <CatalogSelect label="UM base stock *" name="baseStockUnit" register={register} options={catalogOptions("UNIDAD_MEDIDA")} placeholder="Seleccionar unidad..." error={errors.baseStockUnit?.message} currentValue={initialValues?.baseStockUnit} />
+          <CatalogSelect label="UM compra" name="purchaseUnit" register={register} options={catalogOptions("UNIDAD_MEDIDA")} placeholder="Seleccionar unidad..." error={errors.purchaseUnit?.message} currentValue={initialValues?.purchaseUnit} />
           <NumberField label="Factor compra a base" name="purchaseToBaseFactor" register={register} placeholder="25" error={errors.purchaseToBaseFactor?.message} />
-          <CatalogSelect label="UM venta" name="salesUnit" register={register} options={catalogOptions("UNIDAD_MEDIDA")} placeholder="Seleccionar unidad..." error={errors.salesUnit?.message} />
+          <CatalogSelect label="UM venta" name="salesUnit" register={register} options={catalogOptions("UNIDAD_MEDIDA")} placeholder="Seleccionar unidad..." error={errors.salesUnit?.message} currentValue={initialValues?.salesUnit} />
           <NumberField label="Factor venta a base" name="salesToBaseFactor" register={register} placeholder="1" error={errors.salesToBaseFactor?.message} />
           <NumberField label="Peso neto ud (g)" name="netWeightPerUnitGrams" register={register} placeholder="250" error={errors.netWeightPerUnitGrams?.message} />
           <div className="sm:col-span-2">
@@ -699,6 +709,7 @@ export default function ProductForm({
         <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
           <NumberField label="Coste Sin IVA (€)" name="baseUnitCost" register={register} placeholder="0.74" error={errors.baseUnitCost?.message} />
           <CalculatedField label="Coste Con IVA (€)" value={pricing.costIncludingVat} />
+          <CalculatedField label="PVP unitario sin IVA (€)" value={productUnitCost} />
           <NumberField label="Merma estándar (%)" name="standardWastePercentage" register={register} placeholder="1.0" error={errors.standardWastePercentage?.message} />
         </div>
       </Section>
