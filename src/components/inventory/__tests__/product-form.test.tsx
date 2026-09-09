@@ -88,8 +88,8 @@ describe("ProductForm pricing calculations", () => {
     expect(screen.getByDisplayValue("12.10")).toBeInTheDocument()
     expect(screen.getByLabelText("PVP unitario sin IVA (€)")).toHaveValue("0.50")
     expect(screen.getByDisplayValue("18.18")).toBeInTheDocument()
-    expect(screen.getByDisplayValue("8.18")).toBeInTheDocument()
-    expect(screen.getByDisplayValue("45.00")).toBeInTheDocument()
+    expect(screen.getByDisplayValue("17.68")).toBeInTheDocument()
+    expect(screen.getByDisplayValue("97.25")).toBeInTheDocument()
 
     const salesVat = document.querySelector('input[name="salesVatPercentage"]') as HTMLInputElement
     await user.clear(salesVat)
@@ -97,8 +97,8 @@ describe("ProductForm pricing calculations", () => {
 
     await waitFor(() => {
       expect(screen.getByDisplayValue("16.67")).toBeInTheDocument()
-      expect(screen.getByDisplayValue("6.67")).toBeInTheDocument()
-      expect(screen.getAllByDisplayValue("40.00").length).toBeGreaterThan(0)
+      expect(screen.getByDisplayValue("16.17")).toBeInTheDocument()
+      expect(screen.getAllByDisplayValue("97.00").length).toBeGreaterThan(0)
     })
   })
 

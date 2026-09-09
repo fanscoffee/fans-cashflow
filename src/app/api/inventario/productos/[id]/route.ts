@@ -2,7 +2,7 @@ import { NextResponse } from "next/server"
 import { prisma } from "@/lib/prisma"
 import { withAuth } from "@/lib/with-auth"
 import { getProductTypeBehavior } from "@/lib/product-types"
-import { calculateProductPricing } from "@/lib/product-pricing"
+import { calculateProductPricing, calculateProductPricingCost } from "@/lib/product-pricing"
 import { canDeleteInventoryItems } from "@/lib/inventory-permissions"
 import { pickProductFields, validateProductInput } from "@/lib/product-input"
 import { UserRole } from "@/lib/database-enums"
@@ -41,6 +41,7 @@ export const PATCH = withAuth(async (req, session, context) => {
         itemType: true,
         family: true,
         baseUnitCost: true,
+        purchaseToBaseFactor: true,
         vatPercentage: true,
         purchaseVatPercentage: true,
         salesVatPercentage: true,
@@ -67,8 +68,11 @@ export const PATCH = withAuth(async (req, session, context) => {
     const productData = pickProductFields(body)
     const behavior = getProductTypeBehavior(current.itemType)
     if (behavior) Object.assign(productData, behavior)
+    const baseUnitCost = Object.prototype.hasOwnProperty.call(body, "baseUnitCost") ? body.baseUnitCost : current.baseUnitCost
+    const purchaseToBaseFactor = Object.prototype.hasOwnProperty.call(body, "purchaseToBaseFactor") ? body.purchaseToBaseFactor : current.purchaseToBaseFactor
     const pricing = calculateProductPricing({
-      costSinVat: Object.prototype.hasOwnProperty.call(body, "baseUnitCost") ? body.baseUnitCost : current.baseUnitCost,
+      costSinVat: calculateProductPricingCost({ baseUnitCost, purchaseToBaseFactor }),
+      purchaseCostSinVat: baseUnitCost,
       purchaseVatPercentage: Object.prototype.hasOwnProperty.call(body, "purchaseVatPercentage") ? body.purchaseVatPercentage : current.purchaseVatPercentage,
       salesVatPercentage: Object.prototype.hasOwnProperty.call(body, "salesVatPercentage") ? body.salesVatPercentage : current.salesVatPercentage,
       vatPercentage: Object.prototype.hasOwnProperty.call(body, "vatPercentage") ? body.vatPercentage : current.vatPercentage,

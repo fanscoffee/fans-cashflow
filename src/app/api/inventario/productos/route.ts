@@ -8,7 +8,7 @@ import {
   ProductCodeError,
 } from "@/lib/product-code"
 import { getProductTypeBehavior } from "@/lib/product-types"
-import { calculateProductPricing } from "@/lib/product-pricing"
+import { calculateProductPricing, calculateProductPricingCost } from "@/lib/product-pricing"
 import { pickProductFields, validateProductInput } from "@/lib/product-input"
 import { UserRole } from "@/lib/database-enums"
 import { hasAnyRole } from "@/lib/roles"
@@ -98,7 +98,11 @@ export const POST = withAuth(async (req, session) => {
 
     const productData = pickProductFields(body)
     const pricing = calculateProductPricing({
-      costSinVat: body.baseUnitCost,
+      costSinVat: calculateProductPricingCost({
+        baseUnitCost: body.baseUnitCost,
+        purchaseToBaseFactor: body.purchaseToBaseFactor,
+      }),
+      purchaseCostSinVat: body.baseUnitCost,
       purchaseVatPercentage: body.purchaseVatPercentage,
       salesVatPercentage: body.salesVatPercentage,
       vatPercentage: body.vatPercentage,
