@@ -331,4 +331,61 @@ describe("parseInvoiceText real invoice layouts", () => {
     const form = invoiceDraftToAccounting(draft, "")
     expect(form).toMatchObject({ date: "2026-08-31", invoiceNumber: "2401332685", base10: "1158.27", vat10: "115.83", base21: "96.70", vat21: "20.31", totalBase: "1254.97", totalVat: "136.14", invoiceTotal: "1391.11" })
   })
+
+  it("does not treat the next-page invoice number as a 2% tax row", () => {
+    const berlys = parseInvoiceText(text(
+      "NIF B09711078",
+      "FACTURA Teléfono: 631319665",
+      "CLIENTE FECHA NUMERO HOJA",
+      "MONBAKE GRUPO EMPRESARIAL S.A.U.",
+      "184900 31.08.2026 2258135893 1",
+      "NIF A31025778",
+      "IMP. BRUTO DESCUENTO",
+      "BASE IMPONIBLE % IVA % R.EQUIV",
+      "FORMA DE PAGO TOTAL A PAGAR",
+      "NIF B09711078",
+      "FACTURA Teléfono: 631319665",
+      "CLIENTE FECHA NUMERO HOJA",
+      "MONBAKE GRUPO EMPRESARIAL S.A.U.",
+      "184900 31.08.2026 2258135893 2",
+      "NIF A31025778",
+      "** Nuestros datos bancarios: IBAN: ES83 0075 8582 3506 0008 6764 -- B.SANTANDER **",
+      "IMP. BRUTO DESCUENTO",
+      "547,75 547,75",
+      "BASE IMPONIBLE % IVA % R.EQUIV",
+      "35,10 R1 4,00 1,40 0,00 0,00 36,50",
+      "512,65 R6 10,00 51,26 0,00 0,00 563,91",
+      "FORMA DE PAGO Vencimiento: 05.09.2026 TOTAL A 600,41 EUR",
+      "TRANSFERENCIA 5 DIAS PAGAR",
+    ))
+
+    expect(berlys.taxes).toEqual([
+      { type: "IVA", percentage: "4.00", taxableBase: "35.10", taxAmount: "1.40" },
+      { type: "IVA", percentage: "10.00", taxableBase: "512.65", taxAmount: "51.26" },
+    ])
+    expect(invoiceDraftToAccounting(berlys, "")).toMatchObject({ base2: "0.00", totalBase: "547.75", totalVat: "52.66", invoiceTotal: "600.41" })
+  })
+
+  it("does not sum Mercadona product rows into the final tax summary", () => {
+    const mercadona = parseInvoiceText(text(
+      "Descripción Unid. P.Unitario B.Imp. IVA Cuota IVA Importe",
+      "PREPARACIÓN 1 7,6400 7,6400 (*) 0,5600 8,2000",
+      "Preparado para 5 0,9091 4,5455 10% 0,4545 5,0000",
+      "Huevos 12 5,3846 64,6154 4% 2,5846 67,2000",
+      "Bayeta pequeña 1 1,2397 1,2397 21% 0,2603 1,5000",
+      "DETALLE (€)",
+      "IVA Base Imponible Cuota Total",
+      "4% 2.408,50 96,36 2.504,86",
+      "10% 2.197,00 219,70 2.416,70",
+      "21% 70,45 14,80 85,25",
+      "Total Factura 5.006,81€",
+    ))
+
+    expect(mercadona.taxes).toEqual([
+      { type: "IVA", percentage: "4.00", taxableBase: "2408.50", taxAmount: "96.36" },
+      { type: "IVA", percentage: "10.00", taxableBase: "2197.00", taxAmount: "219.70" },
+      { type: "IVA", percentage: "21.00", taxableBase: "70.45", taxAmount: "14.80" },
+    ])
+    expect(invoiceDraftToAccounting(mercadona, "")).toMatchObject({ totalBase: "4675.95", totalVat: "330.86", invoiceTotal: "5006.81" })
+  })
 })
