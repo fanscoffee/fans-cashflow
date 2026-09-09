@@ -35,6 +35,18 @@ function round(value: number, decimals: number) {
   return Math.round((value + Number.EPSILON) * factor) / factor
 }
 
+export function calculateProductUnitCost(input: {
+  baseUnitCost?: unknown
+  purchaseToBaseFactor?: unknown
+}) {
+  const baseUnitCost = toNullableNumber(input.baseUnitCost)
+  if (baseUnitCost === null) return null
+
+  const purchaseToBaseFactor = toNullableNumber(input.purchaseToBaseFactor)
+  if (purchaseToBaseFactor === null || purchaseToBaseFactor <= 0) return null
+  return round(baseUnitCost / purchaseToBaseFactor, 4)
+}
+
 export function calculateProductPricing(input: ProductPricingInput): ProductPricing {
   const legacyVat = toNullableNumber(input.vatPercentage)
   const purchaseVatPercentage = input.purchaseVatPercentage === undefined ? legacyVat : toNullableNumber(input.purchaseVatPercentage)

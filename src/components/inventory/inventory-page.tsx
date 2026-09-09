@@ -7,6 +7,7 @@ import SuppliersPanel from "@/components/inventory/suppliers-panel"
 import SupplierProductPanel from "@/components/inventory/supplier-product-panel"
 import ReceiptsPanel from "@/components/inventory/receipts-panel"
 import PhysicalInventoryPanel from "@/components/inventory/physical-inventory-panel"
+import ProductActions from "@/components/inventory/product-actions"
 
 interface InventoryPageProps {
   canDeleteProductsAndSuppliers?: boolean
@@ -352,28 +353,14 @@ export default function InventoryPage({ canDeleteProductsAndSuppliers = false }:
                           </span>
                         </td>
                         <td className="px-3 py-2 text-gray-600">{p.abcClass || "—"}</td>
-                        <td className="px-3 py-2 text-right">
-                          <button
-                            onClick={() => { setEditing(p); setView("edit") }}
-                            className="mr-2 text-xs font-medium text-blue-600 hover:text-blue-800"
-                          >
-                            Editar
-                          </button>
-                          <button
-                            onClick={() => { setSelectedForSuppliers(p); setView("product-suppliers") }}
-                            className="mr-2 text-xs font-medium text-purple-600 hover:text-purple-800"
-                          >
-                            Proveedores
-                          </button>
-                           {canDeleteProductsAndSuppliers && (
-                             <button
-                               onClick={() => handleDelete(p.id)}
-                               className="text-xs font-medium text-red-600 hover:text-red-800"
-                             >
-                               Eliminar
-                             </button>
-                           )}
-                        </td>
+                         <td className="px-3 py-2 text-right">
+                           <ProductActions
+                             onEdit={() => { setEditing(p); setView("edit") }}
+                             onSuppliers={() => { setSelectedForSuppliers(p); setView("product-suppliers") }}
+                             onDelete={() => void handleDelete(p.id)}
+                             canDelete={canDeleteProductsAndSuppliers}
+                           />
+                         </td>
                       </tr>
                     ))}
                   </tbody>

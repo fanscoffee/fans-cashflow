@@ -20,6 +20,10 @@ function renderEdit() {
         pricingMethod: "FIJO",
         targetMarginPercentage: 70,
         baseUnitCost: 10,
+        baseStockUnit: "kg",
+        purchaseUnit: "caja",
+        purchaseToBaseFactor: 20,
+        salesUnit: "caja",
         vatPercentage: 10,
         purchaseVatPercentage: 21,
         salesVatPercentage: 10,
@@ -36,6 +40,11 @@ function renderClassificationEdit(onSubmit: (data: Record<string, unknown>) => P
   const catalogs: Record<string, unknown[]> = {
     SUBFAMILIA: [{ id: "subfamily-1", type: "SUBFAMILIA", value: "Nueva subfamilia", description: null }],
     SECCION: [{ id: "section-1", type: "SECCION", value: "Nueva sección", description: null }],
+    UNIDAD_MEDIDA: [
+      { id: "unit-kg", type: "UNIDAD_MEDIDA", value: "kg", description: "Kilogramos" },
+      { id: "unit-box", type: "UNIDAD_MEDIDA", value: "caja", description: "Cajas" },
+      { id: "unit-each", type: "UNIDAD_MEDIDA", value: "ud", description: "Unidades" },
+    ],
   }
   vi.stubGlobal("fetch", vi.fn((input: RequestInfo | URL) => {
     const type = new URL(String(input), "http://localhost").searchParams.get("type") || ""
@@ -77,6 +86,7 @@ describe("ProductForm pricing calculations", () => {
     await user.click(screen.getByRole("button", { name: "Fiscal y precios" }))
 
     expect(screen.getByDisplayValue("12.10")).toBeInTheDocument()
+    expect(screen.getByLabelText("PVP unitario sin IVA (€)")).toHaveValue("0.50")
     expect(screen.getByDisplayValue("18.18")).toBeInTheDocument()
     expect(screen.getByDisplayValue("8.18")).toBeInTheDocument()
     expect(screen.getByDisplayValue("45.00")).toBeInTheDocument()
@@ -130,9 +140,20 @@ describe("ProductForm pricing calculations", () => {
     })
     await user.selectOptions(screen.getByLabelText("Subfamilia"), "Nueva subfamilia")
     await user.selectOptions(screen.getByLabelText("Sección *"), "Nueva sección")
+    await user.click(screen.getByRole("button", { name: "Unidades de medida" }))
+    expect(screen.getByLabelText("UM base stock *")).toHaveValue("KG")
+    await user.selectOptions(screen.getByLabelText("UM base stock *"), "kg")
+    await user.selectOptions(screen.getByLabelText("UM compra"), "caja")
+    await user.selectOptions(screen.getByLabelText("UM venta"), "ud")
     await user.click(screen.getByRole("button", { name: "Actualizar" }))
 
     await waitFor(() => expect(onSubmit).toHaveBeenCalled())
-    expect(onSubmit.mock.calls[0]?.[0]).toMatchObject({ subfamily: "Nueva subfamilia", section: "Nueva sección" })
+    expect(onSubmit.mock.calls[0]?.[0]).toMatchObject({
+      subfamily: "Nueva subfamilia",
+      section: "Nueva sección",
+      baseStockUnit: "kg",
+      purchaseUnit: "caja",
+      salesUnit: "ud",
+    })
   })
 })
