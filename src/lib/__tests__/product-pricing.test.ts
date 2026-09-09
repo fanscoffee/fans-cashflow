@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest"
-import { calculateProductPricing, calculateProductUnitCost } from "../product-pricing"
+import { calculateProductPricing, calculateProductPricingCost, calculateProductUnitCost } from "../product-pricing"
 
 describe("calculateProductPricing", () => {
   it("calculates the sales unit cost from the base unit cost and conversion factor", () => {
@@ -20,6 +20,14 @@ describe("calculateProductPricing", () => {
     expect(calculateProductUnitCost({
       baseUnitCost: 26.29,
     })).toBeNull()
+  })
+
+  it("uses the sales unit cost for pricing and falls back to the base cost without a factor", () => {
+    expect(calculateProductPricingCost({
+      baseUnitCost: 26.29,
+      purchaseToBaseFactor: 20,
+    })).toBe(1.3145)
+    expect(calculateProductPricingCost({ baseUnitCost: 26.29 })).toBe(26.29)
   })
 
   it("calculates VAT-inclusive cost, net sale price, gain and margin", () => {

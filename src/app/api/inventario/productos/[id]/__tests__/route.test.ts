@@ -104,6 +104,41 @@ describe("PATCH /api/inventario/productos/[id]", () => {
       },
     })
   })
+
+  it("uses the existing purchase factor when recalculating a partial update", async () => {
+    vi.mocked(prisma.product.findUnique).mockResolvedValue({
+      code: "MP-HAR-001",
+      itemType: "MP",
+      family: "Harinas y sémolas",
+      baseUnitCost: 26.29,
+      purchaseToBaseFactor: 20,
+      vatPercentage: 10,
+      purchaseVatPercentage: 21,
+      salesVatPercentage: 10,
+      pricingMethod: "MARGEN",
+      targetMarginPercentage: 70,
+      fixedRetailPriceIncludingVat: null,
+      appliedRetailPriceIncludingVat: null,
+    } as any)
+    vi.mocked(prisma.product.update).mockResolvedValue({ id: "product-1" } as any)
+
+    const response = await PATCH(mockRequest({}), context)
+
+    expect(response.status).toBe(200)
+    expect(prisma.product.update).toHaveBeenCalledWith(expect.objectContaining({
+      data: expect.objectContaining({
+        costIncludingVat: 31.8109,
+        targetRetailPriceIncludingVat: 4.8198,
+        appliedRetailPriceIncludingVat: 4.8198,
+        appliedRetailPriceExcludingVat: 4.3816,
+        profitPerUnit: 3.0671,
+        actualMarginPercentage: 70,
+        percentagePointDeviation: 0,
+        unitDifference: 0,
+        pricingDiagnosis: "EN OBJETIVO",
+      }),
+    }))
+  })
 })
 
 describe("DELETE /api/inventario/productos/[id]", () => {
