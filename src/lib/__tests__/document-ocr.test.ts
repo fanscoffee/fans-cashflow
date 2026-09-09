@@ -38,6 +38,7 @@ describe("extractDocument", () => {
   })
 
   afterEach(() => {
+    vi.useRealTimers()
     vi.restoreAllMocks()
     vi.clearAllMocks()
   })
@@ -48,6 +49,24 @@ describe("extractDocument", () => {
     expect(result).toContain("FACTURA 14046")
     expect(result).toContain("DCA Okin S.L.")
     expect(result).toContain("B84151760")
-    expect(mocks.createWorker).toHaveBeenCalled()
+    expect(mocks.createWorker).toHaveBeenCalledWith("spa+eng", 1, expect.objectContaining({
+      workerPath: "/tesseract/worker.min.js",
+      corePath: "/tesseract/tesseract-core-lstm.wasm.js",
+      langPath: "/tesseract/lang",
+      workerBlobURL: false,
+      gzip: true,
+    }))
+  })
+
+  it("does not wait forever when the local OCR worker does not initialize", async () => {
+    vi.useFakeTimers()
+    mocks.createWorker.mockReturnValue(new Promise(() => {}))
+
+    const extraction = extractDocument(new File(["image"], "image.png", { type: "image/png" }), () => {})
+    await vi.waitFor(() => expect(mocks.createWorker).toHaveBeenCalled())
+
+    const expectedError = expect(extraction).rejects.toThrow("El OCR local no respondió a tiempo")
+    await vi.advanceTimersByTimeAsync(45_000)
+    await expectedError
   })
 })
