@@ -10,7 +10,7 @@ const mockShifts = [
     shift: "mañana",
     status: "CERRADO",
     cash: 500,
-    cashTracking: { id: "ct1", destination: "DEPOSITO", createdBy: { name: "Socio", email: "socio@test.com" } },
+    cashTracking: { id: "ct1", destination: "DEPOSIT", createdBy: { name: "Socio", email: "socio@test.com" } },
     createdBy: { name: "Empleado 1", email: "emp@test.com" },
   },
   {
@@ -81,6 +81,17 @@ describe("EfectivoPage", () => {
     await waitFor(() => {
       expect(screen.getByText("Efectivo por Turno")).toBeInTheDocument()
     })
+  })
+
+  it("renders every cash destination on mobile cards", async () => {
+    render(<CashPage />)
+    await waitFor(() => {
+      expect(screen.getAllByText("Depósito").length).toBeGreaterThan(0)
+    })
+    expect(screen.getAllByText("Depósito").length).toBeGreaterThan(0)
+    expect(screen.getAllByText("Ingreso en fondo").length).toBeGreaterThan(0)
+    expect(screen.getAllByText("Guardado").length).toBeGreaterThan(0)
+    expect(screen.getAllByText("Fans").length).toBeGreaterThan(0)
   })
 
   it("shows export button", async () => {

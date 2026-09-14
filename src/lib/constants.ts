@@ -10,4 +10,4 @@ export const DESTINATION_LABELS: Record<string, string> = {
   FANS: "Fans",
 }
 
-export const DESTINATION_KEYS = ["DEPOSITO", "INGRESO_EN_FONDO", "GUARDADO", "FANS"] as const
+export const DESTINATION_KEYS = ["DEPOSIT", "FUND_REINVESTMENT", "STORED", "FANS"] as const
