@@ -30,8 +30,8 @@ function mockRequest(body: Record<string, unknown>) {
   }) as unknown as NextRequest
 }
 
-function mockGetRequest() {
-  return new Request("http://localhost/api/inventario/productos?page=1&pageSize=50") as unknown as NextRequest
+function mockGetRequest(query = "page=1&pageSize=50") {
+  return new Request(`http://localhost/api/inventario/productos?${query}`) as unknown as NextRequest
 }
 
 describe("POST /api/inventario/productos", () => {
@@ -145,6 +145,29 @@ describe("GET /api/inventario/productos", () => {
     await expect(response.json()).resolves.toMatchObject({
       products: [{ code: "PT-SLD-002", suppliers: [{ supplier: { legalName: "Proveedor principal" } }] }],
       total: 1,
+    })
+  })
+
+  it("filters products by their active primary supplier", async () => {
+    vi.mocked(prisma.product.findMany).mockResolvedValue([])
+    vi.mocked(prisma.product.count).mockResolvedValue(0)
+
+    const response = await GET(mockGetRequest("supplierId=supplier-1&page=1&pageSize=50"))
+
+    expect(response.status).toBe(200)
+    expect(prisma.product.findMany).toHaveBeenCalledWith(expect.objectContaining({
+      where: {
+        suppliers: {
+          some: { supplierId: "supplier-1", active: true, isPrimary: true },
+        },
+      },
+    }))
+    expect(prisma.product.count).toHaveBeenCalledWith({
+      where: {
+        suppliers: {
+          some: { supplierId: "supplier-1", active: true, isPrimary: true },
+        },
+      },
     })
   })
 })

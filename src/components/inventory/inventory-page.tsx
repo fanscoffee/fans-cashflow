@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useEffect, useCallback } from "react"
+import { useState, useEffect, useCallback, useRef } from "react"
 import ProductForm from "@/components/inventory/product-form"
 import CatalogManager from "@/components/inventory/catalog-manager"
 import SuppliersPanel from "@/components/inventory/suppliers-panel"
@@ -18,6 +18,11 @@ interface SupplierRelation {
   supplierId: string
   supplier: { id: string; legalName: string }
   isPrimary: boolean
+}
+
+interface SupplierOption {
+  id: string
+  legalName: string
 }
 
 interface Product {
@@ -78,6 +83,70 @@ interface Product {
 
 type ViewMode = "list" | "create" | "edit" | "catalogs" | "suppliers" | "product-suppliers" | "receipts" | "physical-inventory"
 
+type ColumnKey =
+  | "code"
+  | "description"
+  | "type"
+  | "family"
+  | "supplier"
+  | "status"
+  | "abcClass"
+  | "baseUnitCost"
+  | "baseStockUnit"
+  | "vatCode"
+  | "actualMarginPercentage"
+  | "targetMarginPercentage"
+  | "appliedRetailPriceIncludingVat"
+
+const COLUMN_OPTIONS: Array<{ key: ColumnKey; label: string; alwaysVisible?: boolean }> = [
+  { key: "code", label: "Código" },
+  { key: "description", label: "Descripción", alwaysVisible: true },
+  { key: "type", label: "Tipo" },
+  { key: "family", label: "Familia" },
+  { key: "supplier", label: "Proveedor" },
+  { key: "status", label: "Estado" },
+  { key: "abcClass", label: "Clase" },
+  { key: "baseUnitCost", label: "Coste sin IVA" },
+  { key: "baseStockUnit", label: "Unidad" },
+  { key: "vatCode", label: "Código IVA (compra)" },
+  { key: "actualMarginPercentage", label: "Margen real" },
+  { key: "targetMarginPercentage", label: "Margen objetivo %" },
+  { key: "appliedRetailPriceIncludingVat", label: "Precio de venta con IVA" },
+]
+
+const DEFAULT_VISIBLE_COLUMNS: ColumnKey[] = [
+  "code",
+  "description",
+  "type",
+  "family",
+  "supplier",
+  "status",
+  "abcClass",
+]
+
+const COLUMNS_STORAGE_KEY = "inventory-table-visible-columns"
+const COLUMN_KEYS = new Set(COLUMN_OPTIONS.map((column) => column.key))
+const CURRENCY_FORMATTER = new Intl.NumberFormat("es-ES", {
+  style: "currency",
+  currency: "EUR",
+  minimumFractionDigits: 2,
+  maximumFractionDigits: 2,
+})
+const PERCENTAGE_FORMATTER = new Intl.NumberFormat("es-ES", {
+  minimumFractionDigits: 2,
+  maximumFractionDigits: 2,
+})
+
+function formatCurrency(value: number | null) {
+  if (value === null || !Number.isFinite(Number(value))) return "—"
+  return CURRENCY_FORMATTER.format(Number(value))
+}
+
+function formatPercentage(value: number | null) {
+  if (value === null || !Number.isFinite(Number(value))) return "—"
+  return `${PERCENTAGE_FORMATTER.format(Number(value))} %`
+}
+
 const TYPE_COLORS: Record<string, string> = {
   MP: "bg-blue-100 text-blue-800",
   IN: "bg-gray-100 text-gray-800",
@@ -102,12 +171,22 @@ export default function InventoryPage({ canDeleteProductsAndSuppliers = false }:
   const [editing, setEditing] = useState<Product | null>(null)
   const [selectedForSuppliers, setSelectedForSuppliers] = useState<Product | null>(null)
   const [saving, setSaving] = useState(false)
+  const [visibleColumns, setVisibleColumns] = useState<Set<ColumnKey>>(
+    () => new Set(DEFAULT_VISIBLE_COLUMNS),
+  )
+  const [draftVisibleColumns, setDraftVisibleColumns] = useState<Set<ColumnKey>>(
+    () => new Set(DEFAULT_VISIBLE_COLUMNS),
+  )
+  const [isColumnModalOpen, setIsColumnModalOpen] = useState(false)
+  const [supplierOptions, setSupplierOptions] = useState<SupplierOption[]>([])
+  const showColumnsButtonRef = useRef<HTMLButtonElement>(null)
+  const closeColumnModalButtonRef = useRef<HTMLButtonElement>(null)
 
   const [search, setSearch] = useState("")
   const [typeFilter, setTypeFilter] = useState("")
   const [sectionFilter, setSectionFilter] = useState("")
   const [statusFilter, setStatusFilter] = useState("")
-  const [abcClassFilter, setAbcClassFilter] = useState("")
+  const [supplierFilter, setSupplierFilter] = useState("")
   const [page, setPage] = useState(1)
   const pageSize = 50
 
@@ -119,7 +198,7 @@ export default function InventoryPage({ canDeleteProductsAndSuppliers = false }:
       if (typeFilter) params.set("itemType", typeFilter)
       if (sectionFilter) params.set("section", sectionFilter)
       if (statusFilter) params.set("status", statusFilter)
-      if (abcClassFilter) params.set("abcClass", abcClassFilter)
+      if (supplierFilter) params.set("supplierId", supplierFilter)
       params.set("page", String(page))
       params.set("pageSize", String(pageSize))
 
@@ -134,7 +213,18 @@ export default function InventoryPage({ canDeleteProductsAndSuppliers = false }:
     } finally {
       setLoading(false)
     }
-  }, [search, typeFilter, sectionFilter, statusFilter, abcClassFilter, page])
+  }, [search, typeFilter, sectionFilter, statusFilter, supplierFilter, page])
+
+  const loadSupplierOptions = useCallback(async () => {
+    try {
+      const res = await fetch("/api/inventario/proveedores?page=1&pageSize=100")
+      if (!res.ok) return
+      const data = await res.json()
+      setSupplierOptions(Array.isArray(data.suppliers) ? data.suppliers : [])
+    } catch {
+      // Product filtering remains usable without supplier options.
+    }
+  }, [])
 
   /* eslint-disable react-hooks/set-state-in-effect */
   useEffect(() => {
@@ -142,9 +232,72 @@ export default function InventoryPage({ canDeleteProductsAndSuppliers = false }:
   }, [loadProducts])
 
   useEffect(() => {
+    loadSupplierOptions()
+  }, [loadSupplierOptions])
+
+  useEffect(() => {
     setPage(1)
-  }, [search, typeFilter, sectionFilter, statusFilter, abcClassFilter])
+  }, [search, typeFilter, sectionFilter, statusFilter, supplierFilter])
+
+  useEffect(() => {
+    try {
+      const savedColumns = window.localStorage.getItem(COLUMNS_STORAGE_KEY)
+      if (!savedColumns) return
+      const parsedColumns: unknown = JSON.parse(savedColumns)
+      if (!Array.isArray(parsedColumns)) return
+      const validColumns = parsedColumns.filter(
+        (column): column is ColumnKey => typeof column === "string" && COLUMN_KEYS.has(column as ColumnKey),
+      )
+      const restoredColumns = new Set<ColumnKey>(["description", ...validColumns])
+      setVisibleColumns(restoredColumns)
+      setDraftVisibleColumns(new Set(restoredColumns))
+    } catch {
+      // Ignore malformed or unavailable browser storage and keep the default table.
+    }
+  }, [])
   /* eslint-enable react-hooks/set-state-in-effect */
+
+  const closeColumnModal = useCallback(() => {
+    setIsColumnModalOpen(false)
+    showColumnsButtonRef.current?.focus()
+  }, [])
+
+  useEffect(() => {
+    if (!isColumnModalOpen) return
+
+    closeColumnModalButtonRef.current?.focus()
+    const handleKeyDown = (event: KeyboardEvent) => {
+      if (event.key === "Escape") closeColumnModal()
+    }
+    window.addEventListener("keydown", handleKeyDown)
+    return () => window.removeEventListener("keydown", handleKeyDown)
+  }, [isColumnModalOpen, closeColumnModal])
+
+  function openColumnModal() {
+    setDraftVisibleColumns(new Set(visibleColumns))
+    setIsColumnModalOpen(true)
+  }
+
+  function toggleDraftColumn(column: ColumnKey) {
+    if (column === "description") return
+    setDraftVisibleColumns((currentColumns) => {
+      const nextColumns = new Set(currentColumns)
+      if (nextColumns.has(column)) nextColumns.delete(column)
+      else nextColumns.add(column)
+      return nextColumns
+    })
+  }
+
+  function applyVisibleColumns() {
+    const nextColumns = new Set<ColumnKey>(["description", ...draftVisibleColumns])
+    setVisibleColumns(nextColumns)
+    try {
+      window.localStorage.setItem(COLUMNS_STORAGE_KEY, JSON.stringify([...nextColumns]))
+    } catch {
+      // The table still updates when browser storage is unavailable.
+    }
+    closeColumnModal()
+  }
 
   async function handleCreate(data: Record<string, unknown>) {
     setSaving(true)
@@ -272,13 +425,13 @@ export default function InventoryPage({ canDeleteProductsAndSuppliers = false }:
             </span>
           </div>
 
-          <div className="grid grid-cols-1 gap-2 sm:flex sm:flex-wrap">
+          <div className="grid grid-cols-1 gap-2 sm:flex sm:flex-wrap lg:grid lg:grid-cols-6">
             <input
               type="text"
               value={search}
               onChange={(e) => setSearch(e.target.value)}
               placeholder="Buscar por código o descripción..."
-              className="w-full min-w-0 rounded-md border border-gray-300 px-3 py-2 text-sm text-gray-900 shadow-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500 sm:min-w-[200px] sm:flex-1"
+              className="w-full min-w-0 rounded-md border border-gray-300 px-3 py-2 text-sm text-gray-900 shadow-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500 sm:min-w-[200px] sm:flex-1 lg:col-span-2"
             />
             <select value={typeFilter} onChange={(e) => setTypeFilter(e.target.value)} className="w-full rounded-md border border-gray-300 px-3 py-2 text-sm text-gray-900 sm:w-auto">
               <option value="">Todos los tipos</option>
@@ -303,12 +456,28 @@ export default function InventoryPage({ canDeleteProductsAndSuppliers = false }:
               <option value="Inactivo">Inactivo</option>
               <option value="Descatalogado">Descatalogado</option>
             </select>
-            <select value={abcClassFilter} onChange={(e) => setAbcClassFilter(e.target.value)} className="w-full rounded-md border border-gray-300 px-3 py-2 text-sm text-gray-900 sm:w-auto">
-              <option value="">Todas las clases</option>
-              <option value="A">Clase A</option>
-              <option value="B">Clase B</option>
-              <option value="C">Clase C</option>
+            <select
+              aria-label="Filtrar por proveedor"
+              value={supplierFilter}
+              onChange={(e) => setSupplierFilter(e.target.value)}
+              className="w-full rounded-md border border-gray-300 px-3 py-2 text-sm text-gray-900 sm:w-auto"
+            >
+              <option value="">Todos los proveedores</option>
+              {supplierOptions.map((supplier) => (
+                <option key={supplier.id} value={supplier.id}>{supplier.legalName}</option>
+              ))}
             </select>
+          </div>
+
+          <div className="flex justify-end">
+            <button
+              ref={showColumnsButtonRef}
+              type="button"
+              onClick={openColumnModal}
+              className="w-full rounded-md border border-gray-300 bg-white px-4 py-2 text-sm font-medium text-gray-700 shadow-sm hover:bg-gray-50 sm:w-auto"
+            >
+              Mostrar columnas
+            </button>
           </div>
 
           {loading ? (
@@ -321,38 +490,50 @@ export default function InventoryPage({ canDeleteProductsAndSuppliers = false }:
                 <table className="w-full min-w-max text-left text-sm sm:min-w-0">
                   <thead>
                     <tr className="border-b bg-gray-50 text-xs font-medium text-gray-500">
-                      <th className="px-3 py-2">Código</th>
+                      {visibleColumns.has("code") && <th className="px-3 py-2">Código</th>}
                       <th className="px-3 py-2">Descripción</th>
-                      <th className="px-3 py-2">Tipo</th>
-                      <th className="px-3 py-2">Familia</th>
-                      <th className="px-3 py-2">Proveedor</th>
-                      <th className="px-3 py-2">Estado</th>
-                      <th className="px-3 py-2">Clase</th>
+                      {visibleColumns.has("type") && <th className="px-3 py-2">Tipo</th>}
+                      {visibleColumns.has("family") && <th className="px-3 py-2">Familia</th>}
+                      {visibleColumns.has("supplier") && <th className="px-3 py-2">Proveedor</th>}
+                      {visibleColumns.has("status") && <th className="px-3 py-2">Estado</th>}
+                      {visibleColumns.has("abcClass") && <th className="px-3 py-2">Clase</th>}
+                      {visibleColumns.has("baseUnitCost") && <th className="px-3 py-2">Coste sin IVA</th>}
+                      {visibleColumns.has("baseStockUnit") && <th className="px-3 py-2">Unidad</th>}
+                      {visibleColumns.has("vatCode") && <th className="px-3 py-2">Código IVA (compra)</th>}
+                      {visibleColumns.has("actualMarginPercentage") && <th className="px-3 py-2">Margen real</th>}
+                      {visibleColumns.has("targetMarginPercentage") && <th className="px-3 py-2">Margen objetivo %</th>}
+                      {visibleColumns.has("appliedRetailPriceIncludingVat") && <th className="px-3 py-2">Precio de venta con IVA</th>}
                       <th className="px-3 py-2 text-right">Acciones</th>
                     </tr>
                   </thead>
                   <tbody className="divide-y">
                     {products.map((p) => (
                       <tr key={p.id} className="hover:bg-gray-50">
-                        <td className="px-3 py-2 font-mono text-xs text-gray-900">{p.code}</td>
+                        {visibleColumns.has("code") && <td className="px-3 py-2 font-mono text-xs text-gray-900">{p.code}</td>}
                         <td className="px-3 py-2 text-gray-900">{p.posDescription}</td>
-                        <td className="px-3 py-2">
+                        {visibleColumns.has("type") && <td className="px-3 py-2">
                           <span className={`inline-block rounded-full px-2 py-0.5 text-xs font-medium ${TYPE_COLORS[p.itemType] || ""}`}>
                             {p.itemType}
                           </span>
-                        </td>
-                        <td className="px-3 py-2 text-gray-600">{p.family}</td>
-                        <td className="px-3 py-2 text-gray-600">
+                        </td>}
+                        {visibleColumns.has("family") && <td className="px-3 py-2 text-gray-600">{p.family}</td>}
+                        {visibleColumns.has("supplier") && <td className="px-3 py-2 text-gray-600">
                           {p.suppliers && p.suppliers.length > 0
                             ? p.suppliers[0].supplier.legalName
                             : "—"}
-                        </td>
-                        <td className="px-3 py-2">
+                        </td>}
+                        {visibleColumns.has("status") && <td className="px-3 py-2">
                           <span className={`inline-block rounded-full px-2 py-0.5 text-xs font-medium ${STATUS_COLORS[p.status] || ""}`}>
                             {p.status}
                           </span>
-                        </td>
-                        <td className="px-3 py-2 text-gray-600">{p.abcClass || "—"}</td>
+                        </td>}
+                        {visibleColumns.has("abcClass") && <td className="px-3 py-2 text-gray-600">{p.abcClass || "—"}</td>}
+                        {visibleColumns.has("baseUnitCost") && <td className="px-3 py-2 text-gray-600">{formatCurrency(p.baseUnitCost)}</td>}
+                        {visibleColumns.has("baseStockUnit") && <td className="px-3 py-2 text-gray-600">{p.baseStockUnit || "—"}</td>}
+                        {visibleColumns.has("vatCode") && <td className="px-3 py-2 text-gray-600">{p.vatCode || "—"}</td>}
+                        {visibleColumns.has("actualMarginPercentage") && <td className="px-3 py-2 text-gray-600">{formatPercentage(p.actualMarginPercentage)}</td>}
+                        {visibleColumns.has("targetMarginPercentage") && <td className="px-3 py-2 text-gray-600">{formatPercentage(p.targetMarginPercentage)}</td>}
+                        {visibleColumns.has("appliedRetailPriceIncludingVat") && <td className="px-3 py-2 text-gray-600">{formatCurrency(p.appliedRetailPriceIncludingVat)}</td>}
                          <td className="px-3 py-2 text-right">
                            <ProductActions
                              onEdit={() => { setEditing(p); setView("edit") }}
@@ -372,7 +553,7 @@ export default function InventoryPage({ canDeleteProductsAndSuppliers = false }:
                   <button
                     onClick={() => setPage((p) => Math.max(1, p - 1))}
                     disabled={page === 1}
-                    className="rounded-md border px-3 py-1 text-sm disabled:opacity-50"
+                    className="rounded-md border border-gray-600 px-3 py-1 text-sm font-medium text-gray-800 hover:bg-gray-100 disabled:cursor-not-allowed disabled:border-gray-500 disabled:bg-gray-100 disabled:text-gray-600"
                   >
                     Anterior
                   </button>
@@ -382,13 +563,76 @@ export default function InventoryPage({ canDeleteProductsAndSuppliers = false }:
                   <button
                     onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
                     disabled={page === totalPages}
-                    className="rounded-md border px-3 py-1 text-sm disabled:opacity-50"
+                    className="rounded-md border border-gray-600 px-3 py-1 text-sm font-medium text-gray-800 hover:bg-gray-100 disabled:cursor-not-allowed disabled:border-gray-500 disabled:bg-gray-100 disabled:text-gray-600"
                   >
                     Siguiente
                   </button>
                 </div>
               )}
             </>
+          )}
+
+          {isColumnModalOpen && (
+            <div
+              className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4"
+              onMouseDown={(event) => {
+                if (event.target === event.currentTarget) closeColumnModal()
+              }}
+            >
+              <div
+                role="dialog"
+                aria-modal="true"
+                aria-labelledby="column-modal-title"
+                className="max-h-[90vh] w-full max-w-md overflow-y-auto rounded-lg bg-white p-5 shadow-xl"
+              >
+                <div className="flex items-center justify-between gap-4">
+                  <h2 id="column-modal-title" className="text-lg font-semibold text-gray-900">
+                    Mostrar columnas
+                  </h2>
+                  <button
+                    ref={closeColumnModalButtonRef}
+                    type="button"
+                    onClick={closeColumnModal}
+                    aria-label="Cerrar modal"
+                    className="rounded-md px-2 py-1 text-xl leading-none text-gray-500 hover:bg-gray-100 hover:text-gray-700"
+                  >
+                    ×
+                  </button>
+                </div>
+
+                <div className="mt-4 space-y-3">
+                  {COLUMN_OPTIONS.map((column) => (
+                    <label key={column.key} className="flex items-center gap-3 text-sm text-gray-800">
+                      <input
+                        type="checkbox"
+                        checked={column.alwaysVisible || draftVisibleColumns.has(column.key)}
+                        disabled={column.alwaysVisible}
+                        onChange={() => toggleDraftColumn(column.key)}
+                        className="h-4 w-4 rounded border-gray-300 text-blue-600 focus:ring-blue-500 disabled:cursor-not-allowed disabled:opacity-60"
+                      />
+                      <span>{column.label}</span>
+                    </label>
+                  ))}
+                </div>
+
+                <div className="mt-6 flex justify-end gap-2">
+                  <button
+                    type="button"
+                    onClick={closeColumnModal}
+                    className="rounded-md border border-gray-300 px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50"
+                  >
+                    Cancelar
+                  </button>
+                  <button
+                    type="button"
+                    onClick={applyVisibleColumns}
+                    className="rounded-md bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-700"
+                  >
+                    Aplicar
+                  </button>
+                </div>
+              </div>
+            </div>
           )}
         </>
       )}
