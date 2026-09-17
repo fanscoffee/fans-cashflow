@@ -22,6 +22,7 @@ export const GET = withAuth(async (req) => {
   const section = getFirstSearchParam(searchParams, "section", "seccion") || ""
   const status = getFirstSearchParam(searchParams, "status", "estado") || ""
   const abcClass = getFirstSearchParam(searchParams, "abcClass", "claseAbc") || ""
+  const supplierId = getFirstSearchParam(searchParams, "supplierId", "proveedorId") || ""
   const requestedPage = Number(searchParams.get("page") || "1")
   const requestedPageSize = Number(searchParams.get("pageSize") || "50")
   const page = Number.isInteger(requestedPage) ? Math.max(1, requestedPage) : 1
@@ -41,6 +42,7 @@ export const GET = withAuth(async (req) => {
   if (section) where.section = section
   if (status) where.status = status
   if (abcClass) where.abcClass = abcClass
+  if (supplierId) where.suppliers = { some: { supplierId, active: true, isPrimary: true } }
   const [products, total] = await Promise.all([
     prisma.product.findMany({
       where,
