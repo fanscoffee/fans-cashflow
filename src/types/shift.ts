@@ -48,6 +48,12 @@ export interface ShiftClose {
   confirmedAt: string
 }
 
+export interface ShiftOperationalReview {
+  productionReviewed: boolean
+  wasteReviewed: boolean
+  confirmedAt: string
+}
+
 export interface Shift {
   id: string
   date: string
@@ -62,6 +68,8 @@ export interface Shift {
   expenses: Expense[]
   currentExpenses?: CurrentExpense[]
   shiftClose?: ShiftClose | null
+  operationalReview?: ShiftOperationalReview | null
+  _count?: { productionEntries: number; wasteEntries: number }
   createdAt: string
   createdBy?: { name: string | null; email: string }
 }

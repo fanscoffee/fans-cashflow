@@ -116,8 +116,16 @@ export default function EmployeePage() {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(close.noInformation
-          ? { status: "CERRADO", noInformation: true }
-          : { status: "CERRADO", close }),
+          ? {
+              status: "CERRADO",
+              noInformation: true,
+              operationalReview: { productionReviewed: close.productionReviewed, wasteReviewed: close.wasteReviewed },
+            }
+          : {
+              status: "CERRADO",
+              close,
+              operationalReview: { productionReviewed: close.productionReviewed, wasteReviewed: close.wasteReviewed },
+            }),
       })
       if (!res.ok) {
         const result = await res.json()

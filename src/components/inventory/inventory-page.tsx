@@ -8,6 +8,8 @@ import SupplierProductPanel from "@/components/inventory/supplier-product-panel"
 import ReceiptsPanel from "@/components/inventory/receipts-panel"
 import PhysicalInventoryPanel from "@/components/inventory/physical-inventory-panel"
 import ProductActions from "@/components/inventory/product-actions"
+import RecipeManager from "@/components/inventory/recipe-manager"
+import { ShiftOperationsPanel } from "@/components/inventory/shift-operations-panel"
 
 interface InventoryPageProps {
   canDeleteProductsAndSuppliers?: boolean
@@ -81,7 +83,7 @@ interface Product {
   suppliers?: SupplierRelation[]
 }
 
-type ViewMode = "list" | "create" | "edit" | "catalogs" | "suppliers" | "product-suppliers" | "receipts" | "physical-inventory"
+type ViewMode = "list" | "create" | "edit" | "catalogs" | "suppliers" | "product-suppliers" | "receipts" | "physical-inventory" | "recipes" | "operations"
 
 type ColumnKey =
   | "code"
@@ -420,6 +422,18 @@ export default function InventoryPage({ canDeleteProductsAndSuppliers = false }:
             >
               Inventario Físico
             </button>
+            <button
+              onClick={() => setView("recipes")}
+              className="w-full rounded-md border border-indigo-300 px-4 py-2 text-sm font-medium text-indigo-800 hover:bg-indigo-50 sm:w-auto"
+            >
+              Recetas
+            </button>
+            <button
+              onClick={() => setView("operations")}
+              className="w-full rounded-md border border-amber-300 px-4 py-2 text-sm font-medium text-amber-800 hover:bg-amber-50 sm:w-auto"
+            >
+              Producción y mermas
+            </button>
             <span className="text-center text-sm text-gray-500 sm:ml-auto">
               {total} producto{total !== 1 ? "s" : ""}
             </span>
@@ -709,7 +723,7 @@ export default function InventoryPage({ canDeleteProductsAndSuppliers = false }:
               Volver
             </button>
           </div>
-          <ReceiptsPanel />
+          <ReceiptsPanel canEdit />
         </div>
       )}
 
@@ -725,6 +739,32 @@ export default function InventoryPage({ canDeleteProductsAndSuppliers = false }:
             </button>
           </div>
           <PhysicalInventoryPanel />
+        </div>
+      )}
+
+      {view === "recipes" && (
+        <div className="rounded-lg border bg-white p-4 shadow-sm sm:p-6">
+          <div className="mb-4 flex flex-col items-stretch gap-2 sm:flex-row sm:items-center sm:justify-between">
+            <div>
+              <h2 className="text-lg font-semibold text-gray-900">Gestión de recetas</h2>
+              <p className="text-sm text-gray-500">Versiones inmutables y consumos por unidad producida.</p>
+            </div>
+            <button onClick={() => setView("list")} className="w-full rounded-md border border-gray-300 px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50 sm:w-auto">Volver</button>
+          </div>
+          <RecipeManager />
+        </div>
+      )}
+
+      {view === "operations" && (
+        <div className="rounded-lg border bg-white p-4 shadow-sm sm:p-6">
+          <div className="mb-4 flex flex-col items-stretch gap-2 sm:flex-row sm:items-center sm:justify-between">
+            <div>
+              <h2 className="text-lg font-semibold text-gray-900">Operaciones fuera de turno</h2>
+              <p className="text-sm text-gray-500">Registros administrativos, ajustes iniciales y correcciones auditables en Cafetería.</p>
+            </div>
+            <button onClick={() => setView("list")} className="w-full rounded-md border border-gray-300 px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50 sm:w-auto">Volver</button>
+          </div>
+          <ShiftOperationsPanel isOpen userRole="ADMIN" />
         </div>
       )}
     </div>

@@ -8,6 +8,11 @@ import { z } from "zod"
 import { getProductTypeBehavior } from "@/lib/product-types"
 import { calculateProductPricing, calculateProductPricingCost, calculateProductUnitCost } from "@/lib/product-pricing"
 
+const optionalNumber = z.preprocess(
+  (value) => value === "" || value === null ? undefined : value,
+  z.coerce.number().optional(),
+)
+
 const productSchema = z.object({
   code: z.string().min(1, "El código es obligatorio"),
   eanBarcode: z.string().optional(),
@@ -28,18 +33,18 @@ const productSchema = z.object({
   salesToBaseFactor: z.coerce.number().optional(),
   netWeightPerUnitGrams: z.coerce.number().optional(),
   presentationFormat: z.string().optional(),
-  baseUnitCost: z.coerce.number().optional(),
+  baseUnitCost: optionalNumber,
   costIncludingVat: z.coerce.number().optional(),
   standardWastePercentage: z.coerce.number().optional(),
   vatCode: z.string().min(1, "El código IVA es obligatorio"),
-  vatPercentage: z.coerce.number().optional(),
-  purchaseVatPercentage: z.coerce.number().optional(),
-  salesVatPercentage: z.coerce.number().optional(),
+  vatPercentage: optionalNumber,
+  purchaseVatPercentage: optionalNumber,
+  salesVatPercentage: optionalNumber,
   pricingMethod: z.string().min(1, "El método de precio es obligatorio"),
-  targetMarginPercentage: z.coerce.number().optional(),
+  targetMarginPercentage: optionalNumber,
   targetRetailPriceIncludingVat: z.coerce.number().optional(),
   fixedRetailPriceIncludingVat: z.coerce.number().optional(),
-  appliedRetailPriceIncludingVat: z.coerce.number().optional(),
+  appliedRetailPriceIncludingVat: optionalNumber,
   appliedRetailPriceExcludingVat: z.coerce.number().optional(),
   profitPerUnit: z.coerce.number().optional(),
   actualMarginPercentage: z.coerce.number().optional(),
@@ -59,6 +64,18 @@ const productSchema = z.object({
   allergens: z.string().optional(),
   status: z.string().min(1, "El estado es obligatorio"),
   notes: z.string().optional(),
+}).superRefine((value, context) => {
+  if (!value.isSellable) return
+  const method = value.pricingMethod.trim().toUpperCase()
+  if (method === "MARGEN" && value.targetMarginPercentage === undefined) {
+    context.addIssue({ code: "custom", path: ["targetMarginPercentage"], message: "El margen objetivo es obligatorio" })
+  }
+  if (method === "MARGEN" && value.salesVatPercentage === undefined) {
+    context.addIssue({ code: "custom", path: ["salesVatPercentage"], message: "El IVA de venta es obligatorio" })
+  }
+  if (method === "FIJO" && value.appliedRetailPriceIncludingVat === undefined) {
+    context.addIssue({ code: "custom", path: ["appliedRetailPriceIncludingVat"], message: "El PVP fijo es obligatorio" })
+  }
 })
 
 type ProductFormValues = z.infer<typeof productSchema>
@@ -494,7 +511,8 @@ export default function ProductForm({
     setValue("isPurchasable", behavior.isPurchasable)
     setValue("isPrepared", behavior.isPrepared)
     setValue("isSellable", behavior.isSellable)
-    setValue("hasRecipe", behavior.hasRecipe)
+    setValue("hasRecipe", false)
+    if (behavior.isPrepared && behavior.isSellable) setValue("pricingMethod", "MARGEN")
   }, [isEditing, selectedType, setValue])
 
   useEffect(() => {
@@ -711,11 +729,16 @@ export default function ProductForm({
 
       <Section title="Costes">
         <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-          <NumberField label="Coste Sin IVA (€)" name="baseUnitCost" register={register} placeholder="0.74" error={errors.baseUnitCost?.message} />
+          {isPrepared ? (
+            <CalculatedField label="Coste de receta sin IVA (€)" value={costSinVat ?? null} decimals={4} />
+          ) : (
+            <NumberField label="Coste de compra sin IVA (€)" name="baseUnitCost" register={register} placeholder="0.74" error={errors.baseUnitCost?.message} />
+          )}
           <CalculatedField label="Coste Con IVA (€)" value={pricing.costIncludingVat} />
-          <CalculatedField label="PVP unitario sin IVA (€)" value={productUnitCost} />
+          {!isPrepared && <CalculatedField label="Coste por unidad base sin IVA (€)" value={productUnitCost} />}
           <NumberField label="Merma estándar (%)" name="standardWastePercentage" register={register} placeholder="1.0" error={errors.standardWastePercentage?.message} />
         </div>
+        {isPrepared && <p className="mt-3 text-xs text-indigo-700">El coste se calculará automáticamente al activar la receta y quedará congelado en esa versión.</p>}
       </Section>
 
       <Section title="Fiscal y precios">
@@ -724,7 +747,7 @@ export default function ProductForm({
           <NumberField label="IVA Compra (%)" name="purchaseVatPercentage" register={register} placeholder="4" error={errors.purchaseVatPercentage?.message} />
           <NumberField label="IVA Venta (%)" name="salesVatPercentage" register={register} placeholder="10" error={errors.salesVatPercentage?.message} />
           <CatalogSelect label="Método precio *" name="pricingMethod" register={register} options={catalogOptions("METODO_PRECIO")} placeholder="Seleccionar método..." error={errors.pricingMethod?.message} />
-          <NumberField label="Margen objetivo %" name="targetMarginPercentage" register={register} placeholder="70" error={errors.targetMarginPercentage?.message} />
+          <NumberField label="Margen objetivo sobre venta (%)" name="targetMarginPercentage" register={register} placeholder="70" error={errors.targetMarginPercentage?.message} />
            <CalculatedField label="PVP objetivo con IVA (€)" value={pricing.targetRetailPriceIncludingVat} />
            {pricingMethod === "FIJO" ? (
              <NumberField label="PVP de venta con IVA (€)" name="appliedRetailPriceIncludingVat" register={register} placeholder="1.20" error={errors.appliedRetailPriceIncludingVat?.message} />

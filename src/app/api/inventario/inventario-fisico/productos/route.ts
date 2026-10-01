@@ -5,8 +5,8 @@ import { withAuth } from "@/lib/with-auth"
 export const GET = withAuth(async () => {
   const products = await prisma.product.findMany({
     where: {
-      isPurchasable: true,
-      status: "Activo",
+      stockControl: "SI",
+      status: { equals: "Activo", mode: "insensitive" },
     },
     select: {
       id: true,

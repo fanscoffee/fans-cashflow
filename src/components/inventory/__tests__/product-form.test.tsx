@@ -86,7 +86,7 @@ describe("ProductForm pricing calculations", () => {
     await user.click(screen.getByRole("button", { name: "Fiscal y precios" }))
 
     expect(screen.getByDisplayValue("12.10")).toBeInTheDocument()
-    expect(screen.getByLabelText("PVP unitario sin IVA (€)")).toHaveValue("0.50")
+    expect(screen.getByLabelText("Coste por unidad base sin IVA (€)")).toHaveValue("0.50")
     expect(screen.getByDisplayValue("18.18")).toBeInTheDocument()
     expect(screen.getByDisplayValue("17.68")).toBeInTheDocument()
     expect(screen.getByDisplayValue("97.25")).toBeInTheDocument()

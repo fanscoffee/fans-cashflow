@@ -112,6 +112,58 @@ describe("POST /api/inventario/productos", () => {
     const createCall = vi.mocked(prisma.product.create).mock.calls[0]?.[0] as { data: Record<string, unknown> }
     expect(createCall.data).not.toHaveProperty("confirmarDuplicado")
   })
+
+  it("creates prepared products without a manual cost and waits for recipe activation", async () => {
+    vi.mocked(prisma.product.findMany)
+      .mockResolvedValueOnce([])
+      .mockResolvedValueOnce([])
+    vi.mocked(prisma.catalog.findFirst)
+      .mockResolvedValueOnce({ value: "PT" } as any)
+      .mockResolvedValueOnce({ value: "Salados", codePrefix: "SLD" } as any)
+    vi.mocked(prisma.product.create).mockResolvedValue({ code: "PT-SLD-001" } as any)
+
+    const response = await POST(mockRequest({
+      itemType: "PT",
+      family: "Salados",
+      posDescription: "Croissant jamón y queso",
+      fullDescription: "Croissant relleno de jamón y queso",
+      baseUnitCost: 99,
+      salesVatPercentage: 10,
+      pricingMethod: "MARGEN",
+      targetMarginPercentage: 60,
+      confirmDuplicate: true,
+    }))
+
+    expect(response.status).toBe(201)
+    expect(prisma.product.create).toHaveBeenCalledWith({
+      data: expect.objectContaining({
+        code: "PT-SLD-001",
+        isPrepared: true,
+        isSellable: true,
+        hasRecipe: false,
+        baseUnitCost: null,
+        appliedRetailPriceIncludingVat: null,
+      }),
+    })
+  })
+
+  it("requires a target margin for sellable products using automatic pricing", async () => {
+    vi.mocked(prisma.product.findMany).mockResolvedValueOnce([])
+
+    const response = await POST(mockRequest({
+      itemType: "PT",
+      family: "Salados",
+      posDescription: "Croissant jamón y queso",
+      fullDescription: "Croissant relleno de jamón y queso",
+      salesVatPercentage: 10,
+      pricingMethod: "MARGEN",
+      confirmDuplicate: true,
+    }))
+
+    expect(response.status).toBe(400)
+    await expect(response.json()).resolves.toEqual({ error: "El margen objetivo es obligatorio para calcular el precio" })
+    expect(prisma.product.create).not.toHaveBeenCalled()
+  })
 })
 
 describe("GET /api/inventario/productos", () => {

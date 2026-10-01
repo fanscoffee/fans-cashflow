@@ -4,19 +4,22 @@ import { prisma } from "@/lib/prisma"
 import { withAuth } from "@/lib/with-auth"
 import { UserRole } from "@/lib/database-enums"
 import { hasAnyRole } from "@/lib/roles"
+import { physicalInventorySchema, type PhysicalInventoryInput } from "@/lib/physical-inventory-input"
 
-const physicalInventorySchema = z.object({
-  notes: z.string().trim().max(1000).nullable().optional(),
-  lines: z.array(z.object({
-    productId: z.string().min(1),
-    quantityUnit1: z.coerce.number().finite().nonnegative().max(1_000_000_000),
-    quantityUnit2: z.coerce.number().finite().nonnegative().max(1_000_000_000),
-  }).strict()).min(1).max(10_000).superRefine((lines, context) => {
-    if (new Set(lines.map((line) => line.productId)).size !== lines.length) {
-      context.addIssue({ code: "custom", message: "No puedes repetir un producto en el conteo" })
-    }
-  }),
-}).strict()
+async function validateProductIds(lines: PhysicalInventoryInput["lines"]) {
+  const productIds = lines.map((line) => line.productId)
+  const products = await prisma.product.findMany({
+    where: {
+      id: { in: productIds },
+      stockControl: "SI",
+      status: { equals: "Activo", mode: "insensitive" },
+    },
+    select: { id: true },
+  })
+  const validIds = new Set(products.map((product) => product.id))
+  const invalidIds = productIds.filter((id) => !validIds.has(id))
+  return invalidIds
+}
 
 export const GET = withAuth(async (req, session) => {
   if (!hasAnyRole(session.user.role, [UserRole.ADMIN, UserRole.PARTNER])) {
@@ -71,13 +74,7 @@ export const POST = withAuth(async (req, session) => {
       )
     }
 
-    const productIds = lines.map((l: { productId: string }) => l.productId)
-    const products = await prisma.product.findMany({
-      where: { id: { in: productIds }, isPurchasable: true, status: "Activo" },
-      select: { id: true },
-    })
-    const validIds = new Set(products.map((p) => p.id))
-    const invalidIds = productIds.filter((id: string) => !validIds.has(id))
+    const invalidIds = await validateProductIds(lines)
     if (invalidIds.length > 0) {
       return NextResponse.json(
         { error: `Productos no válidos: ${invalidIds.join(", ")}` },
@@ -125,9 +122,7 @@ export const POST = withAuth(async (req, session) => {
 
     return NextResponse.json(inventory, { status: 201 })
   } catch (error) {
-    if (error instanceof z.ZodError) {
-      return NextResponse.json({ error: error.issues[0]?.message || "Datos no válidos" }, { status: 400 })
-    }
+    if (error instanceof z.ZodError) return NextResponse.json({ error: error.issues[0]?.message || "Datos no válidos" }, { status: 400 })
     const message =
       error instanceof Error ? error.message : "Error al crear inventario"
     return NextResponse.json({ error: message }, { status: 500 })

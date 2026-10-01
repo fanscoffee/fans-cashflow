@@ -54,6 +54,8 @@ export interface ShiftCloseFormData {
   caixaBankAmount: string
   santanderAmount: string
   noInformation?: boolean
+  productionReviewed: boolean
+  wasteReviewed: boolean
 }
 
 const EMPTY_FIELDS: ShiftCloseFormData = {
@@ -83,6 +85,8 @@ const EMPTY_FIELDS: ShiftCloseFormData = {
   cash: "",
   caixaBankAmount: "",
   santanderAmount: "",
+  productionReviewed: false,
+  wasteReviewed: false,
 }
 
 function normalizeText(value: string) {
@@ -287,19 +291,26 @@ export default function ShiftCloseModal({
         cash: String(toN(shift.cash)),
         caixaBankAmount: String(toN(shift.caixaBankAmount)),
         santanderAmount: String(toN(shift.santanderAmount)),
+        productionReviewed: Boolean(shift.operationalReview?.productionReviewed),
+        wasteReviewed: Boolean(shift.operationalReview?.wasteReviewed),
       }
     }
 
     const values = initialClose as unknown as Record<string, string | number | null>
     const initial = { ...EMPTY_FIELDS } as Omit<ShiftCloseFormData, "noInformation">
     for (const key of Object.keys(initial) as (keyof typeof initial)[]) {
-      if (key in values && values[key] != null) initial[key] = String(values[key])
+      if (key === "productionReviewed" || key === "wasteReviewed") continue
+      if (key in values && values[key] != null) {
+        ;(initial as unknown as Record<string, string | boolean>)[key] = String(values[key])
+      }
     }
     initial.openingDateTime = localDateTime(initialClose.openingDateTime)
     initial.closingDateTime = localDateTime(initialClose.closingDateTime)
     initial.cash = String(toN(shift.cash))
     initial.caixaBankAmount = String(toN(shift.caixaBankAmount))
     initial.santanderAmount = String(toN(shift.santanderAmount))
+    initial.productionReviewed = Boolean(shift.operationalReview?.productionReviewed)
+    initial.wasteReviewed = Boolean(shift.operationalReview?.wasteReviewed)
     return initial
   })
   const [ocrStatus, setOcrStatus] = useState("")
@@ -362,8 +373,9 @@ export default function ShiftCloseModal({
 
   const cashDifference = toN(fields.cash) - toN(fields.cashSales)
   const tarjetaDifference = toN(fields.caixaBankAmount) + toN(fields.santanderAmount) - toN(fields.cardSales)
-  const hasPaymentDifference = Math.abs(cashDifference) > 0.009 || Math.abs(tarjetaDifference) > 0.009
-  const canConfirm = (ocrCompleted || !requirePhoto) && missingFields.length === 0 && (!hasPaymentDifference || fields.varianceNote.trim().length > 0)
+  const hasPaymentDifference = Math.abs(cashDifference) > 0.009 || Math.abs(tarjetaDifference) > 0.009 || Math.abs(toN(fields.cashVariance)) > 0.009
+  const operationalReviewComplete = fields.productionReviewed && fields.wasteReviewed
+  const canConfirm = (ocrCompleted || !requirePhoto) && missingFields.length === 0 && (!hasPaymentDifference || fields.varianceNote.trim().length > 0) && operationalReviewComplete
 
   async function handleSubmit() {
     if (!canConfirm) return
@@ -372,7 +384,8 @@ export default function ShiftCloseModal({
 
   async function handleQuickClose() {
     if (!confirm("¿Cerrar el turno sin registrar información del ticket?")) return
-    await onSubmit({ ...EMPTY_FIELDS, noInformation: true })
+    if (!operationalReviewComplete) return
+    await onSubmit({ ...EMPTY_FIELDS, productionReviewed: true, wasteReviewed: true, noInformation: true })
   }
 
   return (
@@ -413,6 +426,23 @@ export default function ShiftCloseModal({
         )}
 
         <div className="space-y-4">
+          <section className="rounded-md border border-indigo-200 bg-indigo-50 p-3">
+            <h3 className="text-sm font-semibold text-indigo-950">Revisión operativa</h3>
+            <p className="mt-1 text-xs text-indigo-800">
+              {shift._count?.productionEntries || 0} elaboraciones · {shift._count?.wasteEntries || 0} mermas registradas. Puedes confirmar aunque ambos valores sean cero.
+            </p>
+            <div className="mt-3 grid gap-2 sm:grid-cols-2">
+              <label className="flex items-center gap-2 text-sm text-indigo-950">
+                <input type="checkbox" checked={fields.productionReviewed} onChange={(event) => setFields((current) => ({ ...current, productionReviewed: event.target.checked }))} />
+                Producción revisada
+              </label>
+              <label className="flex items-center gap-2 text-sm text-indigo-950">
+                <input type="checkbox" checked={fields.wasteReviewed} onChange={(event) => setFields((current) => ({ ...current, wasteReviewed: event.target.checked }))} />
+                Mermas revisadas
+              </label>
+            </div>
+          </section>
+
           <section>
             <h3 className="mb-2 text-sm font-semibold text-gray-900">Identificación</h3>
             <div className="grid grid-cols-1 gap-3 sm:grid-cols-4">
@@ -486,7 +516,7 @@ export default function ShiftCloseModal({
 
           <div className="mt-5 flex flex-col gap-2 sm:flex-row sm:justify-end">
           <button type="button" onClick={onCancel} className="w-full rounded-md border border-gray-300 px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50 sm:w-auto">Cancelar</button>
-          <button type="button" onClick={handleQuickClose} disabled={saving} className="w-full rounded-md border border-red-300 px-4 py-2 text-sm font-medium text-red-700 hover:bg-red-50 disabled:cursor-not-allowed disabled:opacity-50 sm:w-auto">
+          <button type="button" onClick={handleQuickClose} disabled={saving || !operationalReviewComplete} className="w-full rounded-md border border-red-300 px-4 py-2 text-sm font-medium text-red-700 hover:bg-red-50 disabled:cursor-not-allowed disabled:opacity-50 sm:w-auto">
             {saving ? "Cerrando..." : "Cerrar turno sin información"}
           </button>
           <button type="button" onClick={handleSubmit} disabled={!canConfirm || saving} className="w-full rounded-md bg-red-600 px-4 py-2 text-sm font-medium text-white hover:bg-red-700 disabled:cursor-not-allowed disabled:opacity-50 sm:w-auto">

@@ -99,12 +99,24 @@ export const POST = withAuth(async (req, session) => {
     }
 
     const productData = pickProductFields(body)
+    const pricingMethod = String(body.pricingMethod || "").trim().toUpperCase()
+    if (behavior.isSellable && pricingMethod === "MARGEN" && (body.targetMarginPercentage === undefined || body.targetMarginPercentage === null || body.targetMarginPercentage === "")) {
+      return NextResponse.json({ error: "El margen objetivo es obligatorio para calcular el precio" }, { status: 400 })
+    }
+    if (behavior.isSellable && pricingMethod === "MARGEN" && (body.salesVatPercentage === undefined || body.salesVatPercentage === null || body.salesVatPercentage === "")) {
+      return NextResponse.json({ error: "El IVA de venta es obligatorio para calcular el precio" }, { status: 400 })
+    }
+    if (behavior.isSellable && pricingMethod === "FIJO" && (body.appliedRetailPriceIncludingVat === undefined || body.appliedRetailPriceIncludingVat === null || body.appliedRetailPriceIncludingVat === "")) {
+      return NextResponse.json({ error: "El PVP fijo es obligatorio" }, { status: 400 })
+    }
+    const baseUnitCost = behavior.isPrepared ? null : body.baseUnitCost
+    if (behavior.isPrepared) productData.baseUnitCost = null
     const pricing = calculateProductPricing({
       costSinVat: calculateProductPricingCost({
-        baseUnitCost: body.baseUnitCost,
+        baseUnitCost,
         purchaseToBaseFactor: body.purchaseToBaseFactor,
       }),
-      purchaseCostSinVat: body.baseUnitCost,
+      purchaseCostSinVat: baseUnitCost,
       purchaseVatPercentage: body.purchaseVatPercentage,
       salesVatPercentage: body.salesVatPercentage,
       vatPercentage: body.vatPercentage,
@@ -115,6 +127,7 @@ export const POST = withAuth(async (req, session) => {
     Object.assign(productData, {
       itemType,
       ...behavior,
+      hasRecipe: false,
       purchaseVatPercentage: pricing.purchaseVatPercentage,
       salesVatPercentage: pricing.salesVatPercentage,
       vatPercentage: pricing.vatPercentage,
