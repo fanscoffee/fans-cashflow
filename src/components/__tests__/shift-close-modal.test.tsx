@@ -9,6 +9,7 @@ vi.mock("tesseract.js", () => ({
 }))
 
 import ShiftCloseModal from "../shift-close-modal"
+import { createWorker } from "tesseract.js"
 
 const shift: Shift = {
   id: "shift-1",
@@ -50,6 +51,38 @@ describe("ShiftCloseModal", () => {
       noInformation: true,
       productionReviewed: true,
       wasteReviewed: true,
+    }))
+  })
+
+  it("uses local OCR assets when reading a closing ticket", async () => {
+    const user = userEvent.setup()
+    const worker = {
+      setParameters: vi.fn().mockResolvedValue(undefined),
+      recognize: vi.fn().mockResolvedValue({ data: { text: "Número de cierre de caja 1692" } }),
+      terminate: vi.fn().mockResolvedValue(undefined),
+    }
+    vi.mocked(createWorker).mockResolvedValue(worker as any)
+
+    render(
+      <ShiftCloseModal
+        shift={shift}
+        onCancel={vi.fn()}
+        onSubmit={vi.fn().mockResolvedValue(true)}
+        saving={false}
+      />,
+    )
+
+    const file = new File(["image"], "cierre.jpeg", { type: "image/jpeg" })
+    const fileInputs = document.querySelectorAll<HTMLInputElement>("input[type='file']")
+    await user.upload(fileInputs[1], file)
+
+    await screen.findByText("Lectura completada. Revisa todos los campos antes de confirmar.")
+    expect(createWorker).toHaveBeenCalledWith("spa", 1, expect.objectContaining({
+      workerPath: "/tesseract/worker.min.js",
+      corePath: "/tesseract/tesseract-core-lstm.wasm.js",
+      langPath: "/tesseract/lang",
+      workerBlobURL: false,
+      gzip: true,
     }))
   })
 })
