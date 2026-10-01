@@ -68,4 +68,23 @@ describe("ShiftCard current expenses", () => {
     const request = fetchMock.mock.calls[1]?.[1] as RequestInit
     expect(JSON.parse(String(request.body))).toMatchObject({ concept: "CREMOSITO", amount: 20 })
   })
+
+  it("does not offer reopening for a shift that is not the latest one", () => {
+    render(
+      <Providers>
+        <ShiftCard
+          shift={{ ...shift, status: "CERRADO" }}
+          userRole="SOCIO"
+          onSave={vi.fn().mockResolvedValue(undefined)}
+          onClose={vi.fn().mockResolvedValue(true)}
+          onReopen={vi.fn().mockResolvedValue(undefined)}
+          canReopen={false}
+          closingShift={null}
+          onRefresh={vi.fn().mockResolvedValue(undefined)}
+        />
+      </Providers>,
+    )
+
+    expect(screen.queryByRole("button", { name: "Reabrir" })).not.toBeInTheDocument()
+  })
 })

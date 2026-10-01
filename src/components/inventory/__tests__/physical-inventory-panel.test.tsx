@@ -10,8 +10,9 @@ vi.mock("next-auth/react", () => ({
 import { useSession } from "next-auth/react"
 
 const products = [
-  { id: "product-1", code: "MP-HAR-001", posDescription: "Harina", purchaseUnit: "SACO", baseStockUnit: "kg", purchaseToBaseFactor: 25 },
-  { id: "product-2", code: "MP-LAC-001", posDescription: "Queso", purchaseUnit: "KG", baseStockUnit: "kg", purchaseToBaseFactor: 1 },
+  { id: "product-1", code: "MP-HAR-001", posDescription: "Harina", fullDescription: "Harina de trigo", purchaseUnit: "SACO", baseStockUnit: "kg", purchaseToBaseFactor: 25 },
+  { id: "product-2", code: "MP-LAC-001", posDescription: "Queso", fullDescription: "Queso curado", purchaseUnit: "KG", baseStockUnit: "kg", purchaseToBaseFactor: 1 },
+  { id: "product-3", code: "MP-AZU-001", posDescription: "Azúcar", fullDescription: "Azúcar blanquilla", purchaseUnit: "KG", baseStockUnit: "kg", purchaseToBaseFactor: 1 },
 ]
 
 afterEach(() => vi.unstubAllGlobals())
@@ -63,10 +64,20 @@ describe("PhysicalInventoryPanel", () => {
     expect(screen.getByLabelText("Cantidad base MP-HAR-001")).toHaveValue(50)
     expect(screen.getByText("Queso")).toBeInTheDocument()
 
-    await user.type(screen.getByLabelText("Buscar producto por nombre o código"), "harina")
+    const searchInput = screen.getByLabelText("Buscar producto por nombre o código")
+    await user.type(searchInput, "trigo")
 
     expect(screen.getByText("Harina")).toBeInTheDocument()
     expect(screen.queryByText("Queso")).not.toBeInTheDocument()
+    expect(screen.queryByText("Azúcar")).not.toBeInTheDocument()
+
+    await user.clear(searchInput)
+    await user.type(searchInput, "azucar")
+
+    expect(screen.getByText("Azúcar")).toBeInTheDocument()
+    expect(screen.queryByText("Harina")).not.toBeInTheDocument()
+
+    await user.clear(searchInput)
 
     await user.clear(screen.getByLabelText("Cantidad base MP-HAR-001"))
     await user.type(screen.getByLabelText("Cantidad base MP-HAR-001"), "55")

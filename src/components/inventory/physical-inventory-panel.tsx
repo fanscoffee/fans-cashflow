@@ -9,6 +9,7 @@ interface Product {
   id: string
   code: string
   posDescription: string
+  fullDescription?: string | null
   purchaseUnit: string | null
   baseStockUnit: string
   purchaseToBaseFactor: number | null
@@ -48,6 +49,14 @@ interface ComparisonLine {
   received: number
   actual: number
   variance: number
+}
+
+function normalizeProductSearch(value: string) {
+  return value
+    .trim()
+    .toLocaleLowerCase("es-ES")
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
 }
 
 export default function PhysicalInventoryPanel() {
@@ -234,11 +243,12 @@ export default function PhysicalInventoryPanel() {
   }
 
   const totalPages = Math.ceil(total / pageSize)
-  const normalizedProductSearch = productSearch.trim().toLocaleLowerCase("es-ES")
+  const normalizedProductSearch = normalizeProductSearch(productSearch)
   const visibleProducts = products.filter((product) => (
     !normalizedProductSearch ||
-    product.code.toLocaleLowerCase("es-ES").includes(normalizedProductSearch) ||
-    product.posDescription.toLocaleLowerCase("es-ES").includes(normalizedProductSearch)
+    [product.code, product.posDescription, product.fullDescription]
+      .filter((value): value is string => Boolean(value))
+      .some((value) => normalizeProductSearch(value).includes(normalizedProductSearch))
   ))
 
   if (view === "create" || view === "edit") {

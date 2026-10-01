@@ -95,6 +95,30 @@ describe("Fund Additions API /api/fund-additions", () => {
       expect(res.status).toBe(201)
     })
 
+    it("adds the deposit to the open shift atomically", async () => {
+      vi.mocked(auth).mockResolvedValue({
+        user: { id: "3", role: "SOCIO" },
+      } as any)
+      vi.mocked(prisma.fundAddition.create).mockResolvedValue({
+        id: "a1", amount: 160,
+      } as any)
+      vi.mocked(prisma.shift.findFirst).mockResolvedValue({ id: "shift-1", status: "ABIERTO" } as any)
+      vi.mocked(prisma.shift.update).mockResolvedValue({ id: "shift-1" } as any)
+
+      const res = await POST(mockRequest("http://localhost/api/fund-additions", "POST", {
+        amount: 160, description: "30/09 TARDE",
+      }))
+
+      expect(res.status).toBe(201)
+      expect(prisma.shift.update).toHaveBeenCalledWith({
+        where: { id: "shift-1" },
+        data: {
+          openingFund: { increment: 160 },
+          closingFund: { increment: 160 },
+        },
+      })
+    })
+
     it("returns 400 for invalid data", async () => {
       vi.mocked(auth).mockResolvedValue({
         user: { id: "1", role: "ADMIN" },
