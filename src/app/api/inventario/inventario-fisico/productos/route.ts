@@ -12,6 +12,7 @@ export const GET = withAuth(async () => {
       id: true,
       code: true,
       posDescription: true,
+      fullDescription: true,
       purchaseUnit: true,
       baseStockUnit: true,
       purchaseToBaseFactor: true,

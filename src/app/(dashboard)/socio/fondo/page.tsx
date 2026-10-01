@@ -54,7 +54,7 @@ export default function FundPage() {
     let cancelled = false
     Promise.all([
       fetch("/api/fund-additions").then((r) => r.json()),
-      fetch("/api/fund").then((r) => r.json()),
+      fetch("/api/fund", { cache: "no-store" }).then((r) => r.json()),
     ]).then(([additionsData, fundData]) => {
       if (!cancelled) {
         setAdditions(additionsData)
@@ -109,10 +109,13 @@ export default function FundPage() {
       }
 
       setSuccess("Depósito registrado correctamente")
+      setFund((currentFund) => currentFund === null
+        ? currentFund
+        : Math.round((currentFund + data.amount) * 100) / 100)
       reset()
       const [addRes, fundRes] = await Promise.all([
         fetch("/api/fund-additions"),
-        fetch("/api/fund"),
+        fetch("/api/fund", { cache: "no-store" }),
       ])
       if (addRes.ok) setAdditions(await addRes.json())
       if (fundRes.ok) setFund((await fundRes.json()).fund)

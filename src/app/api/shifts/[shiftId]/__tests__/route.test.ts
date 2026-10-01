@@ -4,8 +4,6 @@ import type { NextRequest } from "next/server"
 vi.mock("@/lib/prisma", () => ({
   prisma: {
     shift: { findUnique: vi.fn() },
-    expense: { aggregate: vi.fn() },
-    currentExpense: { aggregate: vi.fn() },
     shiftClose: { findUnique: vi.fn(), findFirst: vi.fn(), upsert: vi.fn() },
     $transaction: vi.fn(),
   },
@@ -34,18 +32,45 @@ describe("PATCH /api/shifts/[shiftId]", () => {
     vi.clearAllMocks()
     vi.mocked(auth).mockResolvedValue({ user: { id: "user-1", role: "EMPLEADO" } } as any)
     vi.mocked(prisma.shift.findUnique).mockResolvedValue(shift as any)
-    vi.mocked(prisma.expense.aggregate).mockResolvedValue({ _sum: { amount: 0 } } as any)
-    vi.mocked(prisma.currentExpense.aggregate).mockResolvedValue({ _sum: { amount: 0 } } as any)
   })
 
-  it("closes the shift without creating a ticket when explicitly requested", async () => {
+  function transactionMock({
+    lockedShift = shift,
+    legacyExpenses = 0,
+    currentExpenses = 0,
+    laterShift = null,
+    additions = 0,
+  }: {
+    lockedShift?: typeof shift & { closedAt?: Date | null }
+    legacyExpenses?: number
+    currentExpenses?: number
+    laterShift?: { id: string } | null
+    additions?: number
+  } = {}) {
     const updateShift = vi.fn().mockResolvedValue({ id: "shift-1", status: "CERRADO" })
     const upsertClosure = vi.fn()
+    const aggregateAdditions = vi.fn().mockResolvedValue({ _sum: { amount: additions } })
+    const executeRaw = vi.fn().mockResolvedValue(0)
+
     vi.mocked((prisma as any).$transaction).mockImplementation(async (callback: (tx: unknown) => unknown) => callback({
-      shift: { update: updateShift },
+      $executeRaw: executeRaw,
+      shift: {
+        findUnique: vi.fn().mockResolvedValue(lockedShift),
+        findFirst: vi.fn().mockResolvedValue(laterShift),
+        update: updateShift,
+      },
+      expense: { aggregate: vi.fn().mockResolvedValue({ _sum: { amount: legacyExpenses } }) },
+      currentExpense: { aggregate: vi.fn().mockResolvedValue({ _sum: { amount: currentExpenses } }) },
+      fundAddition: { aggregate: aggregateAdditions },
       shiftClose: { upsert: upsertClosure },
       shiftOperationalReview: { upsert: vi.fn() },
     }))
+
+    return { aggregateAdditions, executeRaw, updateShift, upsertClosure }
+  }
+
+  it("closes the shift without creating a ticket when explicitly requested", async () => {
+    const { executeRaw, updateShift, upsertClosure } = transactionMock()
 
     const response = await PATCH(
       new Request("http://localhost/api/shifts/shift-1", {
@@ -65,6 +90,7 @@ describe("PATCH /api/shifts/[shiftId]", () => {
       where: { id: "shift-1" },
       data: expect.objectContaining({ status: "CERRADO", closingFund: 100 }),
     }))
+    expect(executeRaw).toHaveBeenCalledOnce()
     expect(upsertClosure).not.toHaveBeenCalled()
   })
 
@@ -82,18 +108,11 @@ describe("PATCH /api/shifts/[shiftId]", () => {
     )
 
     expect(response.status).toBe(400)
-    expect(prisma.expense.aggregate).not.toHaveBeenCalled()
+    expect(prisma.$transaction).not.toHaveBeenCalled()
   })
 
   it("includes current expenses when calculating the final fund", async () => {
-    vi.mocked(prisma.expense.aggregate).mockResolvedValue({ _sum: { amount: 10 } } as any)
-    vi.mocked(prisma.currentExpense.aggregate).mockResolvedValue({ _sum: { amount: 25 } } as any)
-    const updateShift = vi.fn().mockResolvedValue({ id: "shift-1", status: "CERRADO" })
-    vi.mocked((prisma as any).$transaction).mockImplementation(async (callback: (tx: unknown) => unknown) => callback({
-      shift: { update: updateShift },
-      shiftClose: { upsert: vi.fn() },
-      shiftOperationalReview: { upsert: vi.fn() },
-    }))
+    const { updateShift } = transactionMock({ legacyExpenses: 10, currentExpenses: 25 })
 
     const response = await PATCH(
       new Request("http://localhost/api/shifts/shift-1", {
@@ -112,6 +131,75 @@ describe("PATCH /api/shifts/[shiftId]", () => {
     expect(updateShift).toHaveBeenCalledWith(expect.objectContaining({
       data: expect.objectContaining({ closingFund: 65 }),
     }))
+  })
+
+  it("applies additions made after the latest shift was closed when reopening it", async () => {
+    const closedShift = {
+      ...shift,
+      status: "CERRADO",
+      openingFund: 100,
+      closingFund: 100,
+      closedAt: new Date("2026-08-27T12:00:00.000Z"),
+    }
+    vi.mocked(auth).mockResolvedValue({ user: { id: "partner-1", role: "SOCIO" } } as any)
+    vi.mocked(prisma.shift.findUnique).mockResolvedValue(closedShift as any)
+    const { aggregateAdditions, updateShift } = transactionMock({ lockedShift: closedShift, additions: 160 })
+
+    const response = await PATCH(
+      new Request("http://localhost/api/shifts/shift-1", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ status: "ABIERTO" }),
+      }) as unknown as NextRequest,
+      context,
+    )
+
+    expect(response.status).toBe(200)
+    expect(aggregateAdditions).toHaveBeenCalledWith({
+      _sum: { amount: true },
+      where: { createdAt: { gt: closedShift.closedAt } },
+    })
+    expect(updateShift).toHaveBeenCalledWith(expect.objectContaining({
+      data: expect.objectContaining({
+        status: "ABIERTO",
+        closedAt: null,
+        openingFund: 260,
+        closingFund: 260,
+      }),
+    }))
+  })
+
+  it("rejects reopening a historical shift so the fund chain cannot be corrupted", async () => {
+    const closedShift = {
+      ...shift,
+      status: "CERRADO",
+      openingFund: 100,
+      closingFund: 100,
+      closedAt: new Date("2026-08-27T12:00:00.000Z"),
+    }
+    vi.mocked(auth).mockResolvedValue({ user: { id: "partner-1", role: "SOCIO" } } as any)
+    vi.mocked(prisma.shift.findUnique).mockResolvedValue(closedShift as any)
+    const { aggregateAdditions, updateShift } = transactionMock({
+      lockedShift: closedShift,
+      laterShift: { id: "shift-2" },
+      additions: 160,
+    })
+
+    const response = await PATCH(
+      new Request("http://localhost/api/shifts/shift-1", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ status: "ABIERTO" }),
+      }) as unknown as NextRequest,
+      context,
+    )
+
+    expect(response.status).toBe(409)
+    expect(await response.json()).toEqual({
+      error: "Solo se puede reabrir el último turno; hay turnos posteriores registrados",
+    })
+    expect(aggregateAdditions).not.toHaveBeenCalled()
+    expect(updateShift).not.toHaveBeenCalled()
   })
 
   it("does not allow an employee to overwrite the calculated opening fund", async () => {
