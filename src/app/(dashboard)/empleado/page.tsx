@@ -173,6 +173,9 @@ export default function EmployeePage() {
   }
 
   const hasOpenShift = shifts.some((s) => s.status === "ABIERTO")
+  const latestShiftId = shifts.reduce<Shift | null>((latest, current) => (
+    !latest || new Date(current.createdAt) > new Date(latest.createdAt) ? current : latest
+  ), null)?.id ?? null
   const isReadOnly = isRole(session?.user?.role, UserRole.ADMIN)
 
   return (
@@ -227,6 +230,7 @@ export default function EmployeePage() {
                   onSave={handleSaveShift}
                   onClose={handleCloseShift}
                   onReopen={handleReopenShift}
+                  canReopen={shift.id === latestShiftId}
                   closingShift={closingShift}
                   onRefresh={refreshData}
                 />

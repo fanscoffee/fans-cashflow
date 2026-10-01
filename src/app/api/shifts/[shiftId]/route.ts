@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server"
 import { z } from "zod"
+import { Prisma } from "@/generated/prisma/client"
 import { prisma } from "@/lib/prisma"
 import { withAuth } from "@/lib/with-auth"
 import { toN } from "@/lib/money"
@@ -19,6 +20,8 @@ const updateShiftSchema = z.object({
     wasteReviewed: z.literal(true),
   }).strict().optional(),
 })
+
+class HistoricalShiftReopenError extends Error {}
 
 const moneyInput = z
   .union([z.string(), z.number()])
@@ -180,120 +183,153 @@ export const PATCH = withAuth(async (req, session, context) => {
     }
   }
 
-  const [expensesAgg, currentExpensesAgg] = await Promise.all([
-    prisma.expense.aggregate({
-      _sum: { amount: true },
-      where: { shiftId },
-    }),
-    prisma.currentExpense.aggregate({
-      _sum: { amount: true },
-      where: { shiftId, status: { not: CurrentExpenseStatus.VOID } },
-    }),
-  ])
-  const newFundInicial = data.openingFund !== undefined ? data.openingFund : toN(shift.openingFund)
-  const closingFund = calculateFundFinal(
-    newFundInicial,
-    [{ amount: expensesAgg._sum.amount }],
-    [{ amount: currentExpensesAgg._sum?.amount }],
-  )
+  let updated
+  try {
+    updated = await prisma.$transaction(async (tx) => {
+      await tx.$executeRaw(Prisma.sql`SELECT pg_advisory_xact_lock(6432101)`)
 
-  const updated = await prisma.$transaction(async (tx) => {
-    const updatedShift = await tx.shift.update({
-      where: { id: shiftId },
-      data: {
-        ...(close ? { cash: close.cash, caixaBankAmount: close.caixaBankAmount, santanderAmount: close.santanderAmount } : {}),
-        ...(data.cash !== undefined && !close && { cash: data.cash }),
-        ...(data.caixaBankAmount !== undefined && !close && { caixaBankAmount: data.caixaBankAmount }),
-        ...(data.santanderAmount !== undefined && !close && { santanderAmount: data.santanderAmount }),
-        ...(data.openingFund !== undefined && { openingFund: data.openingFund }),
-        ...(data.status && { status: data.status }),
-        ...(data.status === "CERRADO" && { closedAt: new Date() }),
-        ...(data.status === "ABIERTO" && { closedAt: null }),
-        closingFund,
-      },
-      include: { expenses: true, shiftClose: true },
+      const lockedShift = await tx.shift.findUnique({ where: { id: shiftId } })
+      if (!lockedShift) throw new Error("Turno no encontrado durante la actualización")
+
+      const [expensesAgg, currentExpensesAgg] = await Promise.all([
+        tx.expense.aggregate({
+          _sum: { amount: true },
+          where: { shiftId },
+        }),
+        tx.currentExpense.aggregate({
+          _sum: { amount: true },
+          where: { shiftId, status: { not: CurrentExpenseStatus.VOID } },
+        }),
+      ])
+
+      let openingFund = data.openingFund !== undefined ? data.openingFund : toN(lockedShift.openingFund)
+
+      if (data.status === "ABIERTO" && lockedShift.status === "CERRADO" && lockedShift.closedAt) {
+        const laterShift = await tx.shift.findFirst({
+          where: { createdAt: { gt: lockedShift.createdAt } },
+          select: { id: true },
+        })
+
+        if (laterShift) throw new HistoricalShiftReopenError()
+
+        const additionsResult = await tx.fundAddition.aggregate({
+          _sum: { amount: true },
+          where: { createdAt: { gt: lockedShift.closedAt } },
+        })
+        openingFund = Math.round((openingFund + toN(additionsResult._sum.amount)) * 100) / 100
+      }
+
+      const closingFund = calculateFundFinal(
+        openingFund,
+        [{ amount: expensesAgg._sum.amount }],
+        [{ amount: currentExpensesAgg._sum?.amount }],
+      )
+
+      const updatedShift = await tx.shift.update({
+        where: { id: shiftId },
+        data: {
+          ...(close ? { cash: close.cash, caixaBankAmount: close.caixaBankAmount, santanderAmount: close.santanderAmount } : {}),
+          ...(data.cash !== undefined && !close && { cash: data.cash }),
+          ...(data.caixaBankAmount !== undefined && !close && { caixaBankAmount: data.caixaBankAmount }),
+          ...(data.santanderAmount !== undefined && !close && { santanderAmount: data.santanderAmount }),
+          ...(openingFund !== toN(lockedShift.openingFund) && { openingFund }),
+          ...(data.status && { status: data.status }),
+          ...(data.status === "CERRADO" && { closedAt: new Date() }),
+          ...(data.status === "ABIERTO" && { closedAt: null }),
+          closingFund,
+        },
+        include: { expenses: true, shiftClose: true },
+      })
+
+      if (close) {
+        await tx.shiftClose.upsert({
+          where: { shiftId },
+          create: {
+            shiftId,
+            cashCloseNumber: close.cashCloseNumber,
+            pos: close.pos,
+            openingDateTime: new Date(close.openingDateTime),
+            closingDateTime: new Date(close.closingDateTime),
+            previousCashFund: close.previousCashFund,
+            cashReceipts: close.cashReceipts,
+            cashRefunds: close.cashRefunds,
+            depositedAmount: close.depositedAmount,
+            paymentOutflows: close.paymentOutflows,
+            theoreticalCash: close.theoreticalCash,
+            actualCash: close.actualCash,
+            cashVariance: close.cashVariance,
+            grossSales: close.grossSales,
+            refunds: close.refunds,
+            discounts: close.discounts,
+            netSales: close.netSales,
+            cashSales: close.cashSales,
+            cardSales: close.cardSales,
+            breadVat4Base: close.breadVat4Base,
+            breadVat4Amount: close.breadVat4Amount,
+            vat10Base: close.vat10Base,
+            vat10Amount: close.vat10Amount,
+            varianceNote: close.varianceNote.trim() || null,
+            confirmedById: session.user.id,
+          },
+          update: {
+            cashCloseNumber: close.cashCloseNumber,
+            pos: close.pos,
+            openingDateTime: new Date(close.openingDateTime),
+            closingDateTime: new Date(close.closingDateTime),
+            previousCashFund: close.previousCashFund,
+            cashReceipts: close.cashReceipts,
+            cashRefunds: close.cashRefunds,
+            depositedAmount: close.depositedAmount,
+            paymentOutflows: close.paymentOutflows,
+            theoreticalCash: close.theoreticalCash,
+            actualCash: close.actualCash,
+            cashVariance: close.cashVariance,
+            grossSales: close.grossSales,
+            refunds: close.refunds,
+            discounts: close.discounts,
+            netSales: close.netSales,
+            cashSales: close.cashSales,
+            cardSales: close.cardSales,
+            breadVat4Base: close.breadVat4Base,
+            breadVat4Amount: close.breadVat4Amount,
+            vat10Base: close.vat10Base,
+            vat10Amount: close.vat10Amount,
+            varianceNote: close.varianceNote.trim() || null,
+            confirmedById: session.user.id,
+            confirmedAt: new Date(),
+          },
+        })
+      }
+
+      if (data.status === "CERRADO" && data.operationalReview) {
+        await tx.shiftOperationalReview.upsert({
+          where: { shiftId },
+          create: {
+            shiftId,
+            productionReviewed: true,
+            wasteReviewed: true,
+            confirmedById: session.user.id,
+          },
+          update: {
+            productionReviewed: true,
+            wasteReviewed: true,
+            confirmedById: session.user.id,
+            confirmedAt: new Date(),
+          },
+        })
+      }
+
+      return updatedShift
     })
-
-    if (close) {
-      await tx.shiftClose.upsert({
-        where: { shiftId },
-        create: {
-          shiftId,
-          cashCloseNumber: close.cashCloseNumber,
-          pos: close.pos,
-          openingDateTime: new Date(close.openingDateTime),
-          closingDateTime: new Date(close.closingDateTime),
-          previousCashFund: close.previousCashFund,
-          cashReceipts: close.cashReceipts,
-          cashRefunds: close.cashRefunds,
-          depositedAmount: close.depositedAmount,
-          paymentOutflows: close.paymentOutflows,
-          theoreticalCash: close.theoreticalCash,
-          actualCash: close.actualCash,
-          cashVariance: close.cashVariance,
-          grossSales: close.grossSales,
-          refunds: close.refunds,
-          discounts: close.discounts,
-          netSales: close.netSales,
-          cashSales: close.cashSales,
-          cardSales: close.cardSales,
-          breadVat4Base: close.breadVat4Base,
-          breadVat4Amount: close.breadVat4Amount,
-          vat10Base: close.vat10Base,
-          vat10Amount: close.vat10Amount,
-          varianceNote: close.varianceNote.trim() || null,
-          confirmedById: session.user.id,
-        },
-        update: {
-          cashCloseNumber: close.cashCloseNumber,
-          pos: close.pos,
-          openingDateTime: new Date(close.openingDateTime),
-          closingDateTime: new Date(close.closingDateTime),
-          previousCashFund: close.previousCashFund,
-          cashReceipts: close.cashReceipts,
-          cashRefunds: close.cashRefunds,
-          depositedAmount: close.depositedAmount,
-          paymentOutflows: close.paymentOutflows,
-          theoreticalCash: close.theoreticalCash,
-          actualCash: close.actualCash,
-          cashVariance: close.cashVariance,
-          grossSales: close.grossSales,
-          refunds: close.refunds,
-          discounts: close.discounts,
-          netSales: close.netSales,
-          cashSales: close.cashSales,
-          cardSales: close.cardSales,
-          breadVat4Base: close.breadVat4Base,
-          breadVat4Amount: close.breadVat4Amount,
-          vat10Base: close.vat10Base,
-          vat10Amount: close.vat10Amount,
-          varianceNote: close.varianceNote.trim() || null,
-          confirmedById: session.user.id,
-          confirmedAt: new Date(),
-        },
-      })
+  } catch (error) {
+    if (error instanceof HistoricalShiftReopenError) {
+      return NextResponse.json(
+        { error: "Solo se puede reabrir el último turno; hay turnos posteriores registrados" },
+        { status: 409 },
+      )
     }
-
-    if (data.status === "CERRADO" && data.operationalReview) {
-      await tx.shiftOperationalReview.upsert({
-        where: { shiftId },
-        create: {
-          shiftId,
-          productionReviewed: true,
-          wasteReviewed: true,
-          confirmedById: session.user.id,
-        },
-        update: {
-          productionReviewed: true,
-          wasteReviewed: true,
-          confirmedById: session.user.id,
-          confirmedAt: new Date(),
-        },
-      })
-    }
-
-    return updatedShift
-  })
+    throw error
+  }
 
   return NextResponse.json(updated)
 })

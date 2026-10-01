@@ -15,6 +15,7 @@ interface ShiftCardProps {
   onSave: (shiftId: string, values: { cash: number; caixaBankAmount: number; santanderAmount: number; closingFund: number }) => Promise<void>
   onClose: (shiftId: string, data: ShiftCloseFormData) => Promise<boolean>
   onReopen: (shiftId: string) => Promise<void>
+  canReopen?: boolean
   closingShift: string | null
   onRefresh: () => Promise<void>
 }
@@ -32,7 +33,7 @@ interface ExpenseCreditorOption {
   type: string
 }
 
-export function ShiftCard({ shift, userRole, onSave, onClose, onReopen, closingShift, onRefresh }: ShiftCardProps) {
+export function ShiftCard({ shift, userRole, onSave, onClose, onReopen, canReopen = true, closingShift, onRefresh }: ShiftCardProps) {
   const isOpen = shift.status === "ABIERTO"
   const canManageExpenses = hasAnyRole(userRole, [UserRole.ADMIN, UserRole.PARTNER])
   const canEditShift = canManageExpenses || isOpen
@@ -197,7 +198,7 @@ export function ShiftCard({ shift, userRole, onSave, onClose, onReopen, closingS
                   </button>
                 </>
               )}
-              {!isOpen && isRole(userRole, UserRole.PARTNER) && (
+              {!isOpen && canReopen && isRole(userRole, UserRole.PARTNER) && (
                 <button onClick={() => onReopen(shift.id)} className="rounded-md bg-amber-500 px-3 py-1.5 text-xs font-medium text-white hover:bg-amber-600">Reabrir</button>
               )}
             </div>
@@ -234,7 +235,7 @@ export function ShiftCard({ shift, userRole, onSave, onClose, onReopen, closingS
                       </button>
                     </>
                   )}
-                   {!isOpen && isRole(userRole, UserRole.PARTNER) && (
+                  {!isOpen && canReopen && isRole(userRole, UserRole.PARTNER) && (
                     <button onClick={() => { onReopen(shift.id); setOpenMobileMenu(false) }} className="block w-full px-4 py-2 text-left text-sm text-amber-700 hover:bg-amber-50">Reabrir</button>
                   )}
                 </div>
