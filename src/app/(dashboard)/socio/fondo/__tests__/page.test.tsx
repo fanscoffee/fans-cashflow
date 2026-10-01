@@ -161,6 +161,34 @@ describe("FundPage", () => {
     })
   })
 
+  it("refreshes the fund amount after depositing", async () => {
+    let currentFund = 500
+    vi.mocked(global.fetch).mockImplementation((url, init) => {
+      const u = typeof url === "string" ? url : ""
+      if (u.includes("/api/fund-additions")) {
+        if (init?.method === "POST") {
+          currentFund += 100
+          return Promise.resolve({ ok: true, json: () => Promise.resolve({}) } as any)
+        }
+        return Promise.resolve({ ok: true, json: () => Promise.resolve(mockAdditions) } as any)
+      }
+      if (u.includes("/api/fund")) {
+        return Promise.resolve({ ok: true, json: () => Promise.resolve({ fund: currentFund }) } as any)
+      }
+      return Promise.resolve({ ok: true, json: () => Promise.resolve(null) } as any)
+    })
+
+    render(<FundPage />)
+    await waitFor(() => expect(screen.getAllByText("500.00 €").length).toBeGreaterThan(0))
+
+    fireEvent.change(screen.getByRole("spinbutton"), { target: { value: "100" } })
+    fireEvent.click(screen.getByRole("button", { name: "Depositar" }))
+
+    await waitFor(() => {
+      expect(screen.getAllByText("600.00 €").length).toBeGreaterThan(0)
+    })
+  })
+
   it("renders additions history", async () => {
     render(<FundPage />)
     await waitFor(() => {
