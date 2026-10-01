@@ -49,6 +49,15 @@ export const PATCH = withAuth(async (req, session, context) => {
         targetMarginPercentage: true,
         fixedRetailPriceIncludingVat: true,
         appliedRetailPriceIncludingVat: true,
+        recipe: {
+          select: {
+            versions: {
+              where: { status: "ACTIVE" },
+              take: 1,
+              select: { id: true },
+            },
+          },
+        },
       },
     })
     if (!current) {
@@ -67,8 +76,13 @@ export const PATCH = withAuth(async (req, session, context) => {
 
     const productData = pickProductFields(body)
     const behavior = getProductTypeBehavior(current.itemType)
-    if (behavior) Object.assign(productData, behavior)
-    const baseUnitCost = Object.prototype.hasOwnProperty.call(body, "baseUnitCost") ? body.baseUnitCost : current.baseUnitCost
+    const hasActiveRecipe = Boolean(current.recipe?.versions.length)
+    if (behavior) Object.assign(productData, behavior, { hasRecipe: hasActiveRecipe })
+    const recipeManagedCost = Boolean(behavior?.isPrepared || hasActiveRecipe)
+    if (recipeManagedCost) delete productData.baseUnitCost
+    const baseUnitCost = recipeManagedCost
+      ? current.baseUnitCost
+      : Object.prototype.hasOwnProperty.call(body, "baseUnitCost") ? body.baseUnitCost : current.baseUnitCost
     const purchaseToBaseFactor = Object.prototype.hasOwnProperty.call(body, "purchaseToBaseFactor") ? body.purchaseToBaseFactor : current.purchaseToBaseFactor
     const pricing = calculateProductPricing({
       costSinVat: calculateProductPricingCost({ baseUnitCost, purchaseToBaseFactor }),

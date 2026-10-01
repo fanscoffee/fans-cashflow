@@ -1,7 +1,7 @@
 import "dotenv/config"
 import { PrismaClient } from "../src/generated/prisma/client"
 import { PrismaPg } from "@prisma/adapter-pg"
-import { CreditorType, PaymentMethodType } from "../src/lib/database-enums"
+import { CreditorType, PaymentEntity, PaymentMethodType } from "../src/lib/database-enums"
 
 const url = process.env.DIRECT_URL || process.env.DATABASE_URL!
 const adapter = new PrismaPg({ connectionString: url })
@@ -168,6 +168,36 @@ async function main() {
   }
 
   console.log(`  ${catalogs.length} catalogs inserted or updated`)
+
+  const stockLocations = [
+    { code: "CAFETERIA", name: "Cafetería", entity: PaymentEntity.COFFEE_SHOP },
+    { code: "OBRADOR", name: "Obrador", entity: PaymentEntity.BAKERY },
+  ]
+  for (const location of stockLocations) {
+    await prisma.stockLocation.upsert({
+      where: { code: location.code },
+      update: { name: location.name, entity: location.entity, active: true },
+      create: location,
+    })
+  }
+
+  const wasteReasons = [
+    { code: "VENCIMIENTO", name: "Vencimiento", description: "Producto vencido o fuera de fecha" },
+    { code: "ELABORACION_FALLIDA", name: "Elaboración fallida", description: "Pérdida producida durante una elaboración" },
+    { code: "DANO", name: "Daño", description: "Producto o insumo dañado" },
+    { code: "SOBRANTE_NO_REUTILIZABLE", name: "Sobrante no reutilizable", description: "Sobrante que no puede conservarse ni reutilizarse" },
+    { code: "CONSUMO_INTERNO", name: "Consumo interno", description: "Consumo no destinado a venta" },
+    { code: "OTRO", name: "Otro", description: "Requiere una observación descriptiva" },
+  ]
+  for (const reason of wasteReasons) {
+    await prisma.wasteReason.upsert({
+      where: { code: reason.code },
+      update: { ...reason, active: true },
+      create: reason,
+    })
+  }
+
+  console.log(`  ${stockLocations.length} stock locations and ${wasteReasons.length} waste reasons inserted or updated`)
 
   // Example products are retained as historical reference but are no longer seeded.
   /*

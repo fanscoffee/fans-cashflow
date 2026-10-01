@@ -7,6 +7,7 @@ import { calculateFundFinal, calculateTotalExpenses } from "@/lib/fund"
 import ShiftCloseModal, { type ShiftCloseFormData } from "@/components/shift-close-modal"
 import { UserRole } from "@/lib/database-enums"
 import { hasAnyRole, isRole } from "@/lib/roles"
+import { ShiftOperationsPanel } from "@/components/inventory/shift-operations-panel"
 
 interface ShiftCardProps {
   shift: Shift
@@ -321,6 +322,13 @@ export function ShiftCard({ shift, userRole, onSave, onClose, onReopen, closingS
           Turno histórico sin ticket de cierre registrado.
         </div>
       ) : null}
+
+      <ShiftOperationsPanel
+        shiftId={shift.id}
+        isOpen={isOpen}
+        userRole={userRole}
+        onChanged={onRefresh}
+      />
 
       {shift.expenses.length > 0 && (
         <div className="mt-3 border-t pt-3">

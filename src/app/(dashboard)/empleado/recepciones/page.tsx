@@ -15,7 +15,7 @@ export default function EmployeeReceiptsPage() {
           </p>
         </section>
 
-        <ReceiptsPanel canDelete={false} initialView="create" />
+        <ReceiptsPanel canDelete={false} canEdit={false} initialView="create" />
       </main>
     </div>
   )

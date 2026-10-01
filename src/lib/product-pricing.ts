@@ -103,7 +103,7 @@ export function calculateProductPricing(input: ProductPricingInput): ProductPric
     ? round(appliedRetailPriceIncludingVat - targetRetailPriceIncludingVat, 4)
     : null
   const pricingDiagnosis = targetMarginPercentage === null
-    ? "SIN OBJETIVO"
+    ? actualMarginPercentage === null ? "FALTAN DATOS" : "MARGEN CALCULADO"
     : targetRetailPriceIncludingVat === null || actualMarginPercentage === null || percentagePointDeviation === null
       ? "FALTAN DATOS"
       : actualMarginPercentage < 0

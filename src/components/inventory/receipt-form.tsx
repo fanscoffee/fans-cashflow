@@ -37,10 +37,20 @@ const receiptSchema = z.object({
     .min(1, "Agrega al menos una línea de producto"),
 })
 
-type FormValues = z.infer<typeof receiptSchema>
+export type ReceiptFormValues = z.infer<typeof receiptSchema>
 
 function todayString() {
   return new Date().toISOString().split("T")[0]
+}
+
+function defaultReceiptValues(): ReceiptFormValues {
+  return {
+    supplierId: "",
+    deliveryNoteCode: "",
+    receivedAt: todayString(),
+    notes: "",
+    lines: [{ productId: "", receivedQuantity: 1, unitPrice: 0, batch: "", dueDate: "" }],
+  }
 }
 
 function ProductCombobox({
@@ -151,10 +161,12 @@ export default function ReceiptForm({
   onSubmit,
   onCancel,
   saving,
+  initialValues,
 }: {
-  onSubmit: (data: FormValues) => Promise<void>
+  onSubmit: (data: ReceiptFormValues) => Promise<void>
   onCancel: () => void
   saving: boolean
+  initialValues?: ReceiptFormValues
 }) {
   const [suppliers, setSuppliers] = useState<Supplier[]>([])
   const [products, setProducts] = useState<Product[]>([])
@@ -166,16 +178,11 @@ export default function ReceiptForm({
     getValues,
     watch,
     setValue,
+    reset,
     formState: { errors },
-  } = useForm<FormValues>({
-    resolver: zodResolver(receiptSchema) as Resolver<FormValues>,
-    defaultValues: {
-      supplierId: "",
-      deliveryNoteCode: "",
-      receivedAt: todayString(),
-      notes: "",
-      lines: [{ productId: "", receivedQuantity: 1, unitPrice: 0, batch: "", dueDate: "" }],
-    },
+  } = useForm<ReceiptFormValues>({
+    resolver: zodResolver(receiptSchema) as Resolver<ReceiptFormValues>,
+    defaultValues: initialValues || defaultReceiptValues(),
   })
 
   const { fields, append, remove } = useFieldArray({
@@ -187,6 +194,10 @@ export default function ReceiptForm({
   const lines = watch("lines")
   const [productsLoading, setProductsLoading] = useState(false)
   const previousSupplierId = useRef("")
+
+  useEffect(() => {
+    if (initialValues) reset(initialValues)
+  }, [initialValues, reset])
 
   useEffect(() => {
     fetch("/api/inventario/proveedores?pageSize=200")
@@ -477,7 +488,7 @@ export default function ReceiptForm({
           disabled={saving}
           className="w-full rounded-md bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-700 disabled:opacity-50 sm:w-auto"
         >
-          {saving ? "Guardando..." : "Registrar recepcion"}
+          {saving ? "Guardando..." : initialValues ? "Guardar cambios" : "Registrar recepcion"}
         </button>
         <button
           type="button"

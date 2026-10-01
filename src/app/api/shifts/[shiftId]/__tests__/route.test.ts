@@ -44,13 +44,18 @@ describe("PATCH /api/shifts/[shiftId]", () => {
     vi.mocked((prisma as any).$transaction).mockImplementation(async (callback: (tx: unknown) => unknown) => callback({
       shift: { update: updateShift },
       shiftClose: { upsert: upsertClosure },
+      shiftOperationalReview: { upsert: vi.fn() },
     }))
 
     const response = await PATCH(
       new Request("http://localhost/api/shifts/shift-1", {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ status: "CERRADO", noInformation: true }),
+        body: JSON.stringify({
+          status: "CERRADO",
+          noInformation: true,
+          operationalReview: { productionReviewed: true, wasteReviewed: true },
+        }),
       }) as unknown as NextRequest,
       context,
     )
@@ -68,7 +73,10 @@ describe("PATCH /api/shifts/[shiftId]", () => {
       new Request("http://localhost/api/shifts/shift-1", {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ status: "CERRADO" }),
+        body: JSON.stringify({
+          status: "CERRADO",
+          operationalReview: { productionReviewed: true, wasteReviewed: true },
+        }),
       }) as unknown as NextRequest,
       context,
     )
@@ -84,13 +92,18 @@ describe("PATCH /api/shifts/[shiftId]", () => {
     vi.mocked((prisma as any).$transaction).mockImplementation(async (callback: (tx: unknown) => unknown) => callback({
       shift: { update: updateShift },
       shiftClose: { upsert: vi.fn() },
+      shiftOperationalReview: { upsert: vi.fn() },
     }))
 
     const response = await PATCH(
       new Request("http://localhost/api/shifts/shift-1", {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ status: "CERRADO", noInformation: true }),
+        body: JSON.stringify({
+          status: "CERRADO",
+          noInformation: true,
+          operationalReview: { productionReviewed: true, wasteReviewed: true },
+        }),
       }) as unknown as NextRequest,
       context,
     )
@@ -112,6 +125,21 @@ describe("PATCH /api/shifts/[shiftId]", () => {
     )
 
     expect(response.status).toBe(403)
+    expect(prisma.$transaction).not.toHaveBeenCalled()
+  })
+
+  it("requires reviewing production and waste before closing", async () => {
+    const response = await PATCH(
+      new Request("http://localhost/api/shifts/shift-1", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ status: "CERRADO", noInformation: true }),
+      }) as unknown as NextRequest,
+      context,
+    )
+
+    expect(response.status).toBe(400)
+    expect(await response.json()).toEqual({ error: "Debes revisar la producción y las mermas antes de cerrar el turno" })
     expect(prisma.$transaction).not.toHaveBeenCalled()
   })
 })

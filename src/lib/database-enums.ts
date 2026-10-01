@@ -12,7 +12,9 @@ import {
   FundsAccountType,
   FundsMovementType,
   InvoiceWorkflowStatus,
+  InventoryTransactionType,
   MonthlyCloseStatus,
+  OperationalRecordStatus,
   PaymentApplicationType,
   PaymentDocumentType,
   PaymentEntity,
@@ -20,6 +22,7 @@ import {
   PaymentMethodStatus,
   PaymentMethodType,
   PaymentStatus,
+  RecipeVersionStatus,
   StatementMovementDirection,
   StatementMovementStatus,
   UserRole,
@@ -35,7 +38,9 @@ import {
   type FundsAccountType as FundsAccountTypeType,
   type FundsMovementType as FundsMovementTypeType,
   type InvoiceWorkflowStatus as InvoiceWorkflowStatusType,
+  type InventoryTransactionType as InventoryTransactionTypeType,
   type MonthlyCloseStatus as MonthlyCloseStatusType,
+  type OperationalRecordStatus as OperationalRecordStatusType,
   type PaymentApplicationType as PaymentApplicationTypeType,
   type PaymentDocumentType as PaymentDocumentTypeType,
   type PaymentEntity as PaymentEntityType,
@@ -43,6 +48,7 @@ import {
   type PaymentMethodStatus as PaymentMethodStatusType,
   type PaymentMethodType as PaymentMethodTypeType,
   type PaymentStatus as PaymentStatusType,
+  type RecipeVersionStatus as RecipeVersionStatusType,
   type StatementMovementDirection as StatementMovementDirectionType,
   type StatementMovementStatus as StatementMovementStatusType,
   type UserRole as UserRoleType,
@@ -61,7 +67,9 @@ export {
   FundsAccountType,
   FundsMovementType,
   InvoiceWorkflowStatus,
+  InventoryTransactionType,
   MonthlyCloseStatus,
+  OperationalRecordStatus,
   PaymentApplicationType,
   PaymentDocumentType,
   PaymentEntity,
@@ -69,6 +77,7 @@ export {
   PaymentMethodStatus,
   PaymentMethodType,
   PaymentStatus,
+  RecipeVersionStatus,
   StatementMovementDirection,
   StatementMovementStatus,
   UserRole,
@@ -85,6 +94,7 @@ export type DatabaseCreditorType = CreditorTypeType
 export type DatabaseCreditorStatus = CreditorStatusType
 export type DatabasePaymentDocumentType = PaymentDocumentTypeType
 export type DatabaseInvoiceWorkflowStatus = InvoiceWorkflowStatusType
+export type DatabaseInventoryTransactionType = InventoryTransactionTypeType
 export type DatabaseExpenseReceiptType = ExpenseReceiptTypeType
 export type DatabaseCurrentExpenseStatus = CurrentExpenseStatusType
 export type DatabasePaymentStatus = PaymentStatusType
@@ -96,6 +106,8 @@ export type DatabaseStatementMovementStatus = StatementMovementStatusType
 export type DatabaseCashCountStatus = CashCountStatusType
 export type DatabaseCashReplenishmentStatus = CashReplenishmentStatusType
 export type DatabaseMonthlyCloseStatus = MonthlyCloseStatusType
+export type DatabaseOperationalRecordStatus = OperationalRecordStatusType
+export type DatabaseRecipeVersionStatus = RecipeVersionStatusType
 export type DatabaseCashDestination = CashDestinationType
 
 type EnumValue = string

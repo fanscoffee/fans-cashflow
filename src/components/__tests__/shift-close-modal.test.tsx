@@ -40,8 +40,16 @@ describe("ShiftCloseModal", () => {
       />,
     )
 
-    await user.click(screen.getByRole("button", { name: "Cerrar turno sin información" }))
+    const quickClose = screen.getByRole("button", { name: "Cerrar turno sin información" })
+    expect(quickClose).toBeDisabled()
+    await user.click(screen.getByRole("checkbox", { name: "Producción revisada" }))
+    await user.click(screen.getByRole("checkbox", { name: "Mermas revisadas" }))
+    await user.click(quickClose)
 
-    expect(onSubmit).toHaveBeenCalledWith(expect.objectContaining({ noInformation: true }))
+    expect(onSubmit).toHaveBeenCalledWith(expect.objectContaining({
+      noInformation: true,
+      productionReviewed: true,
+      wasteReviewed: true,
+    }))
   })
 })

@@ -19,6 +19,15 @@ const currentExpensesInclude = {
   orderBy: { createdAt: "asc" },
 } satisfies Prisma.Shift$currentExpensesArgs
 
+const shiftInclude = {
+  expenses: true,
+  currentExpenses: currentExpensesInclude,
+  shiftClose: true,
+  operationalReview: true,
+  createdBy: { select: { name: true, email: true } },
+  _count: { select: { productionEntries: true, wasteEntries: true } },
+} satisfies Prisma.ShiftInclude
+
 const shiftSchema = z.object({
   date: z.string().refine((value) => Number.isFinite(new Date(value).getTime()), "Fecha no válida"),
   shift: z.enum(["mañana", "tarde"]),
@@ -38,19 +47,19 @@ export const GET = withAuth(async (req, session) => {
 
   if (isAdminOrPartner) {
     shifts = await prisma.shift.findMany({
-      include: { expenses: true, currentExpenses: currentExpensesInclude, shiftClose: true, createdBy: { select: { name: true, email: true } } },
+      include: shiftInclude,
       orderBy,
     })
   } else {
     const openShift = await prisma.shift.findFirst({
       where: { createdById: session.user.id, status: "ABIERTO" },
-      include: { expenses: true, currentExpenses: currentExpensesInclude, shiftClose: true, createdBy: { select: { name: true, email: true } } },
+      include: shiftInclude,
       orderBy,
     })
 
     const lastClosed = await prisma.shift.findFirst({
       where: { createdById: session.user.id, status: "CERRADO" },
-      include: { expenses: true, currentExpenses: currentExpensesInclude, shiftClose: true, createdBy: { select: { name: true, email: true } } },
+      include: shiftInclude,
       orderBy,
     })
 

@@ -49,7 +49,7 @@ describe("calculateProductPricing", () => {
       actualMarginPercentage: 45,
       percentagePointDeviation: null,
       unitDifference: null,
-      pricingDiagnosis: "SIN OBJETIVO",
+      pricingDiagnosis: "MARGEN CALCULADO",
     })
   })
 

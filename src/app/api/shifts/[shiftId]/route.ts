@@ -14,6 +14,10 @@ const updateShiftSchema = z.object({
   openingFund: z.number().min(0).optional(),
   status: z.enum(["ABIERTO", "CERRADO"]).optional(),
   noInformation: z.boolean().optional().default(false),
+  operationalReview: z.object({
+    productionReviewed: z.literal(true),
+    wasteReviewed: z.literal(true),
+  }).strict().optional(),
 })
 
 const moneyInput = z
@@ -103,6 +107,13 @@ export const PATCH = withAuth(async (req, session, context) => {
 
   if (data.noInformation && data.status !== "CERRADO") {
     return NextResponse.json({ error: "El cierre sin información debe cerrar el turno" }, { status: 400 })
+  }
+
+  if (data.status === "CERRADO" && !data.operationalReview) {
+    return NextResponse.json(
+      { error: "Debes revisar la producción y las mermas antes de cerrar el turno" },
+      { status: 400 }
+    )
   }
 
   if (data.status === "ABIERTO" && !isRole(session.user.role, UserRole.PARTNER)) {
@@ -257,6 +268,24 @@ export const PATCH = withAuth(async (req, session, context) => {
           vat10Base: close.vat10Base,
           vat10Amount: close.vat10Amount,
           varianceNote: close.varianceNote.trim() || null,
+          confirmedById: session.user.id,
+          confirmedAt: new Date(),
+        },
+      })
+    }
+
+    if (data.status === "CERRADO" && data.operationalReview) {
+      await tx.shiftOperationalReview.upsert({
+        where: { shiftId },
+        create: {
+          shiftId,
+          productionReviewed: true,
+          wasteReviewed: true,
+          confirmedById: session.user.id,
+        },
+        update: {
+          productionReviewed: true,
+          wasteReviewed: true,
           confirmedById: session.user.id,
           confirmedAt: new Date(),
         },
