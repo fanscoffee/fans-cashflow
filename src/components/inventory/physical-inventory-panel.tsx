@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useEffect, useCallback, useRef } from "react"
+import { useState, useEffect, useCallback } from "react"
 import { useSession } from "next-auth/react"
 import { UserRole } from "@/lib/database-enums"
 import { isRole } from "@/lib/roles"
@@ -22,6 +22,17 @@ interface PhysicalInventory {
   _count: { lines: number }
 }
 
+interface PhysicalInventoryLine {
+  productId: string
+  quantityUnit1: number | string
+  quantityUnit2: number | string
+  product?: Product
+}
+
+interface PhysicalInventoryDetail extends PhysicalInventory {
+  lines: PhysicalInventoryLine[]
+}
+
 interface ComparisonLine {
   product: {
     id: string
@@ -39,107 +50,11 @@ interface ComparisonLine {
   variance: number
 }
 
-function ProductCombobox({
-  products,
-  value,
-  onSelect,
-}: {
-  products: Product[]
-  value: string
-  onSelect: (productId: string) => void
-}) {
-  const [open, setOpen] = useState(false)
-  const [search, setSearch] = useState("")
-  const containerRef = useRef<HTMLDivElement>(null)
-
-  const selected = products.find((p) => p.id === value)
-
-  const filtered = products.filter((p) => {
-    if (!search) return true
-    const q = search.toLowerCase()
-    return (
-      p.code.toLowerCase().includes(q) ||
-      p.posDescription.toLowerCase().includes(q)
-    )
-  })
-
-  useEffect(() => {
-    function handleClickOutside(e: MouseEvent) {
-      if (containerRef.current && !containerRef.current.contains(e.target as Node)) {
-        setOpen(false)
-        setSearch("")
-      }
-    }
-    document.addEventListener("mousedown", handleClickOutside)
-    return () => document.removeEventListener("mousedown", handleClickOutside)
-  }, [])
-
-  function handleSelect(id: string) {
-    onSelect(id)
-    setOpen(false)
-    setSearch("")
-  }
-
-  function handleKeyDown(e: React.KeyboardEvent) {
-    if (e.key === "Escape") {
-      setOpen(false)
-      setSearch("")
-    }
-  }
-
-  return (
-    <div ref={containerRef} className="relative w-full">
-      <input
-        type="text"
-        readOnly
-        value={selected ? `${selected.code} - ${selected.posDescription}` : ""}
-        placeholder="Buscar producto..."
-        onFocus={() => setOpen(true)}
-        onClick={() => setOpen(true)}
-        className="w-full cursor-pointer rounded-md border border-gray-300 px-2 py-1 text-xs text-gray-900 focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
-      />
-      {open && (
-        <div className="absolute z-50 mt-1 max-h-60 w-full overflow-auto rounded-md border border-gray-200 bg-white shadow-lg">
-          <div className="sticky top-0 bg-white p-1">
-            <input
-              type="text"
-              autoFocus
-              value={search}
-              onChange={(e) => setSearch(e.target.value)}
-              onKeyDown={handleKeyDown}
-              placeholder="Escribir para filtrar..."
-              className="w-full rounded border border-gray-300 px-2 py-1 text-xs text-gray-900 focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
-            />
-          </div>
-          {filtered.length === 0 ? (
-            <div className="px-2 py-1 text-xs text-gray-500">Sin resultados</div>
-          ) : (
-            filtered.map((p) => (
-              <button
-                key={p.id}
-                type="button"
-                onMouseDown={(e) => e.preventDefault()}
-                onClick={() => handleSelect(p.id)}
-                className={`block w-full px-2 py-1 text-left text-xs hover:bg-blue-50 ${
-                  p.id === value ? "bg-blue-100 font-medium" : ""
-                }`}
-              >
-                <span className="font-mono">{p.code}</span>{" "}
-                <span className="text-gray-600">{p.posDescription}</span>
-              </button>
-            ))
-          )}
-        </div>
-      )}
-    </div>
-  )
-}
-
 export default function PhysicalInventoryPanel() {
   const { data: session } = useSession()
   const isAdmin = isRole(session?.user?.role, UserRole.ADMIN)
 
-  const [view, setView] = useState<"list" | "create" | "detail">("list")
+  const [view, setView] = useState<"list" | "create" | "edit" | "detail">("list")
   const [inventories, setInventories] = useState<PhysicalInventory[]>([])
   const [total, setTotal] = useState(0)
   const [page, setPage] = useState(1)
@@ -151,6 +66,8 @@ export default function PhysicalInventoryPanel() {
   const [products, setProducts] = useState<Product[]>([])
   const [lines, setLines] = useState<Record<string, { quantityUnit1: string; quantityUnit2: string }>>({})
   const [notes, setNotes] = useState("")
+  const [productSearch, setProductSearch] = useState("")
+  const [editingInventoryId, setEditingInventoryId] = useState<string | null>(null)
 
   const [selectedInventory, setSelectedInventory] = useState<PhysicalInventory | null>(null)
   const [comparison, setComparison] = useState<ComparisonLine[] | null>(null)
@@ -184,14 +101,25 @@ export default function PhysicalInventoryPanel() {
   }, [view, loadInventories])
   /* eslint-enable react-hooks/set-state-in-effect */
 
-  const loadProducts = useCallback(async () => {
+  const loadProducts = useCallback(async (existingLines: PhysicalInventoryLine[] = []) => {
     try {
       const r = await fetch("/api/inventario/inventario-fisico/productos")
       const d = await r.json()
-      setProducts(d.products || [])
+      const loadedProducts = [...(d.products || [])] as Product[]
+      const loadedProductIds = new Set(loadedProducts.map((product) => product.id))
+      for (const line of existingLines) {
+        if (line.product && !loadedProductIds.has(line.product.id)) {
+          loadedProducts.push(line.product)
+        }
+      }
+      setProducts(loadedProducts)
+      const existingByProduct = new Map(existingLines.map((line) => [line.productId, line]))
       const initial: Record<string, { quantityUnit1: string; quantityUnit2: string }> = {}
-      for (const p of d.products || []) {
-        initial[p.id] = { quantityUnit1: "0", quantityUnit2: "0" }
+      for (const p of loadedProducts) {
+        const existing = existingByProduct.get(p.id)
+        initial[p.id] = existing
+          ? { quantityUnit1: String(existing.quantityUnit1), quantityUnit2: String(existing.quantityUnit2) }
+          : { quantityUnit1: "0", quantityUnit2: "0" }
       }
       setLines(initial)
     } catch {
@@ -199,7 +127,7 @@ export default function PhysicalInventoryPanel() {
     }
   }, [])
 
-  const handleCreate = async () => {
+  const handleSave = async () => {
     setSaving(true)
     setError("")
     setSuccess("")
@@ -216,8 +144,8 @@ export default function PhysicalInventoryPanel() {
         throw new Error("Debe ingresar al menos una cantidad")
       }
 
-      const r = await fetch("/api/inventario/inventario-fisico", {
-        method: "POST",
+      const r = await fetch(editingInventoryId ? `/api/inventario/inventario-fisico/${editingInventoryId}` : "/api/inventario/inventario-fisico", {
+        method: editingInventoryId ? "PATCH" : "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ notes: notes || null, lines: linesArray }),
       })
@@ -225,7 +153,9 @@ export default function PhysicalInventoryPanel() {
         const d = await r.json()
         throw new Error(d.error || "Error al crear inventario")
       }
-      setSuccess("Inventario registrado correctamente")
+      setSuccess(editingInventoryId ? "Inventario modificado correctamente" : "Inventario registrado correctamente")
+      setEditingInventoryId(null)
+      setProductSearch("")
       setView("list")
     } catch (e) {
       setError(e instanceof Error ? e.message : "Error desconocido")
@@ -271,6 +201,8 @@ export default function PhysicalInventoryPanel() {
 
   const handleStartCreate = async () => {
     setNotes("")
+    setProductSearch("")
+    setEditingInventoryId(null)
     setComparison(null)
     setSelectedInventory(null)
     setPreviousInventory(null)
@@ -278,13 +210,42 @@ export default function PhysicalInventoryPanel() {
     setView("create")
   }
 
-  const totalPages = Math.ceil(total / pageSize)
+  const handleStartEdit = async (id: string) => {
+    setDetailLoading(true)
+    setError("")
+    try {
+      const r = await fetch(`/api/inventario/inventario-fisico/${id}`)
+      if (!r.ok) {
+        const d = await r.json()
+        throw new Error(d.error || "Error al cargar el inventario")
+      }
+      const detail = await r.json() as PhysicalInventoryDetail
+      setNotes(detail.notes || "")
+      setProductSearch("")
+      setEditingInventoryId(id)
+      setSelectedInventory(detail)
+      await loadProducts(detail.lines)
+      setView("edit")
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "Error desconocido")
+    } finally {
+      setDetailLoading(false)
+    }
+  }
 
-  if (view === "create") {
+  const totalPages = Math.ceil(total / pageSize)
+  const normalizedProductSearch = productSearch.trim().toLocaleLowerCase("es-ES")
+  const visibleProducts = products.filter((product) => (
+    !normalizedProductSearch ||
+    product.code.toLocaleLowerCase("es-ES").includes(normalizedProductSearch) ||
+    product.posDescription.toLocaleLowerCase("es-ES").includes(normalizedProductSearch)
+  ))
+
+  if (view === "create" || view === "edit") {
     return (
       <div className="rounded-lg border bg-white p-4 shadow-sm sm:p-6">
         <div className="mb-4 flex flex-col items-stretch gap-2 sm:flex-row sm:items-center sm:justify-between">
-          <h2 className="text-lg font-semibold text-gray-900">Nuevo conteo de inventario</h2>
+          <h2 className="text-lg font-semibold text-gray-900">{view === "edit" ? "Modificar inventario" : "Nuevo conteo de inventario"}</h2>
           <button
             onClick={() => setView("list")}
             className="w-full rounded-md border border-gray-300 px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50 sm:w-auto"
@@ -307,6 +268,20 @@ export default function PhysicalInventoryPanel() {
           />
         </div>
 
+        <div className="mb-4 flex flex-col gap-1 sm:flex-row sm:items-end sm:justify-between">
+          <label className="block w-full text-sm font-medium text-gray-700 sm:max-w-md">
+            Buscar producto por nombre o código
+            <input
+              type="search"
+              value={productSearch}
+              onChange={(e) => setProductSearch(e.target.value)}
+              placeholder="Ej. harina, croissant o MP-001"
+              className="mt-1 w-full rounded-md border border-gray-300 px-3 py-2 text-sm text-gray-900 shadow-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
+            />
+          </label>
+          <span className="text-xs text-gray-500">Mostrando {visibleProducts.length} de {products.length} productos</span>
+        </div>
+
         <div className="overflow-x-auto rounded-md border bg-white">
           <table className="w-full min-w-max text-left text-sm sm:min-w-0">
             <thead>
@@ -319,18 +294,16 @@ export default function PhysicalInventoryPanel() {
               </tr>
             </thead>
             <tbody className="divide-y">
-              {products.map((p) => (
+              {visibleProducts.map((p) => (
                 <tr key={p.id} className="hover:bg-gray-50">
                   <td className="px-3 py-2">
-                    <ProductCombobox
-                      products={products}
-                      value={p.id}
-                      onSelect={() => {}}
-                    />
+                    <p className="font-mono text-xs text-gray-900">{p.code}</p>
+                    <p className="text-xs text-gray-700">{p.posDescription}</p>
                   </td>
                   <td className="px-3 py-2 text-xs text-gray-600">{p.purchaseUnit || "\u2014"}</td>
                   <td className="px-3 py-2">
                     <input
+                      aria-label={`Cantidad compra ${p.code}`}
                       type="number"
                       step="0.01"
                       min="0"
@@ -347,6 +320,7 @@ export default function PhysicalInventoryPanel() {
                   <td className="px-3 py-2 text-xs text-gray-600">{p.baseStockUnit}</td>
                   <td className="px-3 py-2">
                     <input
+                      aria-label={`Cantidad base ${p.code}`}
                       type="number"
                       step="0.01"
                       min="0"
@@ -368,11 +342,11 @@ export default function PhysicalInventoryPanel() {
 
         <div className="mt-4 flex flex-col gap-2 sm:flex-row">
           <button
-            onClick={handleCreate}
+            onClick={handleSave}
             disabled={saving}
             className="w-full rounded-md bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-700 disabled:opacity-50 sm:w-auto"
           >
-            {saving ? "Guardando..." : "Guardar conteo"}
+            {saving ? "Guardando..." : view === "edit" ? "Guardar cambios" : "Guardar conteo"}
           </button>
           <button
             onClick={() => setView("list")}
@@ -392,12 +366,21 @@ export default function PhysicalInventoryPanel() {
           <h2 className="text-lg font-semibold text-gray-900">
             Conteo: {new Date(selectedInventory.countedAt).toLocaleDateString("es-ES")}
           </h2>
-          <button
-            onClick={() => { setView("list"); setSelectedInventory(null); setComparison(null) }}
-            className="w-full rounded-md border border-gray-300 px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50 sm:w-auto"
-          >
-            Volver
-          </button>
+          <div className="flex flex-col gap-2 sm:flex-row">
+            <button
+              onClick={() => void handleStartEdit(selectedInventory.id)}
+              disabled={detailLoading}
+              className="w-full rounded-md bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-700 disabled:opacity-50 sm:w-auto"
+            >
+              {detailLoading ? "Cargando..." : "Modificar inventario"}
+            </button>
+            <button
+              onClick={() => { setView("list"); setSelectedInventory(null); setComparison(null) }}
+              className="w-full rounded-md border border-gray-300 px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50 sm:w-auto"
+            >
+              Volver
+            </button>
+          </div>
         </div>
 
         <div className="mb-4 grid grid-cols-1 gap-3 text-sm min-[420px]:grid-cols-2 sm:grid-cols-3">
@@ -534,6 +517,12 @@ export default function PhysicalInventoryPanel() {
                     <td className="px-3 py-2 text-center text-gray-600">{inv._count.lines}</td>
                     <td className="px-3 py-2 text-gray-600">{inv.notes || "\u2014"}</td>
                     <td className="px-3 py-2 text-right">
+                      <button
+                        onClick={() => void handleStartEdit(inv.id)}
+                        className="mr-2 text-xs font-medium text-blue-600 hover:text-blue-800"
+                      >
+                        Modificar
+                      </button>
                       <button
                         onClick={() => handleViewDetail(inv.id)}
                         className="mr-2 text-xs font-medium text-blue-600 hover:text-blue-800"

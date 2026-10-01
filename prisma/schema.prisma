@@ -20,11 +20,11 @@ enum PaymentEntity {
 }
 
 enum PaymentMethodType {
-  BANK_TRANSFER @map("TRANSFERENCIA")
-  DIRECT_DEBIT  @map("DOMICILIACION")
-  CARD          @map("TARJETA")
-  CASH          @map("EFECTIVO")
-  CHECK         @map("CHEQUE")
+  BANK_TRANSFER  @map("TRANSFERENCIA")
+  DIRECT_DEBIT   @map("DOMICILIACION")
+  CARD           @map("TARJETA")
+  CASH           @map("EFECTIVO")
+  CHECK          @map("CHEQUE")
   MOBILE_PAYMENT @map("PAGO_MOVIL")
 }
 
@@ -34,10 +34,10 @@ enum PaymentMethodStatus {
 }
 
 enum FundsAccountType {
-  BANK      @map("BANCO")
-  CASH_BOX  @map("CAJA")
+  BANK       @map("BANCO")
+  CASH_BOX   @map("CAJA")
   PETTY_CASH @map("CAJA_CHICA")
-  CARD      @map("TARJETA")
+  CARD       @map("TARJETA")
 }
 
 enum FundsAccountStatus {
@@ -48,10 +48,10 @@ enum FundsAccountStatus {
 
 enum CreditorType {
   MERCHANDISE_SUPPLIER @map("PROVEEDOR_MERCANCIA")
-  SERVICES       @map("SERVICIOS")
-  STAFF          @map("PERSONAL")
-  ADMINISTRATION @map("ADMINISTRACION")
-  OTHER          @map("OTROS")
+  SERVICES             @map("SERVICIOS")
+  STAFF                @map("PERSONAL")
+  ADMINISTRATION       @map("ADMINISTRACION")
+  OTHER                @map("OTROS")
 }
 
 enum CreditorStatus {
@@ -66,12 +66,12 @@ enum PaymentDocumentType {
 }
 
 enum InvoiceWorkflowStatus {
-  DRAFT                @map("BORRADOR")
-  IN_REVIEW            @map("EN_COTEJO")
-  ISSUE                @map("INCIDENCIA")
-  CONFIRMED            @map("CONFORMADA")
-  PARTIALLY_CONFIRMED  @map("PARCIALMENTE_CONFORMADA")
-  VOID                 @map("ANULADA")
+  DRAFT               @map("BORRADOR")
+  IN_REVIEW           @map("EN_COTEJO")
+  ISSUE               @map("INCIDENCIA")
+  CONFIRMED           @map("CONFORMADA")
+  PARTIALLY_CONFIRMED @map("PARCIALMENTE_CONFORMADA")
+  VOID                @map("ANULADA")
 }
 
 enum AccountingInvoiceOrigin {
@@ -89,13 +89,13 @@ enum ExpenseReceiptType {
 }
 
 enum CurrentExpenseStatus {
-  DRAFT                @map("BORRADOR")
+  DRAFT                 @map("BORRADOR")
   PENDING_AUTHORIZATION @map("PENDIENTE_AUTORIZACION")
-  AUTHORIZED           @map("AUTORIZADO")
-  REJECTED             @map("RECHAZADO")
-  PAID                 @map("PAGADO")
-  CLOSED               @map("CERRADO")
-  VOID                 @map("ANULADO")
+  AUTHORIZED            @map("AUTORIZADO")
+  REJECTED              @map("RECHAZADO")
+  PAID                  @map("PAGADO")
+  CLOSED                @map("CERRADO")
+  VOID                  @map("ANULADO")
 }
 
 enum PaymentStatus {
@@ -123,12 +123,12 @@ enum PaymentFunction {
 }
 
 enum FundsMovementType {
-  PAYMENT_OUTFLOW  @map("SALIDA_PAGO")
-  ALLOCATION_INFLOW @map("ENTRADA_DOTACION")
+  PAYMENT_OUTFLOW    @map("SALIDA_PAGO")
+  ALLOCATION_INFLOW  @map("ENTRADA_DOTACION")
   CASH_REPLENISHMENT @map("REPOSICION_CAJA")
-  DEPOSIT           @map("DEPOSITO")
-  ADJUSTMENT        @map("AJUSTE")
-  LEGACY_OUTFLOW    @map("SALIDA_LEGACY")
+  DEPOSIT            @map("DEPOSITO")
+  ADJUSTMENT         @map("AJUSTE")
+  LEGACY_OUTFLOW     @map("SALIDA_LEGACY")
 }
 
 enum StatementMovementDirection {
@@ -161,51 +161,81 @@ enum MonthlyCloseStatus {
   CLOSED  @map("CERRADO")
 }
 
+enum InventoryTransactionType {
+  OPENING_BALANCE     @map("SALDO_INICIAL")
+  RECEIPT             @map("RECEPCION")
+  PRODUCTION          @map("PRODUCCION")
+  WASTE               @map("MERMA")
+  PHYSICAL_ADJUSTMENT @map("AJUSTE_INVENTARIO_FISICO")
+  REVERSAL            @map("REVERSA")
+}
+
+enum RecipeVersionStatus {
+  DRAFT      @map("BORRADOR")
+  ACTIVE     @map("VIGENTE")
+  SUPERSEDED @map("SUSTITUIDA")
+}
+
+enum OperationalRecordStatus {
+  POSTED          @map("CONTABILIZADO")
+  REVIEW_REQUIRED @map("REVISION_REQUERIDA")
+  APPROVED        @map("APROBADO")
+  REVERSED        @map("REVERSADO")
+}
+
 model User {
-  id                       String                  @id @default(cuid())
-  name                     String?
-  email                    String                  @unique
-  password                 String
-  role                     UserRole                    @default(EMPLOYEE)
-  authVersion              Int                     @default(0)
-  createdShifts            Shift[]
-  fundAdditions            FundAddition[]
-  cashTrackings            CashTracking[]
-  passkeys                 Passkey[]
-  webAuthnChallenges       WebAuthnChallenge[]
-  orders                   Order[]
-  products                Product[]
-  suppliers              Supplier[]
-  receivedReceipts     Receipt[]
-  physicalInventories       PhysicalInventory[]
-  confirmedShiftCloses  ShiftClose[]
-  confirmedInvoices      Invoice[]
-  paymentAssignments         UserPaymentAssignment[]
-  responsibleFundsAccounts FundsAccount[]          @relation("FundsAccountResponsible")
-  createdCreditors        Creditor[]              @relation("CreditorCreator")
-  requestedExpenses        CurrentExpense[]        @relation("ExpenseRequester")
-  authorizedExpenses        CurrentExpense[]        @relation("ExpenseAuthorizer")
-  executedPayments          Payment[]                  @relation("PaymentExecutor")
-  excessAuthorizedPayments   Payment[]                  @relation("ExcessPaymentAuthorizer")
-  voidedPayments            Payment[]                  @relation("PaymentVoider")
-  paymentApprovals         PaymentApproval[]        @relation("ApprovalUser")
-  fundsMovements        FundsMovement[]      @relation("MovementCreator")
-  reconciledStatementMovements   StatementMovement[]    @relation("MovementReconciler")
-  statementImports    StatementImport[]
-  custodianCashCounts          CashCount[]            @relation("CashCountCustodian")
-  verifierCashCounts       CashCount[]            @relation("CashCountVerifier")
-  createdCashReplenishments      CashReplenishment[]        @relation("ReplenishmentCreator")
-  uploadedPaymentAttachments          PaymentAttachment[]           @relation("AttachmentUploader")
-  auditEvents         AuditEvent[]       @relation("AuditActor")
-  monthlyCloses         MonthlyClose[]         @relation("CloseUser")
-  requestedAccountChanges CreditorAccountChange[]  @relation("AccountChangeRequester")
-  authorizedAccountChanges CreditorAccountChange[]  @relation("AccountChangeAuthorizer")
-  changedParameters      AuthorizationParameter[]
-  changedRules          AuthorizationRule[]
-  authorizedContracts     RecurringContract[]
-  requestedAdvances     Advance[]              @relation("AdvanceRequester")
-  authorizedAdvances     Advance[]              @relation("AdvanceAuthorizer")
-  accountingInvoices         AccountingInvoice[]
+  id                           String                   @id @default(cuid())
+  name                         String?
+  email                        String                   @unique
+  password                     String
+  role                         UserRole                 @default(EMPLOYEE)
+  authVersion                  Int                      @default(0)
+  createdShifts                Shift[]
+  fundAdditions                FundAddition[]
+  cashTrackings                CashTracking[]
+  passkeys                     Passkey[]
+  webAuthnChallenges           WebAuthnChallenge[]
+  orders                       Order[]
+  products                     Product[]
+  suppliers                    Supplier[]
+  receivedReceipts             Receipt[]
+  physicalInventories          PhysicalInventory[]
+  confirmedShiftCloses         ShiftClose[]
+  confirmedInvoices            Invoice[]
+  paymentAssignments           UserPaymentAssignment[]
+  responsibleFundsAccounts     FundsAccount[]           @relation("FundsAccountResponsible")
+  createdCreditors             Creditor[]               @relation("CreditorCreator")
+  requestedExpenses            CurrentExpense[]         @relation("ExpenseRequester")
+  authorizedExpenses           CurrentExpense[]         @relation("ExpenseAuthorizer")
+  executedPayments             Payment[]                @relation("PaymentExecutor")
+  excessAuthorizedPayments     Payment[]                @relation("ExcessPaymentAuthorizer")
+  voidedPayments               Payment[]                @relation("PaymentVoider")
+  paymentApprovals             PaymentApproval[]        @relation("ApprovalUser")
+  fundsMovements               FundsMovement[]          @relation("MovementCreator")
+  reconciledStatementMovements StatementMovement[]      @relation("MovementReconciler")
+  statementImports             StatementImport[]
+  custodianCashCounts          CashCount[]              @relation("CashCountCustodian")
+  verifierCashCounts           CashCount[]              @relation("CashCountVerifier")
+  createdCashReplenishments    CashReplenishment[]      @relation("ReplenishmentCreator")
+  uploadedPaymentAttachments   PaymentAttachment[]      @relation("AttachmentUploader")
+  auditEvents                  AuditEvent[]             @relation("AuditActor")
+  monthlyCloses                MonthlyClose[]           @relation("CloseUser")
+  requestedAccountChanges      CreditorAccountChange[]  @relation("AccountChangeRequester")
+  authorizedAccountChanges     CreditorAccountChange[]  @relation("AccountChangeAuthorizer")
+  changedParameters            AuthorizationParameter[]
+  changedRules                 AuthorizationRule[]
+  authorizedContracts          RecurringContract[]
+  requestedAdvances            Advance[]                @relation("AdvanceRequester")
+  authorizedAdvances           Advance[]                @relation("AdvanceAuthorizer")
+  accountingInvoices           AccountingInvoice[]
+  inventoryTransactions        InventoryTransaction[]   @relation("InventoryTransactionCreator")
+  recipeVersions               RecipeVersion[]          @relation("RecipeVersionCreator")
+  productionEntries            ProductionEntry[]        @relation("ProductionCreator")
+  approvedProductionEntries    ProductionEntry[]        @relation("ProductionApprover")
+  reversedProductionEntries    ProductionEntry[]        @relation("ProductionReverser")
+  wasteEntries                 WasteEntry[]             @relation("WasteCreator")
+  reversedWasteEntries         WasteEntry[]             @relation("WasteReverser")
+  shiftOperationalReviews      ShiftOperationalReview[]
 }
 
 model Passkey {
@@ -220,15 +250,15 @@ model Passkey {
 }
 
 model WebAuthnChallenge {
-  id              String    @id @default(cuid())
-  challenge       String    @unique
-  purpose         String
-  userId          String?
-  expiresAt       DateTime
-  verifiedAt      DateTime?
-  verifiedUserId  String?
-  consumedAt      DateTime?
-  createdAt       DateTime  @default(now())
+  id             String    @id @default(cuid())
+  challenge      String    @unique
+  purpose        String
+  userId         String?
+  expiresAt      DateTime
+  verifiedAt     DateTime?
+  verifiedUserId String?
+  consumedAt     DateTime?
+  createdAt      DateTime  @default(now())
 
   user User? @relation(fields: [userId], references: [id], onDelete: Cascade)
 
@@ -237,61 +267,64 @@ model WebAuthnChallenge {
 }
 
 model Shift {
-  id            String        @id @default(cuid())
-  date          DateTime      @db.Date
-  shift         String
-  status        String        @default("ABIERTO")
-  createdById   String
-  createdBy     User          @relation(fields: [createdById], references: [id])
-  cash      Decimal       @db.Decimal(10, 2)
-  caixaBankAmount         Decimal       @db.Decimal(10, 2)
-  santanderAmount     Decimal       @db.Decimal(10, 2)
-  cashExpense Decimal       @db.Decimal(10, 2)
-  openingFund  Decimal       @db.Decimal(10, 2)
-  closingFund    Decimal       @db.Decimal(10, 2)
-  closedAt      DateTime?
-  expenses      Expense[]
-  currentExpenses CurrentExpense[]
-  cashTracking  CashTracking?
-  shiftClose   ShiftClose?
-  createdAt     DateTime      @default(now())
-  updatedAt     DateTime      @updatedAt
+  id                String                  @id @default(cuid())
+  date              DateTime                @db.Date
+  shift             String
+  status            String                  @default("ABIERTO")
+  createdById       String
+  createdBy         User                    @relation(fields: [createdById], references: [id])
+  cash              Decimal                 @db.Decimal(10, 2)
+  caixaBankAmount   Decimal                 @db.Decimal(10, 2)
+  santanderAmount   Decimal                 @db.Decimal(10, 2)
+  cashExpense       Decimal                 @db.Decimal(10, 2)
+  openingFund       Decimal                 @db.Decimal(10, 2)
+  closingFund       Decimal                 @db.Decimal(10, 2)
+  closedAt          DateTime?
+  expenses          Expense[]
+  currentExpenses   CurrentExpense[]
+  cashTracking      CashTracking?
+  shiftClose        ShiftClose?
+  productionEntries ProductionEntry[]
+  wasteEntries      WasteEntry[]
+  operationalReview ShiftOperationalReview?
+  createdAt         DateTime                @default(now())
+  updatedAt         DateTime                @updatedAt
 
   @@unique([date, shift])
 }
 
 model ShiftClose {
-  id                   String   @id @default(cuid())
-  shiftId              String   @unique
-  cashCloseNumber     String
-  pos                  String
-  openingDateTime    DateTime
-  closingDateTime      DateTime
-  previousCashFund    Decimal  @db.Decimal(12, 2)
-  cashReceipts       Decimal  @db.Decimal(12, 2)
-  cashRefunds   Decimal  @db.Decimal(12, 2)
-  depositedAmount           Decimal  @db.Decimal(12, 2)
-  paymentOutflows         Decimal  @db.Decimal(12, 2)
+  id               String   @id @default(cuid())
+  shiftId          String   @unique
+  cashCloseNumber  String
+  pos              String
+  openingDateTime  DateTime
+  closingDateTime  DateTime
+  previousCashFund Decimal  @db.Decimal(12, 2)
+  cashReceipts     Decimal  @db.Decimal(12, 2)
+  cashRefunds      Decimal  @db.Decimal(12, 2)
+  depositedAmount  Decimal  @db.Decimal(12, 2)
+  paymentOutflows  Decimal  @db.Decimal(12, 2)
   theoreticalCash  Decimal  @db.Decimal(12, 2)
-  actualCash Decimal  @db.Decimal(12, 2)
-  cashVariance            Decimal  @db.Decimal(12, 2)
-  grossSales         Decimal  @db.Decimal(12, 2)
-  refunds           Decimal  @db.Decimal(12, 2)
-  discounts           Decimal  @db.Decimal(12, 2)
-  netSales          Decimal  @db.Decimal(12, 2)
-  cashSales       Decimal  @db.Decimal(12, 2)
+  actualCash       Decimal  @db.Decimal(12, 2)
+  cashVariance     Decimal  @db.Decimal(12, 2)
+  grossSales       Decimal  @db.Decimal(12, 2)
+  refunds          Decimal  @db.Decimal(12, 2)
+  discounts        Decimal  @db.Decimal(12, 2)
+  netSales         Decimal  @db.Decimal(12, 2)
+  cashSales        Decimal  @db.Decimal(12, 2)
   cardSales        Decimal  @db.Decimal(12, 2)
-  breadVat4Base          Decimal  @db.Decimal(12, 2)
-  breadVat4Amount         Decimal  @db.Decimal(12, 2)
-  vat10Base            Decimal  @db.Decimal(12, 2)
-  vat10Amount           Decimal  @db.Decimal(12, 2)
-  varianceNote String?
-  confirmedById      String
-  confirmedAt         DateTime @default(now())
-  createdAt            DateTime @default(now())
-  updatedAt            DateTime @updatedAt
+  breadVat4Base    Decimal  @db.Decimal(12, 2)
+  breadVat4Amount  Decimal  @db.Decimal(12, 2)
+  vat10Base        Decimal  @db.Decimal(12, 2)
+  vat10Amount      Decimal  @db.Decimal(12, 2)
+  varianceNote     String?
+  confirmedById    String
+  confirmedAt      DateTime @default(now())
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
 
-  shift         Shift @relation(fields: [shiftId], references: [id])
+  shift       Shift @relation(fields: [shiftId], references: [id])
   confirmedBy User  @relation(fields: [confirmedById], references: [id])
 
   @@unique([pos, cashCloseNumber])
@@ -299,9 +332,9 @@ model ShiftClose {
 }
 
 model Expense {
-  id        String  @id @default(cuid())
-  shiftId   String
-  shift     Shift   @relation(fields: [shiftId], references: [id])
+  id       String  @id @default(cuid())
+  shiftId  String
+  shift    Shift   @relation(fields: [shiftId], references: [id])
   supplier String
   amount   Decimal @db.Decimal(10, 2)
 }
@@ -316,9 +349,9 @@ model FundAddition {
 }
 
 enum CashDestination {
-  DEPOSIT            @map("DEPOSITO")
-  FUND_REINVESTMENT  @map("INGRESO_EN_FONDO")
-  STORED             @map("GUARDADO")
+  DEPOSIT           @map("DEPOSITO")
+  FUND_REINVESTMENT @map("INGRESO_EN_FONDO")
+  STORED            @map("GUARDADO")
   FANS
 }
 
@@ -352,7 +385,7 @@ model Catalog {
   type        String
   value       String
   description String?
-  codePrefix String?
+  codePrefix  String?
   active      Boolean  @default(true)
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
@@ -363,79 +396,79 @@ model Catalog {
 }
 
 model Supplier {
-  id               String  @id @default(cuid())
+  id             String  @id @default(cuid())
   legalName      String
-  taxId           String  @unique
-  billingAddress  String?
-  contactName   String?
-  contactPhone String?
-  contactEmail    String?
-  iban             String?
+  taxId          String  @unique
+  billingAddress String?
+  contactName    String?
+  contactPhone   String?
+  contactEmail   String?
+  iban           String?
 
-  serviceCategory String?
-  paymentTerms   String?
-  deliveryLeadTimeDays  Int?
-  minimumOrder      Decimal? @db.Decimal(10, 3)
-  termsNotes  String?
+  serviceCategory      String?
+  paymentTerms         String?
+  deliveryLeadTimeDays Int?
+  minimumOrder         Decimal? @db.Decimal(10, 3)
+  termsNotes           String?
 
   deliveryFrequency String?
-  deliverySchedule    String?
-  orderingMethod      String?
+  deliverySchedule  String?
+  orderingMethod    String?
 
-  addedAt            DateTime @default(now())
-  status               String   @default("Activo")
+  addedAt           DateTime @default(now())
+  status            String   @default("Activo")
   reliabilityRating Int?
-  qualityRating    Int?
-  priceRating     Int?
-  issues          String?
-  notes        String?
+  qualityRating     Int?
+  priceRating       Int?
+  issues            String?
+  notes             String?
 
-  products   SupplierProduct[]
-  receipts Receipt[]
+  products    SupplierProduct[]
+  receipts    Receipt[]
   invoices    Invoice[]
   creditor    Creditor?
   createdById String?
-  createdBy   User?               @relation(fields: [createdById], references: [id])
-  createdAt   DateTime            @default(now())
-  updatedAt   DateTime            @updatedAt
+  createdBy   User?             @relation(fields: [createdById], references: [id])
+  createdAt   DateTime          @default(now())
+  updatedAt   DateTime          @updatedAt
 
   @@index([status])
 }
 
 model SupplierProduct {
-  id                 String    @id @default(cuid())
-  supplierId        String
-  supplier          Supplier @relation(fields: [supplierId], references: [id], onDelete: Cascade)
-  productId         String
-  product           Product  @relation(fields: [productId], references: [id], onDelete: Cascade)
-  supplierReference       String?
-  purchasePriceExcludingVat Decimal?  @db.Decimal(10, 4)
-  deliveryLeadTimeDays   Int?
-  minimumOrder       Decimal?  @db.Decimal(10, 3)
-  isPrimary        Boolean   @default(false)
-  active             Boolean   @default(true)
-  createdAt          DateTime  @default(now())
-  updatedAt          DateTime  @updatedAt
+  id                        String   @id @default(cuid())
+  supplierId                String
+  supplier                  Supplier @relation(fields: [supplierId], references: [id], onDelete: Cascade)
+  productId                 String
+  product                   Product  @relation(fields: [productId], references: [id], onDelete: Cascade)
+  supplierReference         String?
+  purchasePriceExcludingVat Decimal? @db.Decimal(10, 4)
+  deliveryLeadTimeDays      Int?
+  minimumOrder              Decimal? @db.Decimal(10, 3)
+  isPrimary                 Boolean  @default(false)
+  active                    Boolean  @default(true)
+  createdAt                 DateTime @default(now())
+  updatedAt                 DateTime @updatedAt
 
   @@unique([supplierId, productId])
   @@index([productId])
 }
 
 model Receipt {
-  id             String   @id @default(cuid())
-  deliveryNoteCode  String
-  supplierId    String
-  invoiceId      String?
-  receivedAt DateTime
-  receivedById   String?
-  notes          String?
-  createdAt      DateTime @default(now())
-  updatedAt      DateTime @updatedAt
+  id               String   @id @default(cuid())
+  deliveryNoteCode String
+  supplierId       String
+  invoiceId        String?
+  receivedAt       DateTime
+  receivedById     String?
+  notes            String?
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
 
-  supplier  Supplier        @relation(fields: [supplierId], references: [id])
-  invoice    Invoice?         @relation(fields: [invoiceId], references: [id])
-  receivedBy User?            @relation(fields: [receivedById], references: [id])
-  lines     ReceiptLine[]
+  supplier   Supplier      @relation(fields: [supplierId], references: [id])
+  invoice    Invoice?      @relation(fields: [invoiceId], references: [id])
+  receivedBy User?         @relation(fields: [receivedById], references: [id])
+  lines      ReceiptLine[]
 
   @@unique([deliveryNoteCode, supplierId])
   @@index([supplierId])
@@ -445,55 +478,55 @@ model Receipt {
 
 model Invoice {
   id                    String                @id @default(cuid())
-  supplierId           String
-  series                 String                @default("")
+  supplierId            String
+  series                String                @default("")
   number                String
-  issueDate       DateTime
-  operationDate        DateTime?
-  dueDate      DateTime?
-  paymentDate             DateTime?
-  orderNumber          String?
-  orderDate           DateTime?
-  deliveryCenter         String?
-  deliveryNoteReference     String?
-  deliveryNoteDate          DateTime?
-  paymentMethod             String?
+  issueDate             DateTime
+  operationDate         DateTime?
+  dueDate               DateTime?
+  paymentDate           DateTime?
+  orderNumber           String?
+  orderDate             DateTime?
+  deliveryCenter        String?
+  deliveryNoteReference String?
+  deliveryNoteDate      DateTime?
+  paymentMethod         String?
   status                String                @default("CONFIRMADA")
-  paymentStatus            String                @default("PENDIENTE")
-  currency                String                @default("EUR")
-  paidAmount         Decimal?              @db.Decimal(12, 2)
-  entity               PaymentEntity           @default(BAKERY)
-  documentType         PaymentDocumentType     @default(MERCHANDISE_PURCHASE)
+  paymentStatus         String                @default("PENDIENTE")
+  currency              String                @default("EUR")
+  paidAmount            Decimal?              @db.Decimal(12, 2)
+  entity                PaymentEntity         @default(BAKERY)
+  documentType          PaymentDocumentType   @default(MERCHANDISE_PURCHASE)
   workflowStatus        InvoiceWorkflowStatus @default(DRAFT)
   creditorId            String?
-  confirmedAmount     Decimal?              @db.Decimal(12, 2)
-  withheldAmount       Decimal               @default(0) @db.Decimal(12, 2)
-  withholdingReason       String?
-  sourceReference      String?
-  isLegacyPayment          Boolean               @default(false)
-  issuerLegalName     String
-  issuerTaxId             String
-  issuerBillingAddress String
-  netTotal             Decimal               @db.Decimal(12, 2)
-  discountTotal        Decimal               @default(0) @db.Decimal(12, 2)
+  confirmedAmount       Decimal?              @db.Decimal(12, 2)
+  withheldAmount        Decimal               @default(0) @db.Decimal(12, 2)
+  withholdingReason     String?
+  sourceReference       String?
+  isLegacyPayment       Boolean               @default(false)
+  issuerLegalName       String
+  issuerTaxId           String
+  issuerBillingAddress  String
+  netTotal              Decimal               @db.Decimal(12, 2)
+  discountTotal         Decimal               @default(0) @db.Decimal(12, 2)
   totalVat              Decimal               @db.Decimal(12, 2)
-  surchargeTotal          Decimal               @db.Decimal(12, 2)
+  surchargeTotal        Decimal               @db.Decimal(12, 2)
   withholdingTotal      Decimal               @db.Decimal(12, 2)
-  totalAmount          Decimal               @db.Decimal(12, 2)
-  notes         String?
-  alerts               Json?
-  confirmedById       String
-  confirmedAt          DateTime              @default(now())
+  totalAmount           Decimal               @db.Decimal(12, 2)
+  notes                 String?
+  alerts                Json?
+  confirmedById         String
+  confirmedAt           DateTime              @default(now())
   createdAt             DateTime              @default(now())
   updatedAt             DateTime              @updatedAt
 
-  supplier     Supplier         @relation(fields: [supplierId], references: [id])
-  creditor      Creditor?         @relation(fields: [creditorId], references: [id])
-  confirmedBy User              @relation(fields: [confirmedById], references: [id])
-  deliveryNotes     Receipt[]
-  lines        InvoiceLine[]
-  taxes     InvoiceTax[]
-  attachments      PaymentAttachment[]
+  supplier      Supplier             @relation(fields: [supplierId], references: [id])
+  creditor      Creditor?            @relation(fields: [creditorId], references: [id])
+  confirmedBy   User                 @relation(fields: [confirmedById], references: [id])
+  deliveryNotes Receipt[]
+  lines         InvoiceLine[]
+  taxes         InvoiceTax[]
+  attachments   PaymentAttachment[]
   applications  PaymentApplication[]
 
   @@unique([supplierId, series, number])
@@ -506,31 +539,31 @@ model Invoice {
 }
 
 model InvoiceLine {
-  id                  String    @id @default(cuid())
-  invoiceId           String
+  id                 String    @id @default(cuid())
+  invoiceId          String
   productId          String?
   lineType           String    @default("PRODUCTO")
-  supplierReference String?
-  itemCode      String?
-  description         String
-  unitOfMeasure        String?
+  supplierReference  String?
+  itemCode           String?
+  description        String
+  unitOfMeasure      String?
   originalFormat     String?
-  quantity            Decimal   @db.Decimal(12, 4)
+  quantity           Decimal   @db.Decimal(12, 4)
   discountPercentage Decimal?  @db.Decimal(7, 4)
-  discountAmount    Decimal   @db.Decimal(12, 2)
-  unitPrice      Decimal   @db.Decimal(12, 4)
-  netUnitPrice  Decimal   @db.Decimal(12, 4)
-  taxableBase       Decimal   @db.Decimal(12, 2)
-  vatRate             Decimal?  @db.Decimal(7, 4)
-  vatAmount            Decimal   @db.Decimal(12, 2)
+  discountAmount     Decimal   @db.Decimal(12, 2)
+  unitPrice          Decimal   @db.Decimal(12, 4)
+  netUnitPrice       Decimal   @db.Decimal(12, 4)
+  taxableBase        Decimal   @db.Decimal(12, 2)
+  vatRate            Decimal?  @db.Decimal(7, 4)
+  vatAmount          Decimal   @db.Decimal(12, 2)
   lineTotal          Decimal   @db.Decimal(12, 2)
-  batch                String?
-  dueDate    DateTime?
+  batch              String?
+  dueDate            DateTime?
   validationAlert    String?
-  createdAt           DateTime  @default(now())
-  updatedAt           DateTime  @updatedAt
+  createdAt          DateTime  @default(now())
+  updatedAt          DateTime  @updatedAt
 
-  invoice  Invoice   @relation(fields: [invoiceId], references: [id], onDelete: Cascade)
+  invoice Invoice  @relation(fields: [invoiceId], references: [id], onDelete: Cascade)
   product Product? @relation(fields: [productId], references: [id])
 
   @@index([invoiceId])
@@ -538,14 +571,14 @@ model InvoiceLine {
 }
 
 model InvoiceTax {
-  id            String   @id @default(cuid())
-  invoiceId     String
-  type          String
-  percentage    Decimal? @db.Decimal(7, 4)
+  id          String   @id @default(cuid())
+  invoiceId   String
+  type        String
+  percentage  Decimal? @db.Decimal(7, 4)
   taxableBase Decimal  @db.Decimal(12, 2)
-  taxAmount         Decimal  @db.Decimal(12, 2)
-  createdAt     DateTime @default(now())
-  updatedAt     DateTime @updatedAt
+  taxAmount   Decimal  @db.Decimal(12, 2)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
 
   invoice Invoice @relation(fields: [invoiceId], references: [id], onDelete: Cascade)
 
@@ -554,32 +587,32 @@ model InvoiceTax {
 }
 
 model AccountingInvoice {
-  id                String                @id @default(cuid())
-  date             DateTime              @db.Date
-  invoiceNumber     String                @default("")
+  id                 String                  @id @default(cuid())
+  date               DateTime                @db.Date
+  invoiceNumber      String                  @default("")
   supplierOrCreditor String
-  taxId               String                @default("")
-  concept          String                @default("")
-  exemptBase        Decimal               @default(0) @db.Decimal(12, 2)
-  base21            Decimal               @default(0) @db.Decimal(12, 2)
-  vat21             Decimal               @default(0) @db.Decimal(12, 2)
-  base10            Decimal               @default(0) @db.Decimal(12, 2)
-  vat10             Decimal               @default(0) @db.Decimal(12, 2)
-  base4             Decimal               @default(0) @db.Decimal(12, 2)
-  vat4              Decimal               @default(0) @db.Decimal(12, 2)
-  base2             Decimal               @default(0) @db.Decimal(12, 2)
-  vat2              Decimal               @default(0) @db.Decimal(12, 2)
-  totalBase         Decimal               @default(0) @db.Decimal(12, 2)
-  totalVat          Decimal               @default(0) @db.Decimal(12, 2)
-  withholdingTax              Decimal               @default(0) @db.Decimal(12, 2)
-  invoiceTotal      Decimal               @db.Decimal(12, 2)
-  paymentMethod         String                @default("")
-  ocrText          String?
-  source            AccountingInvoiceOrigin @default(MANUAL)
-  alerts           Json?
-  createdById       String
-  createdAt         DateTime              @default(now())
-  updatedAt         DateTime              @updatedAt
+  taxId              String                  @default("")
+  concept            String                  @default("")
+  exemptBase         Decimal                 @default(0) @db.Decimal(12, 2)
+  base21             Decimal                 @default(0) @db.Decimal(12, 2)
+  vat21              Decimal                 @default(0) @db.Decimal(12, 2)
+  base10             Decimal                 @default(0) @db.Decimal(12, 2)
+  vat10              Decimal                 @default(0) @db.Decimal(12, 2)
+  base4              Decimal                 @default(0) @db.Decimal(12, 2)
+  vat4               Decimal                 @default(0) @db.Decimal(12, 2)
+  base2              Decimal                 @default(0) @db.Decimal(12, 2)
+  vat2               Decimal                 @default(0) @db.Decimal(12, 2)
+  totalBase          Decimal                 @default(0) @db.Decimal(12, 2)
+  totalVat           Decimal                 @default(0) @db.Decimal(12, 2)
+  withholdingTax     Decimal                 @default(0) @db.Decimal(12, 2)
+  invoiceTotal       Decimal                 @db.Decimal(12, 2)
+  paymentMethod      String                  @default("")
+  ocrText            String?
+  source             AccountingInvoiceOrigin @default(MANUAL)
+  alerts             Json?
+  createdById        String
+  createdAt          DateTime                @default(now())
+  updatedAt          DateTime                @updatedAt
 
   createdBy User @relation(fields: [createdById], references: [id])
 
@@ -590,17 +623,17 @@ model AccountingInvoice {
 
 model ReceiptLine {
   id               String    @id @default(cuid())
-  receiptId      String
-  productId       String
+  receiptId        String
+  productId        String
   receivedQuantity Decimal   @db.Decimal(10, 2)
-  unitPrice   Decimal   @db.Decimal(10, 4)
-  batch             String?
-  dueDate DateTime?
+  unitPrice        Decimal   @db.Decimal(10, 4)
+  batch            String?
+  dueDate          DateTime?
   createdAt        DateTime  @default(now())
   updatedAt        DateTime  @updatedAt
 
   receipt Receipt @relation(fields: [receiptId], references: [id], onDelete: Cascade)
-  product  Product  @relation(fields: [productId], references: [id])
+  product Product @relation(fields: [productId], references: [id])
 
   @@index([receiptId])
   @@index([productId])
@@ -608,30 +641,30 @@ model ReceiptLine {
 
 model PhysicalInventory {
   id          String   @id @default(cuid())
-  countedAt DateTime @default(now())
-  createdById  String
+  countedAt   DateTime @default(now())
+  createdById String
   notes       String?
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
 
   createdBy User                    @relation(fields: [createdById], references: [id])
-  lines   PhysicalInventoryLine[]
+  lines     PhysicalInventoryLine[]
 
   @@unique([countedAt])
   @@index([countedAt])
 }
 
 model PhysicalInventoryLine {
-  id                 String   @id @default(cuid())
+  id                  String   @id @default(cuid())
   physicalInventoryId String
-  productId         String
-  quantityUnit1        Decimal  @db.Decimal(10, 2)
-  quantityUnit2        Decimal  @db.Decimal(10, 2)
-  createdAt          DateTime @default(now())
-  updatedAt          DateTime @updatedAt
+  productId           String
+  quantityUnit1       Decimal  @db.Decimal(10, 2)
+  quantityUnit2       Decimal  @db.Decimal(10, 2)
+  createdAt           DateTime @default(now())
+  updatedAt           DateTime @updatedAt
 
   physicalInventory PhysicalInventory @relation(fields: [physicalInventoryId], references: [id], onDelete: Cascade)
-  product         Product         @relation(fields: [productId], references: [id])
+  product           Product           @relation(fields: [productId], references: [id])
 
   @@unique([physicalInventoryId, productId])
   @@index([physicalInventoryId])
@@ -639,75 +672,82 @@ model PhysicalInventoryLine {
 }
 
 model Product {
-  id                  String  @id @default(cuid())
-  code              String  @unique
-  eanBarcode        String?
-  posDescription      String
+  id              String  @id @default(cuid())
+  code            String  @unique
+  eanBarcode      String?
+  posDescription  String
   fullDescription String
 
-  itemType String
-  family      String
-  subfamily   String?
-  section      String
-  isPurchasable  Boolean @default(false)
-  isPrepared  Boolean @default(false)
-  isSellable   Boolean @default(false)
-  hasRecipe  Boolean @default(false)
+  itemType      String
+  family        String
+  subfamily     String?
+  section       String
+  isPurchasable Boolean @default(false)
+  isPrepared    Boolean @default(false)
+  isSellable    Boolean @default(false)
+  hasRecipe     Boolean @default(false)
 
   baseStockUnit         String
-  purchaseUnit            String?
-  purchaseToBaseFactor   Decimal? @db.Decimal(12, 6)
+  purchaseUnit          String?
+  purchaseToBaseFactor  Decimal? @db.Decimal(12, 6)
   salesUnit             String?
-  salesToBaseFactor    Decimal? @db.Decimal(12, 6)
-  netWeightPerUnitGrams         Decimal? @db.Decimal(10, 2)
-  presentationFormat String?
+  salesToBaseFactor     Decimal? @db.Decimal(12, 6)
+  netWeightPerUnitGrams Decimal? @db.Decimal(10, 2)
+  presentationFormat    String?
 
-  baseUnitCost      Decimal? @db.Decimal(10, 4)
-  costIncludingVat      Decimal? @db.Decimal(10, 4)
+  baseUnitCost            Decimal? @db.Decimal(10, 4)
+  costIncludingVat        Decimal? @db.Decimal(10, 4)
   standardWastePercentage Decimal? @db.Decimal(5, 2)
 
-  vatCode            String
-  vatPercentage            Decimal? @db.Decimal(5, 2)
-  purchaseVatPercentage      Decimal? @db.Decimal(5, 2)
-  salesVatPercentage       Decimal? @db.Decimal(5, 2)
-  pricingMethod      String
-  targetMarginPercentage Decimal? @db.Decimal(5, 2)
-  targetRetailPriceIncludingVat Decimal? @db.Decimal(10, 4)
-  fixedRetailPriceIncludingVat     Decimal? @db.Decimal(10, 4)
+  vatCode                        String
+  vatPercentage                  Decimal? @db.Decimal(5, 2)
+  purchaseVatPercentage          Decimal? @db.Decimal(5, 2)
+  salesVatPercentage             Decimal? @db.Decimal(5, 2)
+  pricingMethod                  String
+  targetMarginPercentage         Decimal? @db.Decimal(5, 2)
+  targetRetailPriceIncludingVat  Decimal? @db.Decimal(10, 4)
+  fixedRetailPriceIncludingVat   Decimal? @db.Decimal(10, 4)
   appliedRetailPriceIncludingVat Decimal? @db.Decimal(10, 4)
   appliedRetailPriceExcludingVat Decimal? @db.Decimal(10, 4)
-  profitPerUnit     Decimal? @db.Decimal(10, 4)
-  actualMarginPercentage     Decimal? @db.Decimal(5, 2)
-  percentagePointDeviation      Decimal? @db.Decimal(5, 2)
-  unitDifference   Decimal? @db.Decimal(10, 4)
-  pricingDiagnosis String?
+  profitPerUnit                  Decimal? @db.Decimal(10, 4)
+  actualMarginPercentage         Decimal? @db.Decimal(5, 2)
+  percentagePointDeviation       Decimal? @db.Decimal(5, 2)
+  unitDifference                 Decimal? @db.Decimal(10, 4)
+  pricingDiagnosis               String?
 
   stockControl    String   @default("SI")
   valuationMethod String
-  minimumStock      Decimal? @db.Decimal(10, 3)
-  maximumStock      Decimal? @db.Decimal(10, 3)
-  reorderPoint      Decimal? @db.Decimal(10, 3)
+  minimumStock    Decimal? @db.Decimal(10, 3)
+  maximumStock    Decimal? @db.Decimal(10, 3)
+  reorderPoint    Decimal? @db.Decimal(10, 3)
   location        String?
-  abcClass         String?
+  abcClass        String?
 
-  batchControl  String  @default("NO")
-  shelfLifeDays Int?
+  batchControl      String  @default("NO")
+  shelfLifeDays     Int?
   storageConditions String?
-  allergens    String?
+  allergens         String?
 
-  status        String   @default("Activo")
-  addedAt     DateTime @default(now())
-  notes String?
+  status  String   @default("Activo")
+  addedAt DateTime @default(now())
+  notes   String?
 
-  isExample                Boolean                 @default(false)
-  createdById              String?
-  createdBy                User?                   @relation(fields: [createdById], references: [id])
+  isExample              Boolean                 @default(false)
+  createdById            String?
+  createdBy              User?                   @relation(fields: [createdById], references: [id])
   suppliers              SupplierProduct[]
-  receiptLines        ReceiptLine[]
+  receiptLines           ReceiptLine[]
   physicalInventoryLines PhysicalInventoryLine[]
   invoiceLines           InvoiceLine[]
-  createdAt                DateTime                @default(now())
-  updatedAt                DateTime                @updatedAt
+  inventoryBalances      InventoryBalance[]
+  inventoryMovements     InventoryMovement[]
+  recipe                 Recipe?                 @relation("RecipeOutput")
+  recipeComponents       RecipeComponent[]       @relation("RecipeComponentProduct")
+  productionEntries      ProductionEntry[]
+  productionConsumptions ProductionConsumption[]
+  wasteEntries           WasteEntry[]
+  createdAt              DateTime                @default(now())
+  updatedAt              DateTime                @updatedAt
 
   @@index([itemType])
   @@index([family])
@@ -715,27 +755,257 @@ model Product {
   @@index([status])
 }
 
-model Creditor {
-  id                    String         @id @default(cuid())
-  code                String         @unique
-  type                  CreditorType
-  name                String
-  taxId                   String?
-  defaultEntity       PaymentEntity?
-  destinationAccountLast4 String?        @db.VarChar(4)
-  status                CreditorStatus @default(ACTIVE)
-  supplierId           String?        @unique
-  createdById           String?
-  createdAt             DateTime       @default(now())
-  updatedAt             DateTime       @updatedAt
+model StockLocation {
+  id        String        @id @default(cuid())
+  code      String        @unique
+  name      String
+  entity    PaymentEntity
+  active    Boolean       @default(true)
+  createdAt DateTime      @default(now())
+  updatedAt DateTime      @updatedAt
 
-  supplier           Supplier?             @relation(fields: [supplierId], references: [id])
-  createdBy           User?                  @relation("CreditorCreator", fields: [createdById], references: [id])
-  invoices            Invoice[]
-  expenses              CurrentExpense[]
-  payments               Payment[]
+  balances     InventoryBalance[]
+  transactions InventoryTransaction[]
+  productions  ProductionEntry[]
+  wasteEntries WasteEntry[]
+
+  @@index([entity, active])
+}
+
+model InventoryBalance {
+  id         String   @id @default(cuid())
+  locationId String
+  productId  String
+  quantity   Decimal  @default(0) @db.Decimal(14, 4)
+  updatedAt  DateTime @updatedAt
+
+  location StockLocation @relation(fields: [locationId], references: [id])
+  product  Product       @relation(fields: [productId], references: [id])
+
+  @@unique([locationId, productId])
+  @@index([productId])
+}
+
+model InventoryTransaction {
+  id           String                   @id @default(cuid())
+  type         InventoryTransactionType
+  locationId   String
+  effectiveAt  DateTime
+  createdById  String
+  reason       String?
+  reversalOfId String?                  @unique
+  createdAt    DateTime                 @default(now())
+
+  location   StockLocation         @relation(fields: [locationId], references: [id])
+  createdBy  User                  @relation("InventoryTransactionCreator", fields: [createdById], references: [id])
+  reversalOf InventoryTransaction? @relation("InventoryReversal", fields: [reversalOfId], references: [id])
+  reversal   InventoryTransaction? @relation("InventoryReversal")
+  movements  InventoryMovement[]
+  production ProductionEntry?
+  waste      WasteEntry?
+
+  @@index([locationId, effectiveAt])
+  @@index([createdById, createdAt])
+  @@index([type, effectiveAt])
+}
+
+model InventoryMovement {
+  id            String   @id @default(cuid())
+  transactionId String
+  productId     String
+  quantity      Decimal  @db.Decimal(14, 4)
+  unitCost      Decimal? @db.Decimal(12, 4)
+  createdAt     DateTime @default(now())
+
+  transaction InventoryTransaction @relation(fields: [transactionId], references: [id], onDelete: Cascade)
+  product     Product              @relation(fields: [productId], references: [id])
+
+  @@unique([transactionId, productId])
+  @@index([productId, createdAt])
+}
+
+model Recipe {
+  id        String    @id @default(cuid())
+  productId String    @unique
+  deletedAt DateTime?
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+
+  product  Product         @relation("RecipeOutput", fields: [productId], references: [id])
+  versions RecipeVersion[]
+}
+
+model RecipeVersion {
+  id                  String              @id @default(cuid())
+  recipeId            String
+  version             Int
+  status              RecipeVersionStatus @default(DRAFT)
+  tolerancePercentage Decimal             @default(5) @db.Decimal(5, 2)
+  calculatedUnitCost  Decimal?            @db.Decimal(12, 4)
+  costCalculatedAt    DateTime?
+  effectiveFrom       DateTime?
+  effectiveTo         DateTime?
+  createdById         String
+  createdAt           DateTime            @default(now())
+
+  recipe      Recipe            @relation(fields: [recipeId], references: [id])
+  createdBy   User              @relation("RecipeVersionCreator", fields: [createdById], references: [id])
+  components  RecipeComponent[]
+  productions ProductionEntry[]
+
+  @@unique([recipeId, version])
+  @@index([recipeId, status])
+  @@index([createdById])
+}
+
+model RecipeComponent {
+  id                 String   @id @default(cuid())
+  recipeVersionId    String
+  componentProductId String
+  quantityPerUnit    Decimal  @db.Decimal(14, 6)
+  unitCostSnapshot   Decimal? @db.Decimal(12, 6)
+
+  recipeVersion    RecipeVersion @relation(fields: [recipeVersionId], references: [id], onDelete: Cascade)
+  componentProduct Product       @relation("RecipeComponentProduct", fields: [componentProductId], references: [id])
+
+  @@unique([recipeVersionId, componentProductId])
+  @@index([componentProductId])
+}
+
+model ProductionEntry {
+  id                     String                  @id @default(cuid())
+  shiftId                String?
+  locationId             String
+  productId              String
+  recipeVersionId        String?
+  quantity               Decimal                 @db.Decimal(14, 4)
+  exceptionReason        String?
+  deviationReason        String?
+  standaloneReason       String?
+  status                 OperationalRecordStatus @default(POSTED)
+  inventoryTransactionId String?                 @unique
+  createdById            String
+  approvedById           String?
+  approvedAt             DateTime?
+  reversedById           String?
+  reversedAt             DateTime?
+  effectiveAt            DateTime
+  createdAt              DateTime                @default(now())
+
+  shift                Shift?                  @relation(fields: [shiftId], references: [id])
+  location             StockLocation           @relation(fields: [locationId], references: [id])
+  product              Product                 @relation(fields: [productId], references: [id])
+  recipeVersion        RecipeVersion?          @relation(fields: [recipeVersionId], references: [id])
+  inventoryTransaction InventoryTransaction?   @relation(fields: [inventoryTransactionId], references: [id])
+  createdBy            User                    @relation("ProductionCreator", fields: [createdById], references: [id])
+  approvedBy           User?                   @relation("ProductionApprover", fields: [approvedById], references: [id])
+  reversedBy           User?                   @relation("ProductionReverser", fields: [reversedById], references: [id])
+  consumptions         ProductionConsumption[]
+
+  @@index([shiftId, createdAt])
+  @@index([locationId, effectiveAt])
+  @@index([productId, effectiveAt])
+  @@index([status, effectiveAt])
+  @@index([createdById])
+  @@index([approvedById])
+  @@index([reversedById])
+}
+
+model ProductionConsumption {
+  id                  String  @id @default(cuid())
+  productionId        String
+  componentProductId  String
+  theoreticalQuantity Decimal @db.Decimal(14, 6)
+  actualQuantity      Decimal @db.Decimal(14, 6)
+  exceedsTolerance    Boolean @default(false)
+
+  production       ProductionEntry @relation(fields: [productionId], references: [id], onDelete: Cascade)
+  componentProduct Product         @relation(fields: [componentProductId], references: [id])
+
+  @@unique([productionId, componentProductId])
+  @@index([componentProductId])
+}
+
+model WasteReason {
+  id          String   @id @default(cuid())
+  code        String   @unique
+  name        String
+  description String?
+  active      Boolean  @default(true)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  wasteEntries WasteEntry[]
+}
+
+model WasteEntry {
+  id                     String                  @id @default(cuid())
+  shiftId                String?
+  locationId             String
+  productId              String
+  reasonId               String
+  quantity               Decimal                 @db.Decimal(14, 4)
+  notes                  String?
+  standaloneReason       String?
+  status                 OperationalRecordStatus @default(POSTED)
+  inventoryTransactionId String                  @unique
+  createdById            String
+  reversedById           String?
+  reversedAt             DateTime?
+  effectiveAt            DateTime
+  createdAt              DateTime                @default(now())
+
+  shift                Shift?               @relation(fields: [shiftId], references: [id])
+  location             StockLocation        @relation(fields: [locationId], references: [id])
+  product              Product              @relation(fields: [productId], references: [id])
+  reason               WasteReason          @relation(fields: [reasonId], references: [id])
+  inventoryTransaction InventoryTransaction @relation(fields: [inventoryTransactionId], references: [id])
+  createdBy            User                 @relation("WasteCreator", fields: [createdById], references: [id])
+  reversedBy           User?                @relation("WasteReverser", fields: [reversedById], references: [id])
+
+  @@index([shiftId, createdAt])
+  @@index([locationId, effectiveAt])
+  @@index([productId, effectiveAt])
+  @@index([reasonId, effectiveAt])
+  @@index([createdById])
+  @@index([reversedById])
+}
+
+model ShiftOperationalReview {
+  id                 String   @id @default(cuid())
+  shiftId            String   @unique
+  productionReviewed Boolean
+  wasteReviewed      Boolean
+  confirmedById      String
+  confirmedAt        DateTime @default(now())
+
+  shift       Shift @relation(fields: [shiftId], references: [id])
+  confirmedBy User  @relation(fields: [confirmedById], references: [id])
+
+  @@index([confirmedById])
+}
+
+model Creditor {
+  id                      String         @id @default(cuid())
+  code                    String         @unique
+  type                    CreditorType
+  name                    String
+  taxId                   String?
+  defaultEntity           PaymentEntity?
+  destinationAccountLast4 String?        @db.VarChar(4)
+  status                  CreditorStatus @default(ACTIVE)
+  supplierId              String?        @unique
+  createdById             String?
+  createdAt               DateTime       @default(now())
+  updatedAt               DateTime       @updatedAt
+
+  supplier           Supplier?               @relation(fields: [supplierId], references: [id])
+  createdBy          User?                   @relation("CreditorCreator", fields: [createdById], references: [id])
+  invoices           Invoice[]
+  expenses           CurrentExpense[]
+  payments           Payment[]
   advances           Advance[]
-  accountChanges       CreditorAccountChange[]
+  accountChanges     CreditorAccountChange[]
   recurringContracts RecurringContract[]
 
   @@index([type, status])
@@ -743,14 +1013,14 @@ model Creditor {
 }
 
 model PaymentMethod {
-  id               String          @id
-  type             PaymentMethodType
-  requiresAccount   Boolean         @default(true)
-  bankReconciliable Boolean         @default(true)
-  transactionLimit  Decimal?        @db.Decimal(12, 2)
-  status           PaymentMethodStatus @default(ACTIVE)
-  createdAt        DateTime        @default(now())
-  updatedAt        DateTime        @updatedAt
+  id                String              @id
+  type              PaymentMethodType
+  requiresAccount   Boolean             @default(true)
+  bankReconciliable Boolean             @default(true)
+  transactionLimit  Decimal?            @db.Decimal(12, 2)
+  status            PaymentMethodStatus @default(ACTIVE)
+  createdAt         DateTime            @default(now())
+  updatedAt         DateTime            @updatedAt
 
   payments Payment[]
 
@@ -758,54 +1028,54 @@ model PaymentMethod {
 }
 
 model FundsAccount {
-  id            String             @id
-  type          FundsAccountType
-  entity       PaymentEntity
-  description   String
-  ibanLast4  String?            @db.VarChar(4)
-  responsibleUserId String
-  theoreticalBalance  Decimal            @default(0) @db.Decimal(14, 2)
-  fixedFloat     Decimal?           @db.Decimal(12, 2)
-  status        FundsAccountStatus @default(ACTIVE)
-  createdAt     DateTime           @default(now())
-  updatedAt     DateTime           @updatedAt
+  id                 String             @id
+  type               FundsAccountType
+  entity             PaymentEntity
+  description        String
+  ibanLast4          String?            @db.VarChar(4)
+  responsibleUserId  String
+  theoreticalBalance Decimal            @default(0) @db.Decimal(14, 2)
+  fixedFloat         Decimal?           @db.Decimal(12, 2)
+  status             FundsAccountStatus @default(ACTIVE)
+  createdAt          DateTime           @default(now())
+  updatedAt          DateTime           @updatedAt
 
-  owner         User                  @relation("FundsAccountResponsible", fields: [responsibleUserId], references: [id])
-  payments               Payment[]
-  movements         FundsMovement[]
+  owner              User                @relation("FundsAccountResponsible", fields: [responsibleUserId], references: [id])
+  payments           Payment[]
+  movements          FundsMovement[]
   statementMovements StatementMovement[]
-  cashCounts             CashCount[]
-  replenishments        CashReplenishment[]
-  imports       StatementImport[]
+  cashCounts         CashCount[]
+  replenishments     CashReplenishment[]
+  imports            StatementImport[]
 
   @@index([entity, type, status])
 }
 
 model ExpenseCategory {
   id          String   @id @default(cuid())
-  code      String   @unique
-  name      String
+  code        String   @unique
+  name        String
   description String?
   active      Boolean  @default(true)
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
 
-  expenses    CurrentExpense[]
+  expenses  CurrentExpense[]
   contracts RecurringContract[]
 }
 
 model AuthorizationParameter {
-  id           String       @id @default(cuid())
-  entity      PaymentEntity?
-  code       String
-  decimalValue Decimal?     @db.Decimal(12, 2)
-  textValue   String?
-  version      Int          @default(1)
-  active       Boolean      @default(true)
-  validFrom DateTime     @default(now())
-  validTo DateTime?
+  id           String         @id @default(cuid())
+  entity       PaymentEntity?
+  code         String
+  decimalValue Decimal?       @db.Decimal(12, 2)
+  textValue    String?
+  version      Int            @default(1)
+  active       Boolean        @default(true)
+  validFrom    DateTime       @default(now())
+  validTo      DateTime?
   changedById  String
-  createdAt    DateTime     @default(now())
+  createdAt    DateTime       @default(now())
 
   changedBy User @relation(fields: [changedById], references: [id])
 
@@ -814,17 +1084,17 @@ model AuthorizationParameter {
 }
 
 model AuthorizationRule {
-  id               String       @id @default(cuid())
-  entity          PaymentEntity?
-  amountFrom     Decimal      @db.Decimal(12, 2)
-  amountTo     Decimal?     @db.Decimal(12, 2)
+  id               String          @id @default(cuid())
+  entity           PaymentEntity?
+  amountFrom       Decimal         @db.Decimal(12, 2)
+  amountTo         Decimal?        @db.Decimal(12, 2)
   requiredFunction PaymentFunction
-  version          Int          @default(1)
-  active           Boolean      @default(true)
-  validFrom     DateTime     @default(now())
-  validTo     DateTime?
+  version          Int             @default(1)
+  active           Boolean         @default(true)
+  validFrom        DateTime        @default(now())
+  validTo          DateTime?
   changedById      String
-  createdAt        DateTime     @default(now())
+  createdAt        DateTime        @default(now())
 
   changedBy User @relation(fields: [changedById], references: [id])
 
@@ -832,14 +1102,14 @@ model AuthorizationRule {
 }
 
 model UserPaymentAssignment {
-  id           String       @id @default(cuid())
-  userId       String
-  entity      PaymentEntity?
-  function      PaymentFunction
-  active       Boolean      @default(true)
-  validFrom DateTime     @default(now())
-  validTo DateTime?
-  createdAt    DateTime     @default(now())
+  id        String          @id @default(cuid())
+  userId    String
+  entity    PaymentEntity?
+  function  PaymentFunction
+  active    Boolean         @default(true)
+  validFrom DateTime        @default(now())
+  validTo   DateTime?
+  createdAt DateTime        @default(now())
 
   user User @relation(fields: [userId], references: [id], onDelete: Cascade)
 
@@ -848,54 +1118,54 @@ model UserPaymentAssignment {
 }
 
 model RecurringContract {
-  id              String      @id @default(cuid())
+  id             String        @id @default(cuid())
   entity         PaymentEntity
-  creditorId      String
+  creditorId     String
   categoryId     String
   concept        String
-  expectedAmount Decimal     @db.Decimal(12, 2)
-  tolerance      Decimal     @default(0) @db.Decimal(12, 2)
-  frequency    String
-  startDate     DateTime    @db.Date
-  endDate        DateTime?   @db.Date
+  expectedAmount Decimal       @db.Decimal(12, 2)
+  tolerance      Decimal       @default(0) @db.Decimal(12, 2)
+  frequency      String
+  startDate      DateTime      @db.Date
+  endDate        DateTime?     @db.Date
   authorizedById String
-  active          Boolean     @default(true)
-  createdAt       DateTime    @default(now())
-  updatedAt       DateTime    @updatedAt
+  active         Boolean       @default(true)
+  createdAt      DateTime      @default(now())
+  updatedAt      DateTime      @updatedAt
 
-  creditor      Creditor         @relation(fields: [creditorId], references: [id])
-  category     ExpenseCategory   @relation(fields: [categoryId], references: [id])
+  creditor     Creditor         @relation(fields: [creditorId], references: [id])
+  category     ExpenseCategory  @relation(fields: [categoryId], references: [id])
   authorizedBy User             @relation(fields: [authorizedById], references: [id])
-  expenses        CurrentExpense[]
+  expenses     CurrentExpense[]
 
   @@index([entity, active, startDate])
 }
 
 model CurrentExpense {
-  id            String               @id @default(cuid())
-  entity       PaymentEntity
-  categoryId   String
-  creditorId    String?
-  contractId    String?
-  shiftId       String?
-  concept      String
-  accrualDate  DateTime             @db.Date
-  amount       Decimal              @db.Decimal(12, 2)
-  receipt  ExpenseReceiptType
-  requesterId String
-  authorizerId String?
-  status        CurrentExpenseStatus @default(DRAFT)
+  id              String               @id @default(cuid())
+  entity          PaymentEntity
+  categoryId      String
+  creditorId      String?
+  contractId      String?
+  shiftId         String?
+  concept         String
+  accrualDate     DateTime             @db.Date
+  amount          Decimal              @db.Decimal(12, 2)
+  receipt         ExpenseReceiptType
+  requesterId     String
+  authorizerId    String?
+  status          CurrentExpenseStatus @default(DRAFT)
   rejectionReason String?
-  authorizedAt  DateTime?
-  createdAt     DateTime             @default(now())
-  updatedAt     DateTime             @updatedAt
+  authorizedAt    DateTime?
+  createdAt       DateTime             @default(now())
+  updatedAt       DateTime             @updatedAt
 
-  category    ExpenseCategory      @relation(fields: [categoryId], references: [id])
-  creditor     Creditor?           @relation(fields: [creditorId], references: [id])
-  contract     RecurringContract? @relation(fields: [contractId], references: [id])
-  shift        Shift?              @relation(fields: [shiftId], references: [id], onDelete: SetNull)
-  requester  User                @relation("ExpenseRequester", fields: [requesterId], references: [id])
-  authorizer  User?               @relation("ExpenseAuthorizer", fields: [authorizerId], references: [id])
+  category     ExpenseCategory      @relation(fields: [categoryId], references: [id])
+  creditor     Creditor?            @relation(fields: [creditorId], references: [id])
+  contract     RecurringContract?   @relation(fields: [contractId], references: [id])
+  shift        Shift?               @relation(fields: [shiftId], references: [id], onDelete: SetNull)
+  requester    User                 @relation("ExpenseRequester", fields: [requesterId], references: [id])
+  authorizer   User?                @relation("ExpenseAuthorizer", fields: [authorizerId], references: [id])
   applications PaymentApplication[]
 
   @@index([entity, status, accrualDate])
@@ -904,62 +1174,62 @@ model CurrentExpense {
 }
 
 model Advance {
-  id              String               @id @default(cuid())
+  id             String               @id @default(cuid())
   entity         PaymentEntity
-  creditorId      String
+  creditorId     String
   concept        String
   date           DateTime             @db.Date
   amount         Decimal              @db.Decimal(12, 2)
-  appliedAmount Decimal              @default(0) @db.Decimal(12, 2)
-  requestedById String
+  appliedAmount  Decimal              @default(0) @db.Decimal(12, 2)
+  requestedById  String
   authorizedById String?
-  status          CurrentExpenseStatus @default(PENDING_AUTHORIZATION)
-  createdAt       DateTime             @default(now())
-  updatedAt       DateTime             @updatedAt
+  status         CurrentExpenseStatus @default(PENDING_AUTHORIZATION)
+  createdAt      DateTime             @default(now())
+  updatedAt      DateTime             @updatedAt
 
-  creditor      Creditor         @relation(fields: [creditorId], references: [id])
-  requestedBy User             @relation("AdvanceRequester", fields: [requestedById], references: [id])
-  authorizedBy User?            @relation("AdvanceAuthorizer", fields: [authorizedById], references: [id])
-  applications  PaymentApplication[]
+  creditor     Creditor             @relation(fields: [creditorId], references: [id])
+  requestedBy  User                 @relation("AdvanceRequester", fields: [requestedById], references: [id])
+  authorizedBy User?                @relation("AdvanceAuthorizer", fields: [authorizedById], references: [id])
+  applications PaymentApplication[]
 
   @@index([entity, status, date])
 }
 
 model PaymentSequence {
-  entity      PaymentEntity @id
-  lastNumber Int         @default(0)
-  updatedAt    DateTime    @updatedAt
+  entity     PaymentEntity @id
+  lastNumber Int           @default(0)
+  updatedAt  DateTime      @updatedAt
 }
 
 model Payment {
-  id                    String      @id @default(cuid())
-  number                Int
+  id                   String        @id @default(cuid())
+  number               Int
   entity               PaymentEntity
-  paymentDate             DateTime    @db.Date
-  paymentMethodId           String
-  fundsAccountId        String
-  creditorId            String
-  totalAmount          Decimal     @db.Decimal(12, 2)
-  externalReference     String?
-  executedById        String
-  reconciled            Boolean     @default(false)
-  status                PaymentStatus  @default(DRAFT)
+  paymentDate          DateTime      @db.Date
+  paymentMethodId      String
+  fundsAccountId       String
+  creditorId           String
+  totalAmount          Decimal       @db.Decimal(12, 2)
+  externalReference    String?
+  executedById         String
+  reconciled           Boolean       @default(false)
+  status               PaymentStatus @default(DRAFT)
   excessAuthorizedById String?
-  excessReason          String?
-  voidedById          String?
+  excessReason         String?
+  voidedById           String?
   voidedAt             DateTime?
-  createdAt             DateTime    @default(now())
-  updatedAt             DateTime    @updatedAt
+  createdAt            DateTime      @default(now())
+  updatedAt            DateTime      @updatedAt
 
-  paymentMethod           PaymentMethod           @relation(fields: [paymentMethodId], references: [id])
-  fundsAccount        FundsAccount        @relation(fields: [fundsAccountId], references: [id])
-  creditor            Creditor            @relation(fields: [creditorId], references: [id])
-  executedBy        User                @relation("PaymentExecutor", fields: [executedById], references: [id])
-  excessAuthorizedBy User?               @relation("ExcessPaymentAuthorizer", fields: [excessAuthorizedById], references: [id])
-  voidedBy          User?               @relation("PaymentVoider", fields: [voidedById], references: [id])
-  applications        PaymentApplication[]
-  approvals        PaymentApproval[]
-  fundsMovement    FundsMovement?
+  paymentMethod      PaymentMethod        @relation(fields: [paymentMethodId], references: [id])
+  fundsAccount       FundsAccount         @relation(fields: [fundsAccountId], references: [id])
+  creditor           Creditor             @relation(fields: [creditorId], references: [id])
+  executedBy         User                 @relation("PaymentExecutor", fields: [executedById], references: [id])
+  excessAuthorizedBy User?                @relation("ExcessPaymentAuthorizer", fields: [excessAuthorizedById], references: [id])
+  voidedBy           User?                @relation("PaymentVoider", fields: [voidedById], references: [id])
+  applications       PaymentApplication[]
+  approvals          PaymentApproval[]
+  fundsMovement      FundsMovement?
   statementMovement  StatementMovement?
 
   @@unique([entity, number])
@@ -968,19 +1238,19 @@ model Payment {
 }
 
 model PaymentApplication {
-  id              String             @id @default(cuid())
-  paymentId          String
-  destinationType     PaymentApplicationType
-  invoiceId       String?
-  currentExpenseId         String?
-  advanceId      String?
-  appliedAmount Decimal            @db.Decimal(12, 2)
-  createdAt       DateTime           @default(now())
+  id               String                 @id @default(cuid())
+  paymentId        String
+  destinationType  PaymentApplicationType
+  invoiceId        String?
+  currentExpenseId String?
+  advanceId        String?
+  appliedAmount    Decimal                @db.Decimal(12, 2)
+  createdAt        DateTime               @default(now())
 
-  payment     Payment            @relation(fields: [paymentId], references: [id], onDelete: Cascade)
-  invoice  Invoice?        @relation(fields: [invoiceId], references: [id])
-  expense    CurrentExpense? @relation(fields: [currentExpenseId], references: [id])
-  advance Advance?       @relation(fields: [advanceId], references: [id])
+  payment Payment         @relation(fields: [paymentId], references: [id], onDelete: Cascade)
+  invoice Invoice?        @relation(fields: [invoiceId], references: [id])
+  expense CurrentExpense? @relation(fields: [currentExpenseId], references: [id])
+  advance Advance?        @relation(fields: [advanceId], references: [id])
 
   @@index([invoiceId])
   @@index([currentExpenseId])
@@ -989,33 +1259,33 @@ model PaymentApplication {
 
 model PaymentApproval {
   id        String   @id @default(cuid())
-  paymentId    String
-  userId String
+  paymentId String
+  userId    String
   type      String
   reason    String
   createdAt DateTime @default(now())
 
-  payment    Payment @relation(fields: [paymentId], references: [id], onDelete: Cascade)
-  user User @relation("ApprovalUser", fields: [userId], references: [id])
+  payment Payment @relation(fields: [paymentId], references: [id], onDelete: Cascade)
+  user    User    @relation("ApprovalUser", fields: [userId], references: [id])
 
   @@index([paymentId, type])
 }
 
 model FundsMovement {
-  id             String               @id @default(cuid())
+  id             String            @id @default(cuid())
   fundsAccountId String
-  entity        PaymentEntity
+  entity         PaymentEntity
   type           FundsMovementType
-  amount        Decimal              @db.Decimal(14, 2)
+  amount         Decimal           @db.Decimal(14, 2)
   description    String?
   sourceType     String?
   sourceId       String?
-  paymentId         String?              @unique
+  paymentId      String?           @unique
   createdById    String
-  createdAt      DateTime             @default(now())
+  createdAt      DateTime          @default(now())
 
   fundsAccount FundsAccount @relation(fields: [fundsAccountId], references: [id])
-  payment         Payment?        @relation(fields: [paymentId], references: [id])
+  payment      Payment?     @relation(fields: [paymentId], references: [id])
   createdBy    User         @relation("MovementCreator", fields: [createdById], references: [id])
 
   @@index([fundsAccountId, createdAt])
@@ -1025,139 +1295,139 @@ model FundsMovement {
 model StatementImport {
   id             String    @id @default(cuid())
   fundsAccountId String
-  fileName  String
-  fileHash    String?
-  startDate     DateTime? @db.Date
-  endDate     DateTime? @db.Date
+  fileName       String
+  fileHash       String?
+  startDate      DateTime? @db.Date
+  endDate        DateTime? @db.Date
   createdById    String
   createdAt      DateTime  @default(now())
 
-  fundsAccount FundsAccount         @relation(fields: [fundsAccountId], references: [id])
-  createdBy    User                 @relation(fields: [createdById], references: [id])
-  movements  StatementMovement[]
+  fundsAccount FundsAccount        @relation(fields: [fundsAccountId], references: [id])
+  createdBy    User                @relation(fields: [createdById], references: [id])
+  movements    StatementMovement[]
 
   @@index([fundsAccountId, createdAt])
 }
 
 model StatementMovement {
-  id                String                      @id @default(cuid())
-  importId     String
+  id                String                     @id @default(cuid())
+  importId          String
   fundsAccountId    String
-  valueDate        DateTime                    @db.Date
+  valueDate         DateTime                   @db.Date
   description       String
   externalReference String?
   direction         StatementMovementDirection
-  amount           Decimal                     @db.Decimal(14, 2)
+  amount            Decimal                    @db.Decimal(14, 2)
   status            StatementMovementStatus    @default(PENDING)
-  paymentId            String?                     @unique
-  reconciledById   String?
+  paymentId         String?                    @unique
+  reconciledById    String?
   reconciledAt      DateTime?
-  issue        String?
-  createdAt         DateTime                    @default(now())
+  issue             String?
+  createdAt         DateTime                   @default(now())
 
-  statementImport   StatementImport @relation(fields: [importId], references: [id], onDelete: Cascade)
-  fundsAccount  FundsAccount        @relation(fields: [fundsAccountId], references: [id])
-  payment          Payment?               @relation(fields: [paymentId], references: [id])
-  reconciledBy User?               @relation("MovementReconciler", fields: [reconciledById], references: [id])
+  statementImport StatementImport @relation(fields: [importId], references: [id], onDelete: Cascade)
+  fundsAccount    FundsAccount    @relation(fields: [fundsAccountId], references: [id])
+  payment         Payment?        @relation(fields: [paymentId], references: [id])
+  reconciledBy    User?           @relation("MovementReconciler", fields: [reconciledById], references: [id])
 
   @@index([fundsAccountId, valueDate, status])
   @@index([externalReference])
 }
 
 model CashCount {
-  id              String           @id @default(cuid())
-  fundsAccountId  String
-  date           DateTime         @db.Date
-  custodianId      String
-  verifierId   String
-  countedCash Decimal          @db.Decimal(12, 2)
-  receipts   Decimal          @db.Decimal(12, 2)
-  fixedFloat       Decimal          @db.Decimal(12, 2)
-  variance      Decimal          @db.Decimal(12, 2)
-  status          CashCountStatus @default(DRAFT)
-  notes   String?
-  createdAt       DateTime         @default(now())
-  updatedAt       DateTime         @updatedAt
+  id             String          @id @default(cuid())
+  fundsAccountId String
+  date           DateTime        @db.Date
+  custodianId    String
+  verifierId     String
+  countedCash    Decimal         @db.Decimal(12, 2)
+  receipts       Decimal         @db.Decimal(12, 2)
+  fixedFloat     Decimal         @db.Decimal(12, 2)
+  variance       Decimal         @db.Decimal(12, 2)
+  status         CashCountStatus @default(DRAFT)
+  notes          String?
+  createdAt      DateTime        @default(now())
+  updatedAt      DateTime        @updatedAt
 
-  fundsAccount FundsAccount     @relation(fields: [fundsAccountId], references: [id])
-  custodian     User             @relation("CashCountCustodian", fields: [custodianId], references: [id])
-  verifier  User             @relation("CashCountVerifier", fields: [verifierId], references: [id])
+  fundsAccount   FundsAccount        @relation(fields: [fundsAccountId], references: [id])
+  custodian      User                @relation("CashCountCustodian", fields: [custodianId], references: [id])
+  verifier       User                @relation("CashCountVerifier", fields: [verifierId], references: [id])
   replenishments CashReplenishment[]
 
   @@index([fundsAccountId, date])
 }
 
 model CashReplenishment {
-  id                 String               @id @default(cuid())
-  fundsAccountId     String
-  cashCountId           String?
-  amount            Decimal              @db.Decimal(12, 2)
-  justifiedAmount Decimal              @db.Decimal(12, 2)
-  status             CashReplenishmentStatus @default(DRAFT)
-  createdById        String
-  executedAt        DateTime?
-  createdAt          DateTime             @default(now())
-  updatedAt          DateTime             @updatedAt
+  id              String                  @id @default(cuid())
+  fundsAccountId  String
+  cashCountId     String?
+  amount          Decimal                 @db.Decimal(12, 2)
+  justifiedAmount Decimal                 @db.Decimal(12, 2)
+  status          CashReplenishmentStatus @default(DRAFT)
+  createdById     String
+  executedAt      DateTime?
+  createdAt       DateTime                @default(now())
+  updatedAt       DateTime                @updatedAt
 
   fundsAccount FundsAccount @relation(fields: [fundsAccountId], references: [id])
-  cashCount       CashCount?  @relation(fields: [cashCountId], references: [id])
+  cashCount    CashCount?   @relation(fields: [cashCountId], references: [id])
   createdBy    User         @relation("ReplenishmentCreator", fields: [createdById], references: [id])
 
-  @@index([fundsAccountId, status, createdAt])
   @@unique([cashCountId])
+  @@index([fundsAccountId, status, createdAt])
 }
 
 model CreditorAccountChange {
-  id                String    @id @default(cuid())
-  creditorId        String
-  previousAccountLast4   String?
+  id                   String    @id @default(cuid())
+  creditorId           String
+  previousAccountLast4 String?
   newAccountLast4      String    @db.VarChar(4)
-  reason            String
-  requestedById   String
-  authorizedById   String?
-  status            String    @default("PENDIENTE")
-  confirmationChannel String?
-  createdAt         DateTime  @default(now())
-  authorizedAt      DateTime?
+  reason               String
+  requestedById        String
+  authorizedById       String?
+  status               String    @default("PENDIENTE")
+  confirmationChannel  String?
+  createdAt            DateTime  @default(now())
+  authorizedAt         DateTime?
 
-  creditor      Creditor @relation(fields: [creditorId], references: [id])
-  requestedBy User     @relation("AccountChangeRequester", fields: [requestedById], references: [id])
+  creditor     Creditor @relation(fields: [creditorId], references: [id])
+  requestedBy  User     @relation("AccountChangeRequester", fields: [requestedById], references: [id])
   authorizedBy User?    @relation("AccountChangeAuthorizer", fields: [authorizedById], references: [id])
 
   @@index([creditorId, status])
 }
 
 model PaymentAttachment {
-  id            String   @id @default(cuid())
-  storageKey    String   @unique
-  fileName String
-  mimeType      String
-  sizeBytes        Int
-  sha256        String?
-  invoiceId     String?
-  uploadedById   String
-  createdAt     DateTime @default(now())
+  id           String   @id @default(cuid())
+  storageKey   String   @unique
+  fileName     String
+  mimeType     String
+  sizeBytes    Int
+  sha256       String?
+  invoiceId    String?
+  uploadedById String
+  createdAt    DateTime @default(now())
 
-  invoice   Invoice?        @relation(fields: [invoiceId], references: [id], onDelete: Cascade)
-  uploadedBy User            @relation("AttachmentUploader", fields: [uploadedById], references: [id])
+  invoice    Invoice? @relation(fields: [invoiceId], references: [id], onDelete: Cascade)
+  uploadedBy User     @relation("AttachmentUploader", fields: [uploadedById], references: [id])
 
   @@index([invoiceId])
 }
 
 model MonthlyClose {
-  id            String              @id @default(cuid())
-  entity       PaymentEntity
-  year          Int
-  month           Int
-  status        MonthlyCloseStatus @default(OPEN)
-  closedById  String?
-  closedAt     DateTime?
-  notes String?
-  createdAt     DateTime            @default(now())
-  updatedAt     DateTime            @updatedAt
+  id         String             @id @default(cuid())
+  entity     PaymentEntity
+  year       Int
+  month      Int
+  status     MonthlyCloseStatus @default(OPEN)
+  closedById String?
+  closedAt   DateTime?
+  notes      String?
+  createdAt  DateTime           @default(now())
+  updatedAt  DateTime           @updatedAt
 
-  closedBy  User?             @relation("CloseUser", fields: [closedById], references: [id])
-  metrics CloseMetric[]
+  closedBy User?         @relation("CloseUser", fields: [closedById], references: [id])
+  metrics  CloseMetric[]
 
   @@unique([entity, year, month])
   @@index([status, year, month])
@@ -1165,12 +1435,12 @@ model MonthlyClose {
 
 model CloseMetric {
   id         String   @id @default(cuid())
-  closeId   String
-  code     String
+  closeId    String
+  code       String
   quantity   Decimal? @db.Decimal(14, 2)
-  amount    Decimal? @db.Decimal(14, 2)
+  amount     Decimal? @db.Decimal(14, 2)
   percentage Decimal? @db.Decimal(7, 4)
-  detail    Json?
+  detail     Json?
   createdAt  DateTime @default(now())
 
   close MonthlyClose @relation(fields: [closeId], references: [id], onDelete: Cascade)
@@ -1179,16 +1449,16 @@ model CloseMetric {
 }
 
 model AuditEvent {
-  id           String       @id @default(cuid())
-  actorId      String?
-  action       String
+  id         String         @id @default(cuid())
+  actorId    String?
+  action     String
   recordType String
   recordId   String
-  entity      PaymentEntity?
-  reason       String?
-  before        Json?
+  entity     PaymentEntity?
+  reason     String?
+  before     Json?
   after      Json?
-  createdAt    DateTime     @default(now())
+  createdAt  DateTime       @default(now())
 
   actor User? @relation("AuditActor", fields: [actorId], references: [id])
 

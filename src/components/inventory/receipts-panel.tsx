@@ -1,7 +1,7 @@
 "use client"
 
 import { useState, useEffect, useCallback } from "react"
-import ReceiptForm from "./receipt-form"
+import ReceiptForm, { type ReceiptFormValues } from "./receipt-form"
 
 interface Supplier {
   id: string
@@ -28,7 +28,7 @@ interface Receipt {
   deliveryNoteCode: string
   receivedAt: string
   notes: string | null
-  supplier: { legalName: string }
+  supplier: { id?: string; legalName: string }
   receivedBy: { name: string } | null
   _count: { lines: number }
   lines?: ReceiptLine[]
@@ -36,11 +36,32 @@ interface Receipt {
 
 type ReceiptsPanelProps = {
   canDelete?: boolean
+  canEdit?: boolean
   initialView?: "list" | "create"
 }
 
-export default function ReceiptsPanel({ canDelete = true, initialView = "list" }: ReceiptsPanelProps) {
-  const [view, setView] = useState<"list" | "create" | "detail">(initialView)
+function dateInputValue(value: string) {
+  return value.slice(0, 10)
+}
+
+function toReceiptFormValues(receipt: Receipt): ReceiptFormValues {
+  return {
+    supplierId: receipt.supplier.id || "",
+    deliveryNoteCode: receipt.deliveryNoteCode,
+    receivedAt: dateInputValue(receipt.receivedAt),
+    notes: receipt.notes || "",
+    lines: (receipt.lines || []).map((line) => ({
+      productId: line.product.id,
+      receivedQuantity: Number(line.receivedQuantity),
+      unitPrice: Number(line.unitPrice),
+      batch: line.batch || "",
+      dueDate: line.dueDate ? dateInputValue(line.dueDate) : "",
+    })),
+  }
+}
+
+export default function ReceiptsPanel({ canDelete = true, canEdit = false, initialView = "list" }: ReceiptsPanelProps) {
+  const [view, setView] = useState<"list" | "create" | "edit" | "detail">(initialView)
   const [receipts, setReceipts] = useState<Receipt[]>([])
   const [total, setTotal] = useState(0)
   const [page, setPage] = useState(1)
@@ -101,19 +122,7 @@ export default function ReceiptsPanel({ canDelete = true, initialView = "list" }
   }, [search, supplierFilter, startDate, endDate])
   /* eslint-enable react-hooks/set-state-in-effect */
 
-  const handleCreate = async (data: {
-    supplierId: string
-    deliveryNoteCode: string
-    receivedAt: string
-    notes?: string
-    lines: Array<{
-      productId: string
-      receivedQuantity: number
-      unitPrice: number
-      batch?: string
-      dueDate?: string
-    }>
-  }) => {
+  const handleCreate = async (data: ReceiptFormValues) => {
     setSaving(true)
     setError("")
     setSuccess("")
@@ -128,6 +137,32 @@ export default function ReceiptsPanel({ canDelete = true, initialView = "list" }
         throw new Error(d.error || "Error al crear recepción")
       }
       setSuccess("Recepción registrada correctamente")
+      setView("list")
+      loadReceipts()
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "Error desconocido")
+    } finally {
+      setSaving(false)
+    }
+  }
+
+  const handleUpdate = async (data: ReceiptFormValues) => {
+    if (!selectedReceipt) return
+    setSaving(true)
+    setError("")
+    setSuccess("")
+    try {
+      const r = await fetch(`/api/inventario/recepciones/${selectedReceipt.id}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(data),
+      })
+      if (!r.ok) {
+        const d = await r.json()
+        throw new Error(d.error || "Error al modificar recepción")
+      }
+      setSuccess("Recepción modificada correctamente")
+      setSelectedReceipt(null)
       setView("list")
       loadReceipts()
     } catch (e) {
@@ -167,15 +202,31 @@ export default function ReceiptsPanel({ canDelete = true, initialView = "list" }
     }
   }
 
+  const handleEdit = async (id: string) => {
+    setDetailLoading(true)
+    setError("")
+    try {
+      const r = await fetch(`/api/inventario/recepciones/${id}`)
+      if (!r.ok) throw new Error("Error al cargar recepción")
+      const d = await r.json()
+      setSelectedReceipt(d)
+      setView("edit")
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "Error desconocido")
+    } finally {
+      setDetailLoading(false)
+    }
+  }
+
   const totalPages = Math.ceil(total / pageSize)
 
-  if (view === "create") {
+  if (view === "create" || view === "edit") {
     return (
       <div className="rounded-lg border bg-white p-4 shadow-sm sm:p-6">
         <div className="mb-4 flex flex-col items-stretch gap-2 sm:flex-row sm:items-center sm:justify-between">
-          <h2 className="text-lg font-semibold text-gray-900">Nueva recepción</h2>
+          <h2 className="text-lg font-semibold text-gray-900">{view === "edit" ? "Modificar recepción" : "Nueva recepción"}</h2>
           <button
-            onClick={() => setView("list")}
+            onClick={() => setView(view === "edit" ? "detail" : "list")}
             className="w-full rounded-md border border-gray-300 px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50 sm:w-auto"
           >
             Volver
@@ -184,7 +235,12 @@ export default function ReceiptsPanel({ canDelete = true, initialView = "list" }
         {error && (
           <div className="mb-4 rounded-md bg-red-50 p-3 text-sm text-red-600">{error}</div>
         )}
-        <ReceiptForm onSubmit={handleCreate} onCancel={() => setView("list")} saving={saving} />
+        <ReceiptForm
+          initialValues={view === "edit" && selectedReceipt ? toReceiptFormValues(selectedReceipt) : undefined}
+          onSubmit={view === "edit" ? handleUpdate : handleCreate}
+          onCancel={() => setView(view === "edit" ? "detail" : "list")}
+          saving={saving}
+        />
       </div>
     )
   }
@@ -200,12 +256,22 @@ export default function ReceiptsPanel({ canDelete = true, initialView = "list" }
           <h2 className="text-lg font-semibold text-gray-900">
             Albarán: {selectedReceipt.deliveryNoteCode}
           </h2>
-          <button
-            onClick={() => { setView("list"); setSelectedReceipt(null) }}
-            className="w-full rounded-md border border-gray-300 px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50 sm:w-auto"
-          >
-            Volver
-          </button>
+          <div className="flex flex-col gap-2 sm:flex-row">
+            {canEdit && (
+              <button
+                onClick={() => setView("edit")}
+                className="w-full rounded-md bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-700 sm:w-auto"
+              >
+                Modificar
+              </button>
+            )}
+            <button
+              onClick={() => { setView("list"); setSelectedReceipt(null) }}
+              className="w-full rounded-md border border-gray-300 px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50 sm:w-auto"
+            >
+              Volver
+            </button>
+          </div>
         </div>
 
         <div className="mb-4 grid grid-cols-1 gap-3 text-sm min-[420px]:grid-cols-2 sm:grid-cols-4">
@@ -372,6 +438,14 @@ export default function ReceiptsPanel({ canDelete = true, initialView = "list" }
                     <td className="px-3 py-2 text-center text-gray-600">{rec._count.lines}</td>
                     <td className="px-3 py-2 text-gray-600">{rec.receivedBy?.name || "—"}</td>
                     <td className="px-3 py-2 text-right">
+                      {canEdit && (
+                        <button
+                          onClick={() => void handleEdit(rec.id)}
+                          className="mr-2 text-xs font-medium text-blue-600 hover:text-blue-800"
+                        >
+                          Modificar
+                        </button>
+                      )}
                       <button
                         onClick={() => handleViewDetail(rec.id)}
                         className="mr-2 text-xs font-medium text-blue-600 hover:text-blue-800"
