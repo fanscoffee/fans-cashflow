@@ -23,6 +23,9 @@ describe("ReceiptForm provider products", () => {
 
     render(<ReceiptForm onSubmit={vi.fn().mockResolvedValue(undefined)} onCancel={vi.fn()} saving={false} />)
 
+    expect(screen.getByLabelText("Coste unitario")).toBeInTheDocument()
+    expect(screen.queryByLabelText("Precio unitario")).not.toBeInTheDocument()
+
     const providerSelect = screen.getByLabelText("Proveedor *")
     expect(fetchMock).not.toHaveBeenCalledWith(expect.stringContaining("/api/inventario/recepciones/productos"), expect.anything())
 
