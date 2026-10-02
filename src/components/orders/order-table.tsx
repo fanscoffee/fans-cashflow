@@ -1,6 +1,7 @@
 import type { Order } from "@/types/order"
 import type { SortField, SortDirection } from "@/hooks/useOrderFilters"
 import OrderActions from "./order-actions"
+import OrderLocationBadge from "./order-location-badge"
 
 interface SortableHeaderProps {
   field: SortField
@@ -70,6 +71,7 @@ export default function OrderTable({
           <tr className="border-b text-xs font-medium text-gray-500">
             <SortableHeader field="createdAt" label="Creado" sortField={sortField} sortDirection={sortDirection} onSort={onSort} />
             <SortableHeader field="deliveryDate" label="Entrega" sortField={sortField} sortDirection={sortDirection} onSort={onSort} />
+            <th className="pb-2">Destino</th>
             <SortableHeader field="clientName" label="Cliente" sortField={sortField} sortDirection={sortDirection} onSort={onSort} />
             <SortableHeader field="clientPhone" label="Teléfono" sortField={sortField} sortDirection={sortDirection} onSort={onSort} />
             <th className="pb-2">Comentario</th>
@@ -92,6 +94,9 @@ export default function OrderTable({
                     hour: "2-digit",
                     minute: "2-digit",
                   })}
+                </td>
+                <td className="py-3">
+                  <OrderLocationBadge location={order.deliveryLocation} />
                 </td>
                 <td className="py-3 font-medium text-gray-900">{order.clientName}</td>
                 <td className="py-3 text-gray-900">{order.clientPhone}</td>

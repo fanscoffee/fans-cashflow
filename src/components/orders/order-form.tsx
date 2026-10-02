@@ -4,13 +4,22 @@ import { useEffect } from "react"
 import { useForm } from "react-hook-form"
 import { zodResolver } from "@hookform/resolvers/zod"
 import { z } from "zod"
-import type { Order, OrderFormData } from "@/types/order"
+import {
+  ORDER_DELIVERY_LOCATIONS,
+  ORDER_DELIVERY_LOCATION_LABELS,
+  isOrderDeliveryLocation,
+  type Order,
+  type OrderFormData,
+} from "@/types/order"
 
 export const orderFormSchema = z.object({
   clientName: z.string().min(1, "El nombre del cliente es obligatorio"),
   clientPhone: z.string().min(1, "El teléfono del cliente es obligatorio"),
   deliveryDate: z.string().min(1, "La fecha de entrega es obligatoria"),
   deliveryTime: z.string().min(1, "La hora de entrega es obligatoria"),
+  deliveryLocation: z.string()
+    .min(1, "El local de entrega es obligatorio")
+    .refine((value): boolean => isOrderDeliveryLocation(value), "Local de entrega no válido"),
   comment: z.string().optional(),
 })
 
@@ -30,6 +39,7 @@ function toFormValues(order: Order): OrderFormValues {
     clientPhone: order.clientPhone,
     deliveryDate: date.toISOString().split("T")[0],
     deliveryTime: date.toTimeString().slice(0, 5),
+    deliveryLocation: order.deliveryLocation || "",
     comment: order.comment || "",
   }
 }
@@ -41,6 +51,7 @@ function defaultFormValues(): OrderFormValues {
     clientPhone: "",
     deliveryDate: now.toISOString().split("T")[0],
     deliveryTime: "12:00",
+    deliveryLocation: "",
     comment: "",
   }
 }
@@ -128,6 +139,26 @@ export default function OrderForm({
           />
           {errors.deliveryTime && (
             <p className="mt-1 text-xs text-red-600">{errors.deliveryTime.message}</p>
+          )}
+        </div>
+        <div>
+          <label htmlFor="deliveryLocation" className="block text-sm font-medium text-gray-700">
+            Local de entrega
+          </label>
+          <select
+            id="deliveryLocation"
+            {...register("deliveryLocation")}
+            className="mt-1 block w-full rounded-md border border-gray-300 bg-white px-3 py-2 text-sm text-gray-900 shadow-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
+          >
+            <option value="">Selecciona un local</option>
+            {ORDER_DELIVERY_LOCATIONS.map((location) => (
+              <option key={location} value={location}>
+                {ORDER_DELIVERY_LOCATION_LABELS[location]}
+              </option>
+            ))}
+          </select>
+          {errors.deliveryLocation && (
+            <p className="mt-1 text-xs text-red-600">{errors.deliveryLocation.message}</p>
           )}
         </div>
         <div className="sm:col-span-2">

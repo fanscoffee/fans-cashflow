@@ -143,6 +143,7 @@ export default function OrdersPage() {
       clientName: data.clientName,
       clientPhone: data.clientPhone,
       deliveryDate,
+      deliveryLocation: data.deliveryLocation,
       comment: data.comment || undefined,
     }
 

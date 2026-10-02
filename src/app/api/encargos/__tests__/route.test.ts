@@ -115,6 +115,7 @@ describe("Orders API /api/encargos", () => {
         clientName: "Juan",
         clientPhone: "555-1234",
         deliveryDate: "2026-07-22T14:00:00.000Z",
+        deliveryLocation: "OBRADOR",
       })
       const req = new Request("http://localhost/api/encargos", {
         method: "POST",
@@ -124,7 +125,11 @@ describe("Orders API /api/encargos", () => {
 
       const res = await POST(req)
       expect(res.status).toBe(201)
-      expect(prisma.order.create).toHaveBeenCalled()
+      expect(prisma.order.create).toHaveBeenCalledWith(
+        expect.objectContaining({
+          data: expect.objectContaining({ deliveryLocation: "OBRADOR" }),
+        })
+      )
     })
   })
 })

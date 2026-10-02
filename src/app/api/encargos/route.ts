@@ -4,11 +4,13 @@ import { prisma } from "@/lib/prisma"
 import { withAuth } from "@/lib/with-auth"
 import { UserRole } from "@/lib/database-enums"
 import { hasAnyRole } from "@/lib/roles"
+import { isOrderDeliveryLocation } from "@/types/order"
 
 const orderSchema = z.object({
   clientName: z.string().trim().min(1, "El nombre del cliente es obligatorio").max(160),
   clientPhone: z.string().trim().min(1, "El teléfono del cliente es obligatorio").max(40),
   deliveryDate: z.string().refine((value) => Number.isFinite(new Date(value).getTime()), "Fecha no válida"),
+  deliveryLocation: z.string().trim().min(1, "El local de entrega es obligatorio").refine(isOrderDeliveryLocation, "Local de entrega no válido"),
   comment: z.string().trim().max(1000).optional(),
 })
 
@@ -56,6 +58,7 @@ export const POST = withAuth(async (req, session) => {
         clientName: data.clientName,
         clientPhone: data.clientPhone,
         deliveryDate: new Date(data.deliveryDate),
+        deliveryLocation: data.deliveryLocation,
         comment: data.comment || null,
         createdById: session.user.id,
       },

@@ -2,12 +2,14 @@ import { render, screen } from "@testing-library/react"
 import userEvent from "@testing-library/user-event"
 import { describe, expect, it, vi, beforeEach } from "vitest"
 import OrderActions from "../order-actions"
+import type { Order } from "@/types/order"
 
-const mockOrder = {
+const mockOrder: Order = {
   id: "1",
   clientName: "Juan Pérez",
   clientPhone: "555-1234",
   deliveryDate: "2026-07-22T14:30:00.000Z",
+  deliveryLocation: "OBRADOR",
   comment: null,
   isPaid: false,
   isDelivered: false,

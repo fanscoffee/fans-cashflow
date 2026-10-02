@@ -1,13 +1,15 @@
 import { render, screen } from "@testing-library/react"
 import { describe, expect, it, vi } from "vitest"
 import OrderList from "../order-list"
+import type { Order } from "@/types/order"
 
-const mockOrders = [
+const mockOrders: Order[] = [
   {
     id: "1",
     clientName: "Juan",
     clientPhone: "555-1234",
     deliveryDate: "2026-07-22T14:30:00.000Z",
+    deliveryLocation: "OBRADOR",
     comment: null,
     isPaid: false,
     isDelivered: false,
