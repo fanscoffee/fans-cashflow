@@ -4,18 +4,28 @@ import { withAuth } from "@/lib/with-auth"
 import { buildCapturedAccountingRows, buildAccountingWorkbook, type AccountingCapturedSource } from "@/lib/accounting-export"
 import { canAccessAccounting } from "@/lib/accounting-invoices"
 
+function parseDateOnly(value: string | null) {
+  if (!value || !/^\d{4}-\d{2}-\d{2}$/.test(value)) return null
+  const [year, month, day] = value.split("-").map(Number)
+  if (year < 2000 || year > 2100) return null
+
+  const date = new Date(Date.UTC(year, month - 1, day))
+  if (date.getUTCFullYear() !== year || date.getUTCMonth() !== month - 1 || date.getUTCDate() !== day) return null
+  return date
+}
+
 function parsePeriod(request: Request) {
   const { searchParams } = new URL(request.url)
-  const now = new Date()
-  const month = searchParams.has("month") ? Number(searchParams.get("month")) : now.getMonth() + 1
-  const year = searchParams.has("year") ? Number(searchParams.get("year")) : now.getFullYear()
-  if (!Number.isInteger(month) || month < 1 || month > 12 || !Number.isInteger(year) || year < 2000 || year > 2100) return null
-  return {
-    month,
-    year,
-    startDate: new Date(Date.UTC(year, month - 1, 1)),
-    endDate: new Date(Date.UTC(year, month, 1)),
-  }
+  const from = searchParams.get("from")
+  const to = searchParams.get("to")
+  const startDate = parseDateOnly(from)
+  const endDate = parseDateOnly(to)
+
+  if (!from || !to || !startDate || !endDate || startDate > endDate) return null
+
+  const endDateExclusive = new Date(endDate)
+  endDateExclusive.setUTCDate(endDateExclusive.getUTCDate() + 1)
+  return { from, to, startDate, endDate: endDateExclusive }
 }
 
 export const runtime = "nodejs"
@@ -27,7 +37,7 @@ export const GET = withAuth(async (request, session) => {
 
   try {
     const invoices = await prisma.accountingInvoice.findMany({
-      where: { date: { gte: period.startDate, lt: period.endDate } },
+       where: { createdAt: { gte: period.startDate, lt: period.endDate } },
       select: {
         date: true,
         invoiceNumber: true,
@@ -53,7 +63,7 @@ export const GET = withAuth(async (request, session) => {
     })
     const rows = buildCapturedAccountingRows(invoices as unknown as AccountingCapturedSource[])
     const workbook = await buildAccountingWorkbook(rows)
-    const filename = `fans-cashflow-gestoria-capturadas-${period.year}-${String(period.month).padStart(2, "0")}.xlsx`
+    const filename = `fans-cashflow-gestoria-capturadas-${period.from}-${period.to}.xlsx`
     return new NextResponse(workbook, {
       headers: {
         "Content-Type": "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",

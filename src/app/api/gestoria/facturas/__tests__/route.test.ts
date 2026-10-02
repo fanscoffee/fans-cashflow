@@ -102,7 +102,7 @@ describe("GET/POST /api/gestoria/facturas", () => {
     vi.mocked(prisma.accountingInvoice.count).mockResolvedValue(1)
     const response = await GET(request("http://localhost/api/gestoria/facturas?search=CAP-1"))
     expect(response.status).toBe(200)
-    await expect(response.json()).resolves.toMatchObject({ total: 1, invoices: [{ id: "gestoria-1", invoiceTotal: 121, date: "2026-07-15T00:00:00.000Z" }] })
+    await expect(response.json()).resolves.toMatchObject({ total: 1, invoices: [{ id: "gestoria-1", invoiceTotal: 121, date: "2026-07-15T00:00:00.000Z", createdAt: "2026-07-15T00:00:00.000Z" }] })
   })
 
   it("creates a standalone capture and returns duplicate warnings without blocking", async () => {
