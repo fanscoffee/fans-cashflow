@@ -30,13 +30,18 @@ describe("GET /api/gestoria/export", () => {
     expect((await GET(request("http://localhost/api/gestoria/export"))).status).toBe(403)
   })
 
-  it("exports only captures from requested month using the shared layout", async () => {
-    const response = await GET(request("http://localhost/api/gestoria/export?month=7&year=2026"))
+  it("exports captures uploaded in the requested date range using the shared layout", async () => {
+    const response = await GET(request("http://localhost/api/gestoria/export?from=2026-07-15&to=2026-07-20"))
     expect(response.status).toBe(200)
-    expect(response.headers.get("content-disposition")).toContain("fans-cashflow-gestoria-capturadas-2026-07.xlsx")
+    expect(response.headers.get("content-disposition")).toContain("fans-cashflow-gestoria-capturadas-2026-07-15-2026-07-20.xlsx")
     const workbook = new ExcelJS.Workbook()
     await workbook.xlsx.load(await response.arrayBuffer())
     expect(workbook.getWorksheet("Gastos y Compras Fans")).toBeDefined()
-    expect(prisma.accountingInvoice.findMany).toHaveBeenCalledWith(expect.objectContaining({ where: { date: { gte: new Date("2026-07-01T00:00:00.000Z"), lt: new Date("2026-08-01T00:00:00.000Z") } } }))
+    expect(prisma.accountingInvoice.findMany).toHaveBeenCalledWith(expect.objectContaining({ where: { createdAt: { gte: new Date("2026-07-15T00:00:00.000Z"), lt: new Date("2026-07-21T00:00:00.000Z") } } }))
+  })
+
+  it("rejects invalid or reversed date ranges", async () => {
+    expect((await GET(request("http://localhost/api/gestoria/export?from=2026-02-30&to=2026-03-01"))).status).toBe(400)
+    expect((await GET(request("http://localhost/api/gestoria/export?from=2026-07-20&to=2026-07-15"))).status).toBe(400)
   })
 })
