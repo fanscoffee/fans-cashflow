@@ -297,17 +297,17 @@ model ShiftClose {
   id               String   @id @default(cuid())
   shiftId          String   @unique
   cashCloseNumber  String
-  pos              String
+  pos              String?
   openingDateTime  DateTime
   closingDateTime  DateTime
-  previousCashFund Decimal  @db.Decimal(12, 2)
-  cashReceipts     Decimal  @db.Decimal(12, 2)
-  cashRefunds      Decimal  @db.Decimal(12, 2)
-  depositedAmount  Decimal  @db.Decimal(12, 2)
-  paymentOutflows  Decimal  @db.Decimal(12, 2)
-  theoreticalCash  Decimal  @db.Decimal(12, 2)
-  actualCash       Decimal  @db.Decimal(12, 2)
-  cashVariance     Decimal  @db.Decimal(12, 2)
+  previousCashFund Decimal? @db.Decimal(12, 2)
+  cashReceipts     Decimal? @db.Decimal(12, 2)
+  cashRefunds      Decimal? @db.Decimal(12, 2)
+  depositedAmount  Decimal? @db.Decimal(12, 2)
+  paymentOutflows  Decimal? @db.Decimal(12, 2)
+  theoreticalCash  Decimal? @db.Decimal(12, 2)
+  actualCash       Decimal? @db.Decimal(12, 2)
+  cashVariance     Decimal? @db.Decimal(12, 2)
   grossSales       Decimal  @db.Decimal(12, 2)
   refunds          Decimal  @db.Decimal(12, 2)
   discounts        Decimal  @db.Decimal(12, 2)
