@@ -95,6 +95,7 @@ describe("useOrders", () => {
         clientName: "New",
         clientPhone: "555",
         deliveryDate: "2026-07-22",
+        deliveryLocation: "OBRADOR",
       })
     })
 
@@ -120,6 +121,7 @@ describe("useOrders", () => {
         clientName: "Bad",
         clientPhone: "555",
         deliveryDate: "2026-07-22",
+        deliveryLocation: "OBRADOR",
       })
     })
 
@@ -143,6 +145,7 @@ describe("useOrders", () => {
         clientName: "Updated",
         clientPhone: "555",
         deliveryDate: "2026-07-22",
+        deliveryLocation: "CAFETERIA",
       })
     })
 
@@ -237,6 +240,7 @@ describe("useOrders", () => {
         clientName: "Bad",
         clientPhone: "555",
         deliveryDate: "2026-07-22",
+        deliveryLocation: "OBRADOR",
       })
       expect(res).toBe(false)
     })

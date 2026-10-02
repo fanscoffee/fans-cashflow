@@ -7,13 +7,15 @@ vi.mock("@/lib/csv", () => ({
 }))
 
 import { downloadCSV } from "@/lib/csv"
+import type { Order } from "@/types/order"
 
-const baseOrders = [
+const baseOrders: Order[] = [
   {
     id: "o1",
     clientName: "Juan",
     clientPhone: "555",
     deliveryDate: "2026-07-22T14:00:00.000Z",
+    deliveryLocation: "OBRADOR",
     comment: null,
     isPaid: false,
     isDelivered: false,
@@ -111,7 +113,7 @@ describe("OrderFilters", () => {
     )
     fireEvent.click(screen.getByText("Exportar"))
     expect(downloadCSV).toHaveBeenCalledWith(
-      expect.arrayContaining([expect.objectContaining({ Cliente: "Juan" })]),
+      expect.arrayContaining([expect.objectContaining({ Cliente: "Juan", Destino: "Obrador" })]),
       "encargos-2026-07.csv"
     )
   })

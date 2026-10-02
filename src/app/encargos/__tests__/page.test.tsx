@@ -26,7 +26,7 @@ vi.mock("@/components/notification-bell", () => ({
 vi.mock("@/components/orders/order-form", () => ({
   default: (props: Record<string, unknown>) => (
     <div data-testid="order-form">
-      <button onClick={() => (props.onSubmit as Function)({ clientName: "Test", clientPhone: "123", deliveryDate: "2026-07-25", deliveryTime: "10:00" })}>
+       <button onClick={() => (props.onSubmit as Function)({ clientName: "Test", clientPhone: "123", deliveryDate: "2026-07-25", deliveryTime: "10:00", deliveryLocation: "OBRADOR" })}>
         Submit
       </button>
       <button onClick={() => (props.onCancel as Function)()}>Cancel</button>

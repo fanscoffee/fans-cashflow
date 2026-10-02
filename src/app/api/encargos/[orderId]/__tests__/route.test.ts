@@ -67,7 +67,7 @@ describe("Orders API /api/encargos/[orderId]", () => {
       vi.mocked(prisma.order.findUnique).mockResolvedValue({ id: "o1" } as any)
       vi.mocked(prisma.order.update).mockResolvedValue({ id: "o1", clientName: "Updated" } as any)
 
-      const body = JSON.stringify({ clientName: "Updated" })
+      const body = JSON.stringify({ deliveryLocation: "CAFETERIA" })
       const req = new Request("http://localhost/api/encargos/o1", {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
@@ -76,7 +76,27 @@ describe("Orders API /api/encargos/[orderId]", () => {
 
       const res = await PATCH(req, { params: mockParams })
       expect(res.status).toBe(200)
-      expect(prisma.order.update).toHaveBeenCalled()
+      expect(prisma.order.update).toHaveBeenCalledWith(
+        expect.objectContaining({
+          data: expect.objectContaining({ deliveryLocation: "CAFETERIA" }),
+        })
+      )
+    })
+
+    it("returns 403 for EMPLEADO updating delivery location", async () => {
+      vi.mocked(auth).mockResolvedValue({
+        user: { id: "2", role: "EMPLEADO" },
+      } as any)
+
+      const body = JSON.stringify({ deliveryLocation: "CAFETERIA" })
+      const req = new Request("http://localhost/api/encargos/o1", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body,
+      }) as unknown as NextRequest
+
+      const res = await PATCH(req, { params: mockParams })
+      expect(res.status).toBe(403)
     })
 
   it("updates order for PARTNER role", async () => {

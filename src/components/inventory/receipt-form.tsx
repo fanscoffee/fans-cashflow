@@ -413,7 +413,7 @@ export default function ReceiptForm({
                   <div className="grid grid-cols-2 gap-3">
                     <div>
                       <label htmlFor={priceId} className="mb-1 block text-xs font-medium text-gray-600">
-                        Precio unitario
+                        Coste unitario
                       </label>
                       <input
                         id={priceId}

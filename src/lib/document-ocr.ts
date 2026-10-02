@@ -47,16 +47,7 @@ function mergeIkeaOcr(blockText: string, columnText: string) {
 }
 
 async function recognizeImage(file: Blob | HTMLCanvasElement, setStatus: (value: string) => void, languages: string) {
-  setStatus("Inicializando OCR local...")
-  const worker = await withTimeout(createWorker(languages, 1, {
-    workerPath: `${TESSERACT_ASSET_PATH}/worker.min.js`,
-    corePath: `${TESSERACT_ASSET_PATH}/tesseract-core-lstm.wasm.js`,
-    langPath: `${TESSERACT_ASSET_PATH}/lang`,
-    workerBlobURL: false,
-    gzip: true,
-    logger: (message) => message.status && setStatus(`${message.status} ${Math.round(message.progress * 100)}%`),
-    errorHandler: (error) => setStatus(`OCR: ${error instanceof Error ? error.message : String(error)}`),
-  }), OCR_INIT_TIMEOUT_MS, "El OCR local no respondió a tiempo")
+  const worker = await createLocalOcrWorker(languages, setStatus)
   try {
     await worker.setParameters({ tessedit_pageseg_mode: PSM.SINGLE_BLOCK, preserve_interword_spaces: "1" })
     const blockResult = await worker.recognize(file)
@@ -67,6 +58,19 @@ async function recognizeImage(file: Blob | HTMLCanvasElement, setStatus: (value:
   } finally {
     await worker.terminate()
   }
+}
+
+export async function createLocalOcrWorker(languages: string, setStatus: (value: string) => void) {
+  setStatus("Inicializando OCR local...")
+  return withTimeout(createWorker(languages, 1, {
+    workerPath: `${TESSERACT_ASSET_PATH}/worker.min.js`,
+    corePath: `${TESSERACT_ASSET_PATH}/tesseract-core-lstm.wasm.js`,
+    langPath: `${TESSERACT_ASSET_PATH}/lang`,
+    workerBlobURL: false,
+    gzip: true,
+    logger: (message) => message.status && setStatus(`${message.status} ${Math.round(message.progress * 100)}%`),
+    errorHandler: (error) => setStatus(`OCR: ${error instanceof Error ? error.message : String(error)}`),
+  }), OCR_INIT_TIMEOUT_MS, "El OCR local no respondió a tiempo")
 }
 
 async function isPdfFile(file: File) {

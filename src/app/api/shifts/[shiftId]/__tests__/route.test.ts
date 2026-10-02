@@ -133,6 +133,58 @@ describe("PATCH /api/shifts/[shiftId]", () => {
     }))
   })
 
+  it("accepts a ticket date when PostgreSQL DATE is represented at local midnight", async () => {
+    const shiftForDate = {
+      ...shift,
+      date: new Date(2026, 9, 1),
+      createdAt: new Date(2026, 9, 1, 17, 39),
+    }
+    vi.mocked(prisma.shift.findUnique).mockResolvedValue(shiftForDate as any)
+    const { updateShift } = transactionMock({ lockedShift: shiftForDate })
+    const response = await PATCH(
+      new Request("http://localhost/api/shifts/shift-1", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          status: "CERRADO",
+          close: {
+            cashCloseNumber: "1692",
+            pos: "TPV 1",
+            openingDateTime: "2026-10-01T14:17",
+            closingDateTime: "2026-10-01T21:16",
+            previousCashFund: "0.00",
+            cashReceipts: "162.60",
+            cashRefunds: "0.00",
+            depositedAmount: "0.00",
+            paymentOutflows: "0.00",
+            theoreticalCash: "162.60",
+            actualCash: "162.60",
+            cashVariance: "0.00",
+            grossSales: "778.55",
+            refunds: "0.00",
+            discounts: "0.00",
+            netSales: "778.55",
+            cashSales: "162.60",
+            cardSales: "615.95",
+            breadVat4Base: "1.25",
+            breadVat4Amount: "0.05",
+            vat10Base: "706.61",
+            vat10Amount: "70.64",
+            varianceNote: "Diferencia bancaria de 0,05",
+            cash: "162.60",
+            caixaBankAmount: "147.25",
+            santanderAmount: "468.65",
+          },
+          operationalReview: { productionReviewed: true, wasteReviewed: true },
+        }),
+      }) as unknown as NextRequest,
+      context,
+    )
+
+    expect(response.status).toBe(200)
+    expect(updateShift).toHaveBeenCalled()
+  })
+
   it("applies additions made after the latest shift was closed when reopening it", async () => {
     const closedShift = {
       ...shift,

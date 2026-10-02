@@ -1,5 +1,6 @@
 import type { Order } from "@/types/order"
 import OrderActions from "./order-actions"
+import OrderLocationBadge from "./order-location-badge"
 
 interface OrderCardsProps {
   orders: Order[]
@@ -34,6 +35,7 @@ export default function OrderCards({
                 <p className="break-words text-sm text-gray-700 [overflow-wrap:anywhere]">{order.clientPhone}</p>
               </div>
               <div className="flex shrink-0 flex-wrap justify-end gap-1">
+                <OrderLocationBadge location={order.deliveryLocation} />
                 {order.isPaid && (
                   <span className="inline-flex items-center rounded-full bg-green-50 px-2 py-0.5 text-xs font-medium text-green-700">
                     Pagado

@@ -2,6 +2,7 @@ import { render, screen, waitFor } from "@testing-library/react"
 import userEvent from "@testing-library/user-event"
 import { describe, expect, it, vi } from "vitest"
 import OrderForm from "../order-form"
+import type { Order } from "@/types/order"
 
 const defaultSubmit = vi.fn().mockResolvedValue(true)
 const defaultCancel = vi.fn()
@@ -21,11 +22,12 @@ function getContainer() {
 }
 
 function renderEdit() {
-  const order = {
+  const order: Order = {
     id: "1",
     clientName: "Juan",
     clientPhone: "555-1234",
     deliveryDate: "2026-07-22T14:30:00.000Z",
+    deliveryLocation: "CAFETERIA",
     comment: "Test comment",
     isPaid: false,
     isDelivered: false,
@@ -48,6 +50,7 @@ describe("OrderForm", () => {
     expect(screen.getByText(/teléfono del cliente/i)).toBeInTheDocument()
     expect(screen.getByText(/fecha de entrega/i)).toBeInTheDocument()
     expect(screen.getByText(/hora de entrega/i)).toBeInTheDocument()
+    expect(screen.getByText(/local de entrega/i)).toBeInTheDocument()
     expect(screen.getByText(/comentario/i)).toBeInTheDocument()
   })
 
@@ -88,6 +91,7 @@ describe("OrderForm", () => {
     const phoneInput = form.querySelector('input[name="clientPhone"]')!
     await user.type(nameInput, "María")
     await user.type(phoneInput, "555-9999")
+    await user.selectOptions(screen.getByLabelText(/local de entrega/i), "OBRADOR")
     await user.click(screen.getByRole("button", { name: /crear/i }))
 
     expect(onSubmit).toHaveBeenCalled()

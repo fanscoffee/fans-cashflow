@@ -1,6 +1,6 @@
 import { downloadCSV } from "@/lib/csv"
 import { MONTH_NAMES } from "@/lib/constants"
-import type { Order } from "@/types/order"
+import { ORDER_DELIVERY_LOCATION_LABELS, type Order } from "@/types/order"
 
 interface OrderFiltersProps {
   selectedMonth: number
@@ -30,6 +30,7 @@ export default function OrderFilters({
         }),
         Cliente: order.clientName,
         Telefono: order.clientPhone,
+        Destino: order.deliveryLocation ? ORDER_DELIVERY_LOCATION_LABELS[order.deliveryLocation] : "",
         Comentario: order.comment || "",
         CreatedPor: order.createdBy?.name || order.createdBy?.email || "",
       }

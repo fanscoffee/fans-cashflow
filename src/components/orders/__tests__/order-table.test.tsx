@@ -2,13 +2,15 @@ import { render, screen } from "@testing-library/react"
 import userEvent from "@testing-library/user-event"
 import { describe, expect, it, vi } from "vitest"
 import OrderTable from "../order-table"
+import type { Order } from "@/types/order"
 
-const mockOrders = [
+const mockOrders: Order[] = [
   {
     id: "1",
     clientName: "Juan Pérez",
     clientPhone: "555-1234",
     deliveryDate: "2026-07-22T14:30:00.000Z",
+    deliveryLocation: "OBRADOR",
     comment: "Entregar en la puerta",
     isPaid: false,
     isDelivered: false,
@@ -20,6 +22,7 @@ const mockOrders = [
     clientName: "María García",
     clientPhone: "555-5678",
     deliveryDate: "2026-07-23T10:00:00.000Z",
+    deliveryLocation: "CAFETERIA",
     comment: null,
     isPaid: true,
     isDelivered: true,
@@ -53,6 +56,7 @@ describe("OrderTable", () => {
     render(<OrderTable {...defaultProps} />)
     expect(screen.getByText("Creado")).toBeInTheDocument()
     expect(screen.getByText("Entrega")).toBeInTheDocument()
+    expect(screen.getByText("Destino")).toBeInTheDocument()
     expect(screen.getByText("Cliente")).toBeInTheDocument()
     expect(screen.getByText("Acciones")).toBeInTheDocument()
   })
@@ -69,6 +73,12 @@ describe("OrderTable", () => {
     const deliveredBadges = screen.getAllByText("Entregado")
     expect(paidBadges.length).toBeGreaterThanOrEqual(1)
     expect(deliveredBadges.length).toBeGreaterThanOrEqual(1)
+  })
+
+  it("shows the delivery location badge", () => {
+    render(<OrderTable {...defaultProps} />)
+    expect(screen.getByText("Obrador")).toBeInTheDocument()
+    expect(screen.getByText("Cafetería")).toBeInTheDocument()
   })
 
   it("hides edit and delete buttons when not permitted", () => {

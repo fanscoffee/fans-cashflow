@@ -56,6 +56,13 @@ describe("ReceiptsPanel", () => {
 
     render(<ReceiptsPanel canEdit />)
     await screen.findByText("ALB-001")
+
+    await user.click(screen.getByRole("button", { name: "Ver" }))
+    expect(await screen.findByText("Coste Unit.")).toBeInTheDocument()
+    expect(screen.queryByText("Precio Unit.")).not.toBeInTheDocument()
+    await user.click(screen.getByRole("button", { name: "Volver" }))
+
+    await screen.findByText("ALB-001")
     await user.click(screen.getByRole("button", { name: "Modificar" }))
 
     expect(await screen.findByRole("heading", { name: "Modificar recepción" })).toBeInTheDocument()
