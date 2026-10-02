@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useCallback } from "react"
 import { useSession } from "next-auth/react"
-import type { Order } from "@/types/order"
+import type { Order, OrderDeliveryLocation } from "@/types/order"
 import { UserRole } from "@/lib/database-enums"
 import { hasAnyRole } from "@/lib/roles"
 
@@ -61,6 +61,7 @@ export function useOrders({ month, year }: UseOrdersOptions = {}) {
       clientName: string
       clientPhone: string
       deliveryDate: string
+      deliveryLocation: OrderDeliveryLocation
       comment?: string
     }) => {
       setError(null)
@@ -94,6 +95,7 @@ export function useOrders({ month, year }: UseOrdersOptions = {}) {
         clientName: string
         clientPhone: string
         deliveryDate: string
+        deliveryLocation: OrderDeliveryLocation
         comment?: string
       }
     ) => {

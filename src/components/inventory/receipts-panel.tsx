@@ -309,7 +309,7 @@ export default function ReceiptsPanel({ canDelete = true, canEdit = false, initi
                   <th className="px-3 py-2">Tipo</th>
                   <th className="px-3 py-2 text-right">Cantidad</th>
                   <th className="px-3 py-2">UoM</th>
-                  <th className="px-3 py-2 text-right">Precio Unit.</th>
+                  <th className="px-3 py-2 text-right">Coste Unit.</th>
                   <th className="px-3 py-2 text-right">Subtotal</th>
                   <th className="px-3 py-2">Lote</th>
                   <th className="px-3 py-2">Vencimiento</th>

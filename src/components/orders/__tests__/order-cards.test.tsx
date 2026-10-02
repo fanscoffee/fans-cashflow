@@ -2,13 +2,15 @@ import { render, screen } from "@testing-library/react"
 import userEvent from "@testing-library/user-event"
 import { describe, expect, it, vi } from "vitest"
 import OrderCards from "../order-cards"
+import type { Order } from "@/types/order"
 
-const mockOrders = [
+const mockOrders: Order[] = [
   {
     id: "1",
     clientName: "Juan Pérez",
     clientPhone: "555-1234",
     deliveryDate: "2026-07-22T14:30:00.000Z",
+    deliveryLocation: "OBRADOR",
     comment: "Entregar en la puerta",
     isPaid: false,
     isDelivered: false,
@@ -20,6 +22,7 @@ const mockOrders = [
     clientName: "María García",
     clientPhone: "555-5678",
     deliveryDate: "2026-07-23T10:00:00.000Z",
+    deliveryLocation: "CAFETERIA",
     comment: null,
     isPaid: true,
     isDelivered: false,
@@ -55,6 +58,12 @@ describe("OrderCards", () => {
     render(<OrderCards {...defaultProps} />)
     const paidBadges = screen.getAllByText("Pagado")
     expect(paidBadges.length).toBeGreaterThanOrEqual(1)
+  })
+
+  it("shows the delivery location badge", () => {
+    render(<OrderCards {...defaultProps} />)
+    expect(screen.getByText("Obrador")).toBeInTheDocument()
+    expect(screen.getByText("Cafetería")).toBeInTheDocument()
   })
 
   it("hides buttons when not permitted", () => {

@@ -66,7 +66,13 @@ const shiftCloseSchema = z.object({
 })
 
 function sameCalendarDate(value: string, shiftDate: Date) {
-  return value.slice(0, 10) === shiftDate.toISOString().slice(0, 10)
+  // PostgreSQL DATE is returned as local midnight; UTC conversion can move it to the previous day.
+  const shiftCalendarDate = [
+    shiftDate.getFullYear(),
+    String(shiftDate.getMonth() + 1).padStart(2, "0"),
+    String(shiftDate.getDate()).padStart(2, "0"),
+  ].join("-")
+  return value.slice(0, 10) === shiftCalendarDate
 }
 
 function hasPaymentDifference(close: z.infer<typeof shiftCloseSchema>) {
@@ -152,9 +158,9 @@ export const PATCH = withAuth(async (req, session, context) => {
       const apertura = new Date(close.openingDateTime).getTime()
       const closeDate = new Date(close.closingDateTime).getTime()
       const tolerance = 15 * 60 * 1000
-      if (!Number.isFinite(apertura) || !Number.isFinite(closeDate) || closeDate < apertura || apertura < shift.createdAt.getTime() - tolerance || closeDate > Date.now() + tolerance) {
+      if (!Number.isFinite(apertura) || !Number.isFinite(closeDate) || closeDate < apertura || closeDate > Date.now() + tolerance) {
         return NextResponse.json(
-          { error: "La fecha y hora del ticket están fuera del intervalo del turno" },
+          { error: "La fecha y hora del ticket no son válidas o el cierre está en el futuro" },
           { status: 400 }
         )
       }

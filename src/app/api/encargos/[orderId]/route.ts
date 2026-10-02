@@ -4,17 +4,19 @@ import { prisma } from "@/lib/prisma"
 import { withAuth } from "@/lib/with-auth"
 import { UserRole } from "@/lib/database-enums"
 import { hasAnyRole } from "@/lib/roles"
+import { isOrderDeliveryLocation } from "@/types/order"
 
 const updateOrderSchema = z.object({
   clientName: z.string().trim().min(1).max(160).optional(),
   clientPhone: z.string().trim().min(1).max(40).optional(),
   deliveryDate: z.string().refine((value) => Number.isFinite(new Date(value).getTime()), "Fecha no válida").optional(),
+  deliveryLocation: z.string().trim().refine(isOrderDeliveryLocation, "Local de entrega no válido").optional(),
   comment: z.string().trim().max(1000).optional(),
   isPaid: z.boolean().optional(),
   isDelivered: z.boolean().optional(),
 })
 
-const dataFields = ["clientName", "clientPhone", "deliveryDate", "comment"]
+const dataFields = ["clientName", "clientPhone", "deliveryDate", "deliveryLocation", "comment"]
 
 export const PATCH = withAuth(async (req, session, context) => {
   const role = session.user.role
@@ -41,6 +43,7 @@ export const PATCH = withAuth(async (req, session, context) => {
         ...(data.clientName !== undefined && { clientName: data.clientName }),
         ...(data.clientPhone !== undefined && { clientPhone: data.clientPhone }),
         ...(data.deliveryDate !== undefined && { deliveryDate: new Date(data.deliveryDate) }),
+        ...(data.deliveryLocation !== undefined && { deliveryLocation: data.deliveryLocation }),
         ...(data.comment !== undefined && { comment: data.comment }),
         ...(data.isPaid !== undefined && { isPaid: data.isPaid }),
         ...(data.isDelivered !== undefined && { isDelivered: data.isDelivered }),

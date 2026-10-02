@@ -1,9 +1,10 @@
 "use client"
 
 import { useMemo, useRef, useState } from "react"
-import { createWorker, PSM } from "tesseract.js"
+import { PSM } from "tesseract.js"
 import type { ShiftClose, Shift } from "@/types/shift"
 import { toN } from "@/lib/money"
+import { createLocalOcrWorker } from "@/lib/document-ocr"
 
 const NUMERIC_FIELDS = [
   "previousCashFund",
@@ -331,23 +332,20 @@ export default function ShiftCloseModal({
     setOcrStatus("Preparando lectura...")
 
     try {
-      const worker = await createWorker("spa", 1, {
-        logger: (message) => {
-          if (message.status) {
-            setOcrStatus(`${message.status} ${Math.round(message.progress * 100)}%`)
-          }
-        },
-      })
-      await worker.setParameters({ tessedit_pageseg_mode: PSM.SINGLE_BLOCK, preserve_interword_spaces: "1" })
-      const blockResult = await worker.recognize(file)
-      await worker.setParameters({ tessedit_pageseg_mode: PSM.SINGLE_COLUMN, preserve_interword_spaces: "1" })
-      const columnResult = await worker.recognize(file)
-      await worker.terminate()
-      setFields({
-        ...mergeOcrFields(extractTicket(blockResult.data.text), extractTicket(columnResult.data.text)),
-        caixaBankAmount: String(toN(shift.caixaBankAmount)),
-        santanderAmount: String(toN(shift.santanderAmount)),
-      })
+      const worker = await createLocalOcrWorker("spa", setOcrStatus)
+      try {
+        await worker.setParameters({ tessedit_pageseg_mode: PSM.SINGLE_BLOCK, preserve_interword_spaces: "1" })
+        const blockResult = await worker.recognize(file)
+        await worker.setParameters({ tessedit_pageseg_mode: PSM.SINGLE_COLUMN, preserve_interword_spaces: "1" })
+        const columnResult = await worker.recognize(file)
+        setFields({
+          ...mergeOcrFields(extractTicket(blockResult.data.text), extractTicket(columnResult.data.text)),
+          caixaBankAmount: String(toN(shift.caixaBankAmount)),
+          santanderAmount: String(toN(shift.santanderAmount)),
+        })
+      } finally {
+        await worker.terminate()
+      }
       setOcrCompleted(true)
       setOcrStatus("Lectura completada. Revisa todos los campos antes de confirmar.")
     } catch {
