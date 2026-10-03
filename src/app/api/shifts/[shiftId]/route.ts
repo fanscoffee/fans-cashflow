@@ -29,25 +29,10 @@ const moneyInput = z
   .transform((value) => Number(String(value).replace(",", ".")))
   .refine((value) => Number.isFinite(value) && value >= 0, "Importe no válido")
 
-const signedMoneyInput = z
-  .union([z.string(), z.number()])
-  .refine((value) => String(value).trim() !== "", "El importe es obligatorio")
-  .transform((value) => Number(String(value).replace(",", ".")))
-  .refine((value) => Number.isFinite(value), "Importe no válido")
-
 const shiftCloseSchema = z.object({
   cashCloseNumber: z.string().trim().min(1, "El número de cierre es obligatorio"),
-  pos: z.string().trim().min(1, "El TPV es obligatorio"),
   openingDateTime: z.string().min(1, "La apertura del ticket es obligatoria"),
   closingDateTime: z.string().min(1, "El cierre del ticket es obligatorio"),
-  previousCashFund: moneyInput,
-  cashReceipts: moneyInput,
-  cashRefunds: moneyInput,
-  depositedAmount: moneyInput,
-  paymentOutflows: moneyInput,
-  theoreticalCash: moneyInput,
-  actualCash: moneyInput,
-  cashVariance: signedMoneyInput,
   grossSales: moneyInput,
   refunds: moneyInput,
   discounts: moneyInput,
@@ -78,8 +63,7 @@ function sameCalendarDate(value: string, shiftDate: Date) {
 function hasPaymentDifference(close: z.infer<typeof shiftCloseSchema>) {
   return (
     Math.abs(close.cash - close.cashSales) > 0.009 ||
-    Math.abs(close.caixaBankAmount + close.santanderAmount - close.cardSales) > 0.009 ||
-    Math.abs(close.cashVariance) > 0.009
+    Math.abs(close.caixaBankAmount + close.santanderAmount - close.cardSales) > 0.009
   )
 }
 
@@ -173,20 +157,6 @@ export const PATCH = withAuth(async (req, session, context) => {
       )
     }
 
-    const duplicate = await prisma.shiftClose.findFirst({
-      where: {
-        pos: close.pos,
-        cashCloseNumber: close.cashCloseNumber,
-        ...(currentClose ? { NOT: { id: currentClose.id } } : {}),
-      },
-      select: { id: true },
-    })
-    if (duplicate) {
-      return NextResponse.json(
-        { error: "Ya existe un cierre con ese número en ese TPV" },
-        { status: 400 }
-      )
-    }
   }
 
   let updated
@@ -253,17 +223,8 @@ export const PATCH = withAuth(async (req, session, context) => {
           create: {
             shiftId,
             cashCloseNumber: close.cashCloseNumber,
-            pos: close.pos,
             openingDateTime: new Date(close.openingDateTime),
             closingDateTime: new Date(close.closingDateTime),
-            previousCashFund: close.previousCashFund,
-            cashReceipts: close.cashReceipts,
-            cashRefunds: close.cashRefunds,
-            depositedAmount: close.depositedAmount,
-            paymentOutflows: close.paymentOutflows,
-            theoreticalCash: close.theoreticalCash,
-            actualCash: close.actualCash,
-            cashVariance: close.cashVariance,
             grossSales: close.grossSales,
             refunds: close.refunds,
             discounts: close.discounts,
@@ -279,17 +240,8 @@ export const PATCH = withAuth(async (req, session, context) => {
           },
           update: {
             cashCloseNumber: close.cashCloseNumber,
-            pos: close.pos,
             openingDateTime: new Date(close.openingDateTime),
             closingDateTime: new Date(close.closingDateTime),
-            previousCashFund: close.previousCashFund,
-            cashReceipts: close.cashReceipts,
-            cashRefunds: close.cashRefunds,
-            depositedAmount: close.depositedAmount,
-            paymentOutflows: close.paymentOutflows,
-            theoreticalCash: close.theoreticalCash,
-            actualCash: close.actualCash,
-            cashVariance: close.cashVariance,
             grossSales: close.grossSales,
             refunds: close.refunds,
             discounts: close.discounts,

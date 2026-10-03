@@ -23,17 +23,8 @@ export interface ShiftClose {
   id: string
   shiftId: string
   cashCloseNumber: string
-  pos: string
   openingDateTime: string
   closingDateTime: string
-  previousCashFund: number | string
-  cashReceipts: number | string
-  cashRefunds: number | string
-  depositedAmount: number | string
-  paymentOutflows: number | string
-  theoreticalCash: number | string
-  actualCash: number | string
-  cashVariance: number | string
   grossSales: number | string
   refunds: number | string
   discounts: number | string

@@ -80,12 +80,29 @@ export const DELETE = withAuth(async (req, session, context) => {
     }
 
     const [products, receipts, invoices, creditors] = await Promise.all([
-      prisma.supplierProduct.count({ where: { supplierId: id } }),
-      prisma.receipt.count({ where: { supplierId: id } }),
-      prisma.invoice.count({ where: { supplierId: id } }),
-      prisma.creditor.count({ where: { supplierId: id } }),
+      prisma.supplierProduct.findMany({
+        where: { supplierId: id },
+        select: { product: { select: { code: true, posDescription: true } } },
+      }),
+      prisma.receipt.findMany({
+        where: { supplierId: id },
+        select: { deliveryNoteCode: true },
+      }),
+      prisma.invoice.findMany({
+        where: { supplierId: id },
+        select: { series: true, number: true },
+      }),
+      prisma.creditor.findMany({
+        where: { supplierId: id },
+        select: { code: true, name: true },
+      }),
     ])
-    const links = { products, receipts, invoices, creditors }
+    const links = {
+      products: products.length,
+      receipts: receipts.length,
+      invoices: invoices.length,
+      creditors: creditors.length,
+    }
     const totalLinks = Object.values(links).reduce((total, count) => total + count, 0)
 
     if (totalLinks > 0) {
@@ -95,6 +112,12 @@ export const DELETE = withAuth(async (req, session, context) => {
           code: "PROVIDER_HAS_LINKS",
           links,
           vinculaciones: links,
+          details: {
+            products: products.map(({ product }) => `${product.code} · ${product.posDescription}`),
+            receipts: receipts.map(({ deliveryNoteCode }) => deliveryNoteCode),
+            invoices: invoices.map(({ series, number }) => `${series ? `${series}/` : ""}${number}`),
+            creditors: creditors.map(({ code, name }) => `${code} · ${name}`),
+          },
         },
         { status: 409 }
       )

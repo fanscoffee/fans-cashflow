@@ -7,14 +7,6 @@ import { toN } from "@/lib/money"
 import { createLocalOcrWorker } from "@/lib/document-ocr"
 
 const NUMERIC_FIELDS = [
-  "previousCashFund",
-  "cashReceipts",
-  "cashRefunds",
-  "depositedAmount",
-  "paymentOutflows",
-  "theoreticalCash",
-  "actualCash",
-  "cashVariance",
   "grossSales",
   "refunds",
   "discounts",
@@ -29,17 +21,8 @@ const NUMERIC_FIELDS = [
 
 export interface ShiftCloseFormData {
   cashCloseNumber: string
-  pos: string
   openingDateTime: string
   closingDateTime: string
-  previousCashFund: string
-  cashReceipts: string
-  cashRefunds: string
-  depositedAmount: string
-  paymentOutflows: string
-  theoreticalCash: string
-  actualCash: string
-  cashVariance: string
   grossSales: string
   refunds: string
   discounts: string
@@ -61,17 +44,8 @@ export interface ShiftCloseFormData {
 
 const EMPTY_FIELDS: ShiftCloseFormData = {
   cashCloseNumber: "",
-  pos: "",
   openingDateTime: "",
   closingDateTime: "",
-  previousCashFund: "",
-  cashReceipts: "",
-  cashRefunds: "",
-  depositedAmount: "",
-  paymentOutflows: "",
-  theoreticalCash: "",
-  actualCash: "",
-  cashVariance: "",
   grossSales: "",
   refunds: "",
   discounts: "",
@@ -186,18 +160,8 @@ function extractTicket(text: string): ShiftCloseFormData {
   const fields = { ...EMPTY_FIELDS }
 
   fields.cashCloseNumber = textAfterLabel(lines, "Número de cierre de caja") || textAfterLabel(lines, "Numero de cierre de caja")
-  fields.pos = textAfterLabel(lines, "TPV")
   fields.openingDateTime = dateTimeFromLabel(lines, "Apertura del turno")
   fields.closingDateTime = dateTimeFromLabel(lines, "Cerrado")
-
-  fields.previousCashFund = amountFromLabel(lines, "Fondo de caja anterior")
-  fields.cashReceipts = amountFromLabel(lines, "Cobros en efectivo")
-  fields.cashRefunds = amountFromLabel(lines, "Reembolsos en efectivo")
-  fields.depositedAmount = amountFromLabel(lines, "Depositado")
-  fields.paymentOutflows = amountFromLabel(lines, "Pagos/Salidas")
-  fields.theoreticalCash = amountFromLabel(lines, "Efectivo teórico en caja")
-  fields.actualCash = amountFromLabel(lines, "Cantidad de efectivo real")
-  fields.cashVariance = amountFromLabel(lines, "Descuadre")
 
   fields.grossSales = amountFromLabel(lines, "Ventas brutas", summaryFrom, summaryTo)
   fields.refunds = amountFromLabel(lines, "Reembolsos", summaryFrom, summaryTo)
@@ -233,7 +197,7 @@ function mergeOcrFields(primary: ShiftCloseFormData, secondary: ShiftCloseFormDa
   for (const field of NUMERIC_FIELDS) {
     if (toN(merged[field]) === 0 && toN(secondary[field]) !== 0) merged[field] = secondary[field]
   }
-  for (const field of ["cashCloseNumber", "pos", "openingDateTime", "closingDateTime"] as const) {
+  for (const field of ["cashCloseNumber", "openingDateTime", "closingDateTime"] as const) {
     if (!merged[field].trim() && secondary[field].trim()) merged[field] = secondary[field]
   }
   merged.cash = merged.cashSales
@@ -360,7 +324,6 @@ export default function ShiftCloseModal({
       if (fields[field].trim() === "") missing.push(field)
     }
     if (!fields.cashCloseNumber.trim()) missing.push("cashCloseNumber")
-    if (!fields.pos.trim()) missing.push("pos")
     if (!fields.openingDateTime.trim()) missing.push("openingDateTime")
     if (!fields.closingDateTime.trim()) missing.push("closingDateTime")
     if (fields.cash.trim() === "") missing.push("cash")
@@ -371,7 +334,7 @@ export default function ShiftCloseModal({
 
   const cashDifference = toN(fields.cash) - toN(fields.cashSales)
   const tarjetaDifference = toN(fields.caixaBankAmount) + toN(fields.santanderAmount) - toN(fields.cardSales)
-  const hasPaymentDifference = Math.abs(cashDifference) > 0.009 || Math.abs(tarjetaDifference) > 0.009 || Math.abs(toN(fields.cashVariance)) > 0.009
+  const hasPaymentDifference = Math.abs(cashDifference) > 0.009 || Math.abs(tarjetaDifference) > 0.009
   const operationalReviewComplete = fields.productionReviewed && fields.wasteReviewed
   const canConfirm = (ocrCompleted || !requirePhoto) && missingFields.length === 0 && (!hasPaymentDifference || fields.varianceNote.trim().length > 0) && operationalReviewComplete
 
@@ -443,25 +406,10 @@ export default function ShiftCloseModal({
 
           <section>
             <h3 className="mb-2 text-sm font-semibold text-gray-900">Identificación</h3>
-            <div className="grid grid-cols-1 gap-3 sm:grid-cols-4">
+            <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
               <InputField label="Número de cierre" value={fields.cashCloseNumber} onChange={(value) => updateField("cashCloseNumber", value)} />
-              <InputField label="TPV" value={fields.pos} onChange={(value) => updateField("pos", value)} />
               <InputField label="Apertura ticket" type="datetime-local" value={fields.openingDateTime} onChange={(value) => updateField("openingDateTime", value)} />
               <InputField label="Cierre ticket" type="datetime-local" value={fields.closingDateTime} onChange={(value) => updateField("closingDateTime", value)} />
-            </div>
-          </section>
-
-          <section>
-            <h3 className="mb-2 text-sm font-semibold text-gray-900">Cajón de efectivo</h3>
-            <div className="grid grid-cols-1 gap-3 min-[480px]:grid-cols-2 sm:grid-cols-4">
-              <InputField label="Fondo caja anterior" type="number" value={fields.previousCashFund} onChange={(value) => updateField("previousCashFund", value)} />
-              <InputField label="Cobros en efectivo" type="number" value={fields.cashReceipts} onChange={(value) => updateField("cashReceipts", value)} />
-              <InputField label="Reembolsos efectivo" type="number" value={fields.cashRefunds} onChange={(value) => updateField("cashRefunds", value)} />
-              <InputField label="Depositado" type="number" value={fields.depositedAmount} onChange={(value) => updateField("depositedAmount", value)} />
-              <InputField label="Pagos / salidas" type="number" value={fields.paymentOutflows} onChange={(value) => updateField("paymentOutflows", value)} />
-              <InputField label="Efectivo teórico" type="number" value={fields.theoreticalCash} onChange={(value) => updateField("theoreticalCash", value)} />
-              <InputField label="Efectivo real" type="number" value={fields.actualCash} onChange={(value) => updateField("actualCash", value)} />
-              <InputField label="Descuadre ticket" type="number" allowNegative value={fields.cashVariance} onChange={(value) => updateField("cashVariance", value)} />
             </div>
           </section>
 

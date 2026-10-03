@@ -32,6 +32,44 @@ interface Supplier {
 
 type ViewMode = "list" | "create" | "edit"
 
+type SupplierLinkCounts = Partial<Record<"products" | "receipts" | "invoices" | "creditors", number>>
+type SupplierLinkDetails = Partial<Record<"products" | "receipts" | "invoices" | "creditors", string[]>>
+
+function supplierDeleteError(result: unknown) {
+  if (!result || typeof result !== "object") return "No se ha eliminado el proveedor. Error al eliminar el proveedor."
+
+  const data = result as { error?: string; code?: string; links?: SupplierLinkCounts; details?: SupplierLinkDetails }
+  if (data.code !== "PROVIDER_HAS_LINKS" || !data.links) {
+    return `No se ha eliminado el proveedor. ${data.error || "Error al eliminar el proveedor"}`
+  }
+
+  const labels: Array<[keyof SupplierLinkCounts, string, string]> = [
+    ["products", "producto", "productos"],
+    ["receipts", "recepción", "recepciones"],
+    ["invoices", "factura", "facturas"],
+    ["creditors", "acreedor", "acreedores"],
+  ]
+  const links = labels
+    .filter(([key]) => (data.links?.[key] || 0) > 0)
+    .map(([key, singular, plural]) => {
+      const count = data.links?.[key] || 0
+      return `${count} ${count === 1 ? singular : plural}`
+    })
+
+  const details = labels
+    .filter(([key]) => (data.details?.[key] || []).length > 0)
+    .map(([key, singular, plural]) => {
+      const values = data.details?.[key] || []
+      return `${values.length === 1 ? singular : plural}: ${values.join(", ")}`
+    })
+
+  return [
+    `No se ha eliminado el proveedor. ${data.error || "El proveedor tiene vinculaciones."}`,
+    links.length ? `Vinculaciones: ${links.join(", ")}.` : "",
+    details.length ? `Detalle:\n${details.join("\n")}` : "",
+  ].filter(Boolean).join("\n")
+}
+
 export default function SuppliersPanel({ canDelete = false }: { canDelete?: boolean }) {
   const [view, setView] = useState<ViewMode>("list")
   const [suppliers, setSuppliers] = useState<Supplier[]>([])
@@ -41,6 +79,7 @@ export default function SuppliersPanel({ canDelete = false }: { canDelete?: bool
   const [success, setSuccess] = useState<string | null>(null)
   const [editing, setEditing] = useState<Supplier | null>(null)
   const [saving, setSaving] = useState(false)
+  const [deletingId, setDeletingId] = useState<string | null>(null)
 
   const [search, setSearch] = useState("")
   const [statusFilter, setStatusFilter] = useState("")
@@ -142,17 +181,20 @@ export default function SuppliersPanel({ canDelete = false }: { canDelete?: bool
     if (!confirm("¿Estás seguro de que quieres eliminar este proveedor?")) return
     setError(null)
     setSuccess(null)
+    setDeletingId(id)
     try {
       const res = await fetch(`/api/inventario/proveedores/${id}`, { method: "DELETE" })
       if (!res.ok) {
         const result = await res.json()
-        setError(result.error || "Error al eliminar el proveedor")
+        setError(supplierDeleteError(result))
         return
       }
-      setSuccess("Proveedor eliminado")
+      setSuccess("Proveedor eliminado correctamente")
       loadSuppliers()
     } catch {
-      setError("Error al conectar con el servidor")
+      setError("No se ha eliminado el proveedor. Error al conectar con el servidor.")
+    } finally {
+      setDeletingId(null)
     }
   }
 
@@ -166,10 +208,14 @@ export default function SuppliersPanel({ canDelete = false }: { canDelete?: bool
   return (
     <div className="space-y-4">
       {error && (
-        <div className="rounded-md bg-red-50 p-3 text-sm text-red-600">{error}</div>
+        <div role="alert" aria-live="assertive" className="whitespace-pre-line rounded-md border border-red-200 bg-red-50 p-3 text-sm text-red-700">
+          {error}
+        </div>
       )}
       {success && (
-        <div className="rounded-md bg-green-50 p-3 text-sm text-green-600">{success}</div>
+        <div role="status" aria-live="polite" className="rounded-md border border-green-200 bg-green-50 p-3 text-sm text-green-700">
+          {success}
+        </div>
       )}
 
       {view === "list" && (
@@ -255,11 +301,12 @@ export default function SuppliersPanel({ canDelete = false }: { canDelete?: bool
                           </button>
                            {canDelete && (
                              <button
-                               onClick={() => handleDelete(p.id)}
-                               className="text-xs font-medium text-red-600 hover:text-red-800"
-                             >
-                               Eliminar
-                             </button>
+                                disabled={deletingId === p.id}
+                                onClick={() => handleDelete(p.id)}
+                                className="text-xs font-medium text-red-600 hover:text-red-800 disabled:cursor-not-allowed disabled:opacity-50"
+                              >
+                                {deletingId === p.id ? "Eliminando..." : "Eliminar"}
+                              </button>
                            )}
                         </td>
                       </tr>
