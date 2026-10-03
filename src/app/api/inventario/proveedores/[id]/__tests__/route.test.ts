@@ -4,10 +4,10 @@ import type { NextRequest } from "next/server"
 vi.mock("@/lib/prisma", () => ({
   prisma: {
     supplier: { findUnique: vi.fn(), findFirst: vi.fn(), update: vi.fn(), delete: vi.fn() },
-    supplierProduct: { count: vi.fn() },
-    receipt: { count: vi.fn() },
-    invoice: { count: vi.fn() },
-    creditor: { count: vi.fn() },
+    supplierProduct: { count: vi.fn(), findMany: vi.fn() },
+    receipt: { count: vi.fn(), findMany: vi.fn() },
+    invoice: { count: vi.fn(), findMany: vi.fn() },
+    creditor: { count: vi.fn(), findMany: vi.fn() },
   },
 }))
 
@@ -27,14 +27,17 @@ describe("DELETE /api/inventario/proveedores/[id]", () => {
     vi.clearAllMocks()
     vi.mocked(auth).mockResolvedValue({ user: { id: "admin-1", role: "ADMIN" } } as any)
     vi.mocked(prisma.supplier.findUnique).mockResolvedValue({ id: "provider-1" } as any)
-    vi.mocked(prisma.supplierProduct.count).mockResolvedValue(0)
-    vi.mocked(prisma.receipt.count).mockResolvedValue(0)
-    vi.mocked(prisma.invoice.count).mockResolvedValue(0)
-    vi.mocked(prisma.creditor.count).mockResolvedValue(0)
+    vi.mocked(prisma.supplierProduct.findMany).mockResolvedValue([])
+    vi.mocked(prisma.receipt.findMany).mockResolvedValue([])
+    vi.mocked(prisma.invoice.findMany).mockResolvedValue([])
+    vi.mocked(prisma.creditor.findMany).mockResolvedValue([])
   })
 
   it("blocks deletion when the provider is linked to products", async () => {
-    vi.mocked(prisma.supplierProduct.count).mockResolvedValue(2)
+    vi.mocked(prisma.supplierProduct.findMany).mockResolvedValue([
+      { product: { code: "P-1", posDescription: "Harina" } },
+      { product: { code: "P-2", posDescription: "Azúcar" } },
+    ] as any)
 
     const response = await DELETE(request, context)
 
@@ -43,14 +46,19 @@ describe("DELETE /api/inventario/proveedores/[id]", () => {
       code: "PROVIDER_HAS_LINKS",
       links: { products: 2, receipts: 0, invoices: 0, creditors: 0 },
       vinculaciones: { products: 2, receipts: 0, invoices: 0, creditors: 0 },
+      details: { products: ["P-1 · Harina", "P-2 · Azúcar"] },
     })
     expect(prisma.supplier.delete).not.toHaveBeenCalled()
   })
 
   it("blocks deletion when the provider has any other link", async () => {
-    vi.mocked(prisma.receipt.count).mockResolvedValue(1)
-    vi.mocked(prisma.invoice.count).mockResolvedValue(3)
-    vi.mocked(prisma.creditor.count).mockResolvedValue(1)
+    vi.mocked(prisma.receipt.findMany).mockResolvedValue([{ deliveryNoteCode: "ALB-1" }] as any)
+    vi.mocked(prisma.invoice.findMany).mockResolvedValue([
+      { series: "A", number: "1" },
+      { series: "", number: "2" },
+      { series: null, number: "3" },
+    ] as any)
+    vi.mocked(prisma.creditor.findMany).mockResolvedValue([{ code: "ACR-1", name: "Acreedor" }] as any)
 
     const response = await DELETE(request, context)
 
@@ -58,6 +66,11 @@ describe("DELETE /api/inventario/proveedores/[id]", () => {
     await expect(response.json()).resolves.toMatchObject({
       links: { products: 0, receipts: 1, invoices: 3, creditors: 1 },
       vinculaciones: { products: 0, receipts: 1, invoices: 3, creditors: 1 },
+      details: {
+        receipts: ["ALB-1"],
+        invoices: ["A/1", "2", "3"],
+        creditors: ["ACR-1 · Acreedor"],
+      },
     })
     expect(prisma.supplier.delete).not.toHaveBeenCalled()
   })

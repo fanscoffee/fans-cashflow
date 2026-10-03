@@ -27,6 +27,24 @@ const shift: Shift = {
 }
 
 describe("ShiftCloseModal", () => {
+  it("removes TPV and cash drawer fields while keeping the other sections", () => {
+    render(
+      <ShiftCloseModal
+        shift={shift}
+        requirePhoto={false}
+        onCancel={vi.fn()}
+        onSubmit={vi.fn().mockResolvedValue(true)}
+        saving={false}
+      />,
+    )
+
+    expect(screen.queryByText("TPV")).not.toBeInTheDocument()
+    expect(screen.queryByText("Cajón de efectivo")).not.toBeInTheDocument()
+    expect(screen.getByText("Resumen de ventas")).toBeInTheDocument()
+    expect(screen.getByText("Impuestos")).toBeInTheDocument()
+    expect(screen.getByText("Control de importes actuales")).toBeInTheDocument()
+  })
+
   it("allows closing without entering ticket information", async () => {
     const user = userEvent.setup()
     const onSubmit = vi.fn().mockResolvedValue(true)

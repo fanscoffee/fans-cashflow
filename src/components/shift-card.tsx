@@ -316,7 +316,7 @@ export function ShiftCard({ shift, userRole, onSave, onClose, onReopen, canReope
 
       {shift.shiftClose ? (
         <div className="mt-3 break-words rounded-md border border-green-100 bg-green-50 p-2 text-xs text-green-800 [overflow-wrap:anywhere]">
-          Ticket {shift.shiftClose.pos} · cierre {shift.shiftClose.cashCloseNumber} · ventas netas {toN(shift.shiftClose.netSales).toFixed(2)} €
+           Cierre {shift.shiftClose.cashCloseNumber} · ventas netas {toN(shift.shiftClose.netSales).toFixed(2)} €
         </div>
       ) : !isOpen ? (
         <div className="mt-3 rounded-md border border-amber-100 bg-amber-50 p-2 text-xs text-amber-800">
