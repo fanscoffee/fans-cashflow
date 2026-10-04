@@ -103,4 +103,55 @@ describe("ShiftCloseModal", () => {
       gzip: true,
     }))
   })
+
+  it("keeps shift cash independent from ticket cash during OCR and manual edits", async () => {
+    const user = userEvent.setup()
+    const ticketText = `
+      Resumen de ventas
+      Ventas brutas €1.178,45
+      Reembolsos €0,00
+      Descuentos €0,00
+      Ventas netas €1.178,45
+      Efectivo €420,00
+      Por tarjeta €758,45
+      Impuestos
+      Iva Pan, 4% base imp €28,08
+      Iva Pan, 4% cuota €1,12
+      IVA, 10% base Imp €1.044,80
+      IVA, 10% cuota €104,45
+    `
+    const worker = {
+      setParameters: vi.fn().mockResolvedValue(undefined),
+      recognize: vi.fn().mockResolvedValue({ data: { text: ticketText } }),
+      terminate: vi.fn().mockResolvedValue(undefined),
+    }
+    vi.mocked(createWorker).mockResolvedValue(worker as any)
+
+    render(
+      <ShiftCloseModal
+        shift={shift}
+        onCancel={vi.fn()}
+        onSubmit={vi.fn().mockResolvedValue(true)}
+        saving={false}
+      />,
+    )
+
+    const shiftCash = screen.getByLabelText(/Efectivo del turno/)
+    await user.clear(shiftCash)
+    await user.type(shiftCash, "137.50")
+
+    const file = new File(["image"], "cierre.jpeg", { type: "image/jpeg" })
+    const fileInputs = document.querySelectorAll<HTMLInputElement>("input[type='file']")
+    await user.upload(fileInputs[1], file)
+
+    await screen.findByText("Lectura completada. Revisa todos los campos antes de confirmar.")
+    const ticketCash = screen.getByLabelText(/Efectivo ticket/)
+    expect(ticketCash).toHaveValue(420)
+    expect(shiftCash).toHaveValue(137.5)
+
+    await user.clear(ticketCash)
+    await user.type(ticketCash, "425")
+    expect(ticketCash).toHaveValue(425)
+    expect(shiftCash).toHaveValue(137.5)
+  })
 })

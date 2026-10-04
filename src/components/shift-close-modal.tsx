@@ -174,13 +174,10 @@ export default function ShiftCloseModal({
         } catch {
           // Keep the two general OCR readings if the focused tax pass is unavailable.
         }
-        setFields({
-          ...EMPTY_FIELDS,
+        setFields((previous) => ({
+          ...previous,
           ...parsed,
-          cash: parsed.cashSales,
-          caixaBankAmount: String(toN(shift.caixaBankAmount)),
-          santanderAmount: String(toN(shift.santanderAmount)),
-        })
+        }))
       } finally {
         await worker.terminate()
       }
@@ -294,7 +291,7 @@ export default function ShiftCloseModal({
               <InputField label="Reembolsos" type="number" value={fields.refunds} onChange={(value) => updateField("refunds", value)} />
               <InputField label="Descuentos" type="number" value={fields.discounts} onChange={(value) => updateField("discounts", value)} />
               <InputField label="Ventas netas" type="number" value={fields.netSales} onChange={(value) => updateField("netSales", value)} />
-              <InputField label="Efectivo ticket" type="number" value={fields.cashSales} onChange={(value) => { updateField("cashSales", value); updateField("cash", value) }} />
+              <InputField label="Efectivo ticket" type="number" value={fields.cashSales} onChange={(value) => updateField("cashSales", value)} />
               <InputField label="Por tarjeta ticket" type="number" value={fields.cardSales} onChange={(value) => updateField("cardSales", value)} />
             </div>
           </section>
