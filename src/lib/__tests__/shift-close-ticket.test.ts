@@ -63,6 +63,18 @@ const lowerCropWithoutLabels = `
 €104,45
 `
 
+const focusedTaxOcr = `
+Impuestos
+lva Pan, 4% base imp
+€35,58
+Iva Pan, 4% cuota
+€1,42
+IVA, 10% base imp
+€815,59
+IVA, 10% cuota
+€81,51
+`
+
 describe("shift close ticket OCR", () => {
   it("does not mistake cash-drawer values for sales when the sales heading is absent", () => {
     const fields = extractShiftTicket(incompleteFullImageOcr)
@@ -129,6 +141,31 @@ describe("shift close ticket OCR", () => {
       breadVat4Amount: "1.12",
       vat10Base: "1044.80",
       vat10Amount: "104.45",
+    })
+  })
+
+  it("normalizes OCR-confused IVA labels in a focused tax reading", () => {
+    expect(extractShiftTicket(focusedTaxOcr)).toMatchObject({
+      breadVat4Base: "35.58",
+      breadVat4Amount: "1.42",
+      vat10Base: "815.59",
+      vat10Amount: "81.51",
+    })
+  })
+
+  it("prefers a coherent focused tax reading over non-empty invalid OCR values", () => {
+    const incorrect = extractShiftTicket(`
+      Impuestos
+      Iva Pan, 4% cuota €1,42
+      IVA, 10% base imp €815,59
+      IVA, 10% cuota €151
+    `)
+
+    expect(mergeShiftTicketReadings(extractShiftTicket(focusedTaxOcr), incorrect)).toMatchObject({
+      breadVat4Base: "35.58",
+      breadVat4Amount: "1.42",
+      vat10Base: "815.59",
+      vat10Amount: "81.51",
     })
   })
 })
