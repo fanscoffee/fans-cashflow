@@ -46,6 +46,7 @@ function normalizeText(value: string) {
     .replace(/[\u0300-\u036f]/g, "")
     .toLowerCase()
     .replace(/\s+/g, " ")
+    .replace(/(^|\s)[|l]va(?=\s|,)/g, "$1iva")
     .trim()
 }
 
@@ -261,13 +262,13 @@ export function mergeShiftTicketReadings(first: ShiftTicketFields, second: Shift
   return merged
 }
 
-export async function createLowerTicketCrop(file: File) {
+async function createTicketCrop(file: File, startFraction: number) {
   const image = new Image()
   const objectUrl = URL.createObjectURL(file)
   try {
     image.src = objectUrl
     await image.decode()
-    const sourceY = Math.floor(image.naturalHeight * 0.38)
+    const sourceY = Math.floor(image.naturalHeight * startFraction)
     const sourceHeight = image.naturalHeight - sourceY
     const canvas = document.createElement("canvas")
     canvas.width = image.naturalWidth
@@ -279,4 +280,12 @@ export async function createLowerTicketCrop(file: File) {
   } finally {
     URL.revokeObjectURL(objectUrl)
   }
+}
+
+export function createLowerTicketCrop(file: File) {
+  return createTicketCrop(file, 0.38)
+}
+
+export function createTaxTicketCrop(file: File) {
+  return createTicketCrop(file, 0.65)
 }
