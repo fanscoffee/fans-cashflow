@@ -5,34 +5,15 @@ import { PSM } from "tesseract.js"
 import type { ShiftClose, Shift } from "@/types/shift"
 import { toN } from "@/lib/money"
 import { createLocalOcrWorker } from "@/lib/document-ocr"
+import {
+  createLowerTicketCrop,
+  extractShiftTicket,
+  mergeShiftTicketReadings,
+  SHIFT_TICKET_NUMERIC_FIELDS,
+  type ShiftTicketFields,
+} from "@/lib/shift-close-ticket"
 
-const NUMERIC_FIELDS = [
-  "grossSales",
-  "refunds",
-  "discounts",
-  "netSales",
-  "cashSales",
-  "cardSales",
-  "breadVat4Base",
-  "breadVat4Amount",
-  "vat10Base",
-  "vat10Amount",
-] as const
-
-export interface ShiftCloseFormData {
-  cashCloseNumber: string
-  openingDateTime: string
-  closingDateTime: string
-  grossSales: string
-  refunds: string
-  discounts: string
-  netSales: string
-  cashSales: string
-  cardSales: string
-  breadVat4Base: string
-  breadVat4Amount: string
-  vat10Base: string
-  vat10Amount: string
+export interface ShiftCloseFormData extends ShiftTicketFields {
   varianceNote: string
   cash: string
   caixaBankAmount: string
@@ -64,144 +45,11 @@ const EMPTY_FIELDS: ShiftCloseFormData = {
   wasteReviewed: false,
 }
 
-function normalizeText(value: string) {
-  return value
-    .normalize("NFD")
-    .replace(/[\u0300-\u036f]/g, "")
-    .toLowerCase()
-    .replace(/\s+/g, " ")
-    .trim()
-}
-
-function parseAmount(value: string) {
-  const cleaned = value.replace(/[^0-9,.-]/g, "").replace(/\.(?=.*\.)/g, "")
-  if (!cleaned) return ""
-  const normalized = cleaned.includes(",")
-    ? cleaned.replace(/\./g, "").replace(",", ".")
-    : cleaned
-  const amount = Number(normalized)
-  return Number.isFinite(amount) ? amount.toFixed(2) : ""
-}
-
-function amountTokens(value: string) {
-  return value.match(/[-+]?\d[\d.\s]*(?:,\d+)?/g) || []
-}
-
-function currencyValues(lines: string[], start = 0, end = lines.length) {
-  const values: string[] = []
-  for (const line of lines.slice(start, end)) {
-    const matches = line.match(/€\s*[-+]?\d[\d.\s]*(?:,\d+)?|[-+]?\d[\d.\s]*,\d{2}/g) || []
-    values.push(...matches)
-  }
-  return values.map((value) => parseAmount(value)).filter(Boolean)
-}
-
-function amountFromLabel(lines: string[], label: string, start = 0, end = lines.length) {
-  const wanted = normalizeText(label)
-  for (let index = start; index < end; index += 1) {
-    const normalizedLine = normalizeText(lines[index])
-    const labelIndex = normalizedLine.indexOf(wanted)
-    if (labelIndex < 0) continue
-
-    const sameLine = amountTokens(lines[index].slice(labelIndex + wanted.length))
-    if (sameLine.length > 0) return parseAmount(sameLine[sameLine.length - 1]) || "0.00"
-
-    for (let next = index + 1; next < Math.min(index + 3, end); next += 1) {
-      const nextTokens = amountTokens(lines[next])
-      if (nextTokens.length > 0) return parseAmount(nextTokens[nextTokens.length - 1]) || "0.00"
-    }
-    return "0.00"
-  }
-  return "0.00"
-}
-
-function dateTimeFromLabel(lines: string[], label: string) {
-  const wanted = normalizeText(label)
-  const datePattern = /(\d{1,2})[/-](\d{1,2})[/-](\d{2,4})\s+(\d{1,2})[:.](\d{2})/
-
-  for (let index = 0; index < lines.length; index += 1) {
-    if (!normalizeText(lines[index]).includes(wanted)) continue
-    const block = lines.slice(index, index + 3).join(" ")
-    const match = block.match(datePattern)
-    if (!match) return ""
-    const [, day, month, rawYear, hour, minute] = match
-    const year = rawYear.length === 2 ? `20${rawYear}` : rawYear
-    return `${year}-${month.padStart(2, "0")}-${day.padStart(2, "0")}T${hour.padStart(2, "0")}:${minute}`
-  }
-  return ""
-}
-
 function localDateTime(value: string | Date) {
   const date = new Date(value)
   if (Number.isNaN(date.getTime())) return ""
   const local = new Date(date.getTime() - date.getTimezoneOffset() * 60_000)
   return local.toISOString().slice(0, 16)
-}
-
-function textAfterLabel(lines: string[], label: string) {
-  const wanted = normalizeText(label)
-  for (const line of lines) {
-    const normalizedLine = normalizeText(line)
-    const index = normalizedLine.indexOf(wanted)
-    if (index < 0) continue
-    const value = line.slice(index + label.length).replace(/^\s*[:\-]\s*/, "").trim()
-    if (value) return value.replace(/[|]/g, "").trim()
-  }
-  return ""
-}
-
-function extractTicket(text: string): ShiftCloseFormData {
-  const lines = text.split(/\r?\n/).map((line) => line.trim()).filter(Boolean)
-  const normalizedLines = lines.map(normalizeText)
-  const summaryStart = normalizedLines.findIndex((line) => line.includes("resumen de ventas"))
-  const taxesStart = normalizedLines.findIndex((line) => line === "impuestos" || line.includes("impuestos"))
-  const summaryFrom = summaryStart >= 0 ? summaryStart : 0
-  const summaryTo = taxesStart > summaryFrom ? taxesStart : lines.length
-  const fields = { ...EMPTY_FIELDS }
-
-  fields.cashCloseNumber = textAfterLabel(lines, "Número de cierre de caja") || textAfterLabel(lines, "Numero de cierre de caja")
-  fields.openingDateTime = dateTimeFromLabel(lines, "Apertura del turno")
-  fields.closingDateTime = dateTimeFromLabel(lines, "Cerrado")
-
-  fields.grossSales = amountFromLabel(lines, "Ventas brutas", summaryFrom, summaryTo)
-  fields.refunds = amountFromLabel(lines, "Reembolsos", summaryFrom, summaryTo)
-  fields.discounts = amountFromLabel(lines, "Descuentos", summaryFrom, summaryTo)
-  fields.netSales = amountFromLabel(lines, "Ventas netas", summaryFrom, summaryTo)
-  fields.cashSales = amountFromLabel(lines, "Efectivo", summaryFrom, summaryTo)
-  fields.cardSales = amountFromLabel(lines, "Por tarjeta", summaryFrom, summaryTo)
-
-  const summaryValues = currencyValues(lines, summaryFrom, summaryTo)
-  if (summaryValues.length >= 6) {
-    [fields.grossSales, fields.refunds, fields.discounts, fields.netSales, fields.cashSales, fields.cardSales] = summaryValues.slice(0, 6)
-  }
-
-  const taxesFrom = taxesStart >= 0 ? taxesStart : lines.length
-  fields.breadVat4Base = amountFromLabel(lines, "IVA Pan, 4% base imp", taxesFrom)
-  fields.breadVat4Amount = amountFromLabel(lines, "IVA Pan, 4% cuota", taxesFrom)
-  fields.vat10Base = amountFromLabel(lines, "IVA, 10% base imp", taxesFrom)
-  fields.vat10Amount = amountFromLabel(lines, "IVA, 10% cuota", taxesFrom)
-
-  const taxValues = currencyValues(lines, taxesFrom)
-  if (taxValues.length >= 4) {
-    [fields.breadVat4Base, fields.breadVat4Amount, fields.vat10Base, fields.vat10Amount] = taxValues.slice(0, 4)
-  } else if (taxValues.length === 2) {
-    [fields.vat10Base, fields.vat10Amount] = taxValues
-  }
-
-  fields.cash = fields.cashSales
-  return fields
-}
-
-function mergeOcrFields(primary: ShiftCloseFormData, secondary: ShiftCloseFormData) {
-  const merged = { ...primary }
-  for (const field of NUMERIC_FIELDS) {
-    if (toN(merged[field]) === 0 && toN(secondary[field]) !== 0) merged[field] = secondary[field]
-  }
-  for (const field of ["cashCloseNumber", "openingDateTime", "closingDateTime"] as const) {
-    if (!merged[field].trim() && secondary[field].trim()) merged[field] = secondary[field]
-  }
-  merged.cash = merged.cashSales
-  return merged
 }
 
 function InputField({
@@ -299,11 +147,27 @@ export default function ShiftCloseModal({
       const worker = await createLocalOcrWorker("spa", setOcrStatus)
       try {
         await worker.setParameters({ tessedit_pageseg_mode: PSM.SINGLE_BLOCK, preserve_interword_spaces: "1" })
-        const blockResult = await worker.recognize(file)
-        await worker.setParameters({ tessedit_pageseg_mode: PSM.SINGLE_COLUMN, preserve_interword_spaces: "1" })
-        const columnResult = await worker.recognize(file)
+        const fullResult = await worker.recognize(file)
+        let lowerInput: File | HTMLCanvasElement = file
+        let hasLowerCrop = false
+        try {
+          lowerInput = await createLowerTicketCrop(file)
+          hasLowerCrop = true
+        } catch {
+          // OCR can still use the original image if this browser cannot create a crop.
+        }
+        if (!hasLowerCrop) {
+          await worker.setParameters({ tessedit_pageseg_mode: PSM.SINGLE_COLUMN, preserve_interword_spaces: "1" })
+        }
+        const lowerResult = await worker.recognize(lowerInput)
+        const parsed = mergeShiftTicketReadings(
+          extractShiftTicket(lowerResult.data.text),
+          extractShiftTicket(fullResult.data.text),
+        )
         setFields({
-          ...mergeOcrFields(extractTicket(blockResult.data.text), extractTicket(columnResult.data.text)),
+          ...EMPTY_FIELDS,
+          ...parsed,
+          cash: parsed.cashSales,
           caixaBankAmount: String(toN(shift.caixaBankAmount)),
           santanderAmount: String(toN(shift.santanderAmount)),
         })
@@ -320,7 +184,7 @@ export default function ShiftCloseModal({
 
   const missingFields = useMemo(() => {
     const missing: string[] = []
-    for (const field of NUMERIC_FIELDS) {
+    for (const field of SHIFT_TICKET_NUMERIC_FIELDS) {
       if (fields[field].trim() === "") missing.push(field)
     }
     if (!fields.cashCloseNumber.trim()) missing.push("cashCloseNumber")
