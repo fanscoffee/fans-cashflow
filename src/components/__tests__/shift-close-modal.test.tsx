@@ -5,7 +5,7 @@ import type { Shift } from "@/types/shift"
 
 vi.mock("tesseract.js", () => ({
   createWorker: vi.fn(),
-  PSM: { SINGLE_BLOCK: 6, SINGLE_COLUMN: 4 },
+  PSM: { SINGLE_BLOCK: 6, SINGLE_COLUMN: 4, SPARSE_TEXT: 11 },
 }))
 
 import ShiftCloseModal from "../shift-close-modal"

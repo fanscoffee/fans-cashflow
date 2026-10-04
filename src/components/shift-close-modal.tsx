@@ -7,6 +7,7 @@ import { toN } from "@/lib/money"
 import { createLocalOcrWorker } from "@/lib/document-ocr"
 import {
   createLowerTicketCrop,
+  createTaxTicketCrop,
   extractShiftTicket,
   mergeShiftTicketReadings,
   SHIFT_TICKET_NUMERIC_FIELDS,
@@ -160,10 +161,19 @@ export default function ShiftCloseModal({
           await worker.setParameters({ tessedit_pageseg_mode: PSM.SINGLE_COLUMN, preserve_interword_spaces: "1" })
         }
         const lowerResult = await worker.recognize(lowerInput)
-        const parsed = mergeShiftTicketReadings(
+        const generalReading = mergeShiftTicketReadings(
           extractShiftTicket(lowerResult.data.text),
           extractShiftTicket(fullResult.data.text),
         )
+        let parsed = generalReading
+        try {
+          const taxInput = await createTaxTicketCrop(file)
+          await worker.setParameters({ tessedit_pageseg_mode: PSM.SPARSE_TEXT, preserve_interword_spaces: "1" })
+          const taxResult = await worker.recognize(taxInput)
+          parsed = mergeShiftTicketReadings(extractShiftTicket(taxResult.data.text), generalReading)
+        } catch {
+          // Keep the two general OCR readings if the focused tax pass is unavailable.
+        }
         setFields({
           ...EMPTY_FIELDS,
           ...parsed,
