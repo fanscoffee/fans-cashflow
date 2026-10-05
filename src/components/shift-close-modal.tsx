@@ -89,13 +89,15 @@ export default function ShiftCloseModal({
   requirePhoto = true,
   onCancel,
   onSubmit,
+  submitError,
   saving,
 }: {
   shift: Shift
   initialClose?: ShiftClose | null
   requirePhoto?: boolean
   onCancel: () => void
-  onSubmit: (data: ShiftCloseFormData) => Promise<void | boolean>
+  onSubmit: (data: ShiftCloseFormData) => Promise<void | boolean | string>
+  submitError?: string
   saving: boolean
 }) {
   const [fields, setFields] = useState<ShiftCloseFormData>(() => {
@@ -330,6 +332,7 @@ export default function ShiftCloseModal({
           <p className="mt-4 rounded-md bg-red-50 p-3 text-xs text-red-700">Completa todos los campos pendientes antes de confirmar.</p>
         )}
         {!ocrCompleted && requirePhoto && <p className="mt-4 rounded-md bg-amber-50 p-3 text-xs text-amber-800">La foto es obligatoria. Carga el ticket para rellenar los datos automáticamente.</p>}
+        {submitError && <p role="alert" className="mt-4 rounded-md border border-red-200 bg-red-50 p-3 text-sm text-red-700">{submitError}</p>}
 
           <div className="mt-5 flex flex-col gap-2 sm:flex-row sm:justify-end">
           <button type="button" onClick={onCancel} className="w-full rounded-md border border-gray-300 px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50 sm:w-auto">Cancelar</button>

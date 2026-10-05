@@ -1,4 +1,4 @@
-import { beforeEach, describe, expect, it, vi } from "vitest"
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest"
 import type { NextRequest } from "next/server"
 
 vi.mock("@/lib/prisma", () => ({
@@ -17,6 +17,8 @@ import { PATCH } from "../route"
 import { prisma } from "@/lib/prisma"
 import { auth } from "@/lib/auth"
 
+const originalTimeZone = process.env.TZ
+
 describe("PATCH /api/shifts/[shiftId]", () => {
   const context = { params: Promise.resolve({ shiftId: "shift-1" }) }
   const shift = {
@@ -32,6 +34,12 @@ describe("PATCH /api/shifts/[shiftId]", () => {
     vi.clearAllMocks()
     vi.mocked(auth).mockResolvedValue({ user: { id: "user-1", role: "EMPLEADO" } } as any)
     vi.mocked(prisma.shift.findUnique).mockResolvedValue(shift as any)
+  })
+
+  afterEach(() => {
+    if (originalTimeZone) process.env.TZ = originalTimeZone
+    else delete process.env.TZ
+    vi.useRealTimers()
   })
 
   function transactionMock({
@@ -174,6 +182,59 @@ describe("PATCH /api/shifts/[shiftId]", () => {
 
     expect(response.status).toBe(200)
     expect(updateShift).toHaveBeenCalled()
+  })
+
+  it("interprets ticket times in Madrid instead of the server timezone", async () => {
+    process.env.TZ = "UTC"
+    vi.useFakeTimers()
+    vi.setSystemTime(new Date("2026-10-05T20:11:00.000Z"))
+    const shiftForDate = {
+      ...shift,
+      date: new Date("2026-10-05T00:00:00.000Z"),
+      createdAt: new Date("2026-10-05T18:00:00.000Z"),
+    }
+    vi.mocked(prisma.shift.findUnique).mockResolvedValue(shiftForDate as any)
+    const { updateShift, upsertClosure } = transactionMock({ lockedShift: shiftForDate })
+
+    const response = await PATCH(
+      new Request("http://localhost/api/shifts/shift-1", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          status: "CERRADO",
+          close: {
+            cashCloseNumber: "1692",
+            openingDateTime: "2026-10-05T20:00",
+            closingDateTime: "2026-10-05T22:00",
+            grossSales: "778.55",
+            refunds: "0.00",
+            discounts: "0.00",
+            netSales: "778.55",
+            cashSales: "162.60",
+            cardSales: "615.95",
+            breadVat4Base: "1.25",
+            breadVat4Amount: "0.05",
+            vat10Base: "706.61",
+            vat10Amount: "70.64",
+            varianceNote: "Diferencia bancaria de 0,05",
+            cash: "162.60",
+            caixaBankAmount: "147.25",
+            santanderAmount: "468.65",
+          },
+          operationalReview: { productionReviewed: true, wasteReviewed: true },
+        }),
+      }) as unknown as NextRequest,
+      context,
+    )
+
+    expect(response.status).toBe(200)
+    expect(updateShift).toHaveBeenCalled()
+    expect(upsertClosure).toHaveBeenCalledWith(expect.objectContaining({
+      create: expect.objectContaining({
+        openingDateTime: new Date("2026-10-05T18:00:00.000Z"),
+        closingDateTime: new Date("2026-10-05T20:00:00.000Z"),
+      }),
+    }))
   })
 
   it("applies additions made after the latest shift was closed when reopening it", async () => {

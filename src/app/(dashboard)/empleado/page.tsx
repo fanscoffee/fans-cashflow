@@ -107,7 +107,7 @@ export default function EmployeePage() {
     }
   }
 
-  async function handleCloseShift(shiftId: string, close: ShiftCloseFormData): Promise<boolean> {
+  async function handleCloseShift(shiftId: string, close: ShiftCloseFormData): Promise<boolean | string> {
     setError(null)
     setSuccess(null)
     setClosingShift(shiftId)
@@ -129,15 +129,17 @@ export default function EmployeePage() {
       })
       if (!res.ok) {
         const result = await res.json()
-        setError(result.error || "Error al cerrar el turno")
-        return false
+        const message = result.error || "Error al cerrar el turno"
+        setError(message)
+        return message
       }
       setSuccess("Turno cerrado correctamente")
       await refreshData()
       return true
     } catch {
-      setError("Error al conectar con el servidor")
-      return false
+      const message = "Error al conectar con el servidor"
+      setError(message)
+      return message
     } finally {
       setClosingShift(null)
     }
