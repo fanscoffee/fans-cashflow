@@ -72,6 +72,21 @@ describe("ShiftCloseModal", () => {
     }))
   })
 
+  it("shows server errors inside the close modal", () => {
+    render(
+      <ShiftCloseModal
+        shift={shift}
+        requirePhoto={false}
+        submitError="La fecha y hora del ticket no son válidas"
+        onCancel={vi.fn()}
+        onSubmit={vi.fn().mockResolvedValue(true)}
+        saving={false}
+      />,
+    )
+
+    expect(screen.getByRole("alert")).toHaveTextContent("La fecha y hora del ticket no son válidas")
+  })
+
   it("uses local OCR assets when reading a closing ticket", async () => {
     const user = userEvent.setup()
     const worker = {

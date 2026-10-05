@@ -13,7 +13,7 @@ interface ShiftCardProps {
   shift: Shift
   userRole?: string
   onSave: (shiftId: string, values: { cash: number; caixaBankAmount: number; santanderAmount: number; closingFund: number }) => Promise<void>
-  onClose: (shiftId: string, data: ShiftCloseFormData) => Promise<boolean>
+  onClose: (shiftId: string, data: ShiftCloseFormData) => Promise<boolean | string>
   onReopen: (shiftId: string) => Promise<void>
   canReopen?: boolean
   closingShift: string | null
@@ -52,6 +52,7 @@ export function ShiftCard({ shift, userRole, onSave, onClose, onReopen, canReope
   const [currentExpenseSuccess, setCurrentExpenseSuccess] = useState("")
   const [openMobileMenu, setOpenMobileMenu] = useState(false)
   const [showCloseModal, setShowCloseModal] = useState(false)
+  const [closeError, setCloseError] = useState("")
 
   const cash = isEditing ? Number(editValues.cash) || 0 : toN(shift.cash)
   const caixaBankAmount = isEditing ? Number(editValues.caixaBankAmount) || 0 : toN(shift.caixaBankAmount)
@@ -81,8 +82,10 @@ export function ShiftCard({ shift, userRole, onSave, onClose, onReopen, canReope
   }
 
   async function submitClose(data: ShiftCloseFormData) {
-    const saved = await onClose(shift.id, data)
-    if (saved) setShowCloseModal(false)
+    setCloseError("")
+    const result = await onClose(shift.id, data)
+    if (result === true) setShowCloseModal(false)
+    else setCloseError(typeof result === "string" ? result : "No se pudo cerrar el turno")
   }
 
   async function handleEditExpense(expenseId: string) {
@@ -193,7 +196,7 @@ export function ShiftCard({ shift, userRole, onSave, onClose, onReopen, canReope
               {isOpen && (
                 <>
                   <button type="button" onClick={() => void openCurrentExpenseForm()} className="rounded-md bg-gray-100 px-3 py-1.5 text-xs font-medium text-gray-700 hover:bg-gray-200">+ Gasto corriente</button>
-                  <button onClick={() => setShowCloseModal(true)} disabled={closingShift === shift.id} className="rounded-md bg-red-600 px-3 py-1.5 text-xs font-medium text-white hover:bg-red-700 disabled:opacity-50">
+                  <button onClick={() => { setCloseError(""); setShowCloseModal(true) }} disabled={closingShift === shift.id} className="rounded-md bg-red-600 px-3 py-1.5 text-xs font-medium text-white hover:bg-red-700 disabled:opacity-50">
                     {closingShift === shift.id ? "Cerrando..." : "Cerrar Turno"}
                   </button>
                 </>
@@ -230,7 +233,7 @@ export function ShiftCard({ shift, userRole, onSave, onClose, onReopen, canReope
                   {isOpen && (
                     <>
                        <button type="button" onClick={() => { void openCurrentExpenseForm(); setOpenMobileMenu(false) }} className="block w-full px-4 py-2 text-left text-sm text-gray-700 hover:bg-gray-50">+ Gasto corriente</button>
-                       <button onClick={() => { setShowCloseModal(true); setOpenMobileMenu(false) }} disabled={closingShift === shift.id} className="block w-full px-4 py-2 text-left text-sm text-red-700 hover:bg-red-50 disabled:opacity-50">
+                       <button onClick={() => { setCloseError(""); setShowCloseModal(true); setOpenMobileMenu(false) }} disabled={closingShift === shift.id} className="block w-full px-4 py-2 text-left text-sm text-red-700 hover:bg-red-50 disabled:opacity-50">
                         {closingShift === shift.id ? "Cerrando..." : "Cerrar Turno"}
                       </button>
                     </>
@@ -482,6 +485,7 @@ export function ShiftCard({ shift, userRole, onSave, onClose, onReopen, canReope
           requirePhoto={!shift.shiftClose}
           onCancel={() => setShowCloseModal(false)}
           onSubmit={submitClose}
+          submitError={closeError}
           saving={closingShift === shift.id}
         />
       )}

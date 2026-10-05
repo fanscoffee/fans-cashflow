@@ -23,6 +23,54 @@ const updateShiftSchema = z.object({
 
 class HistoricalShiftReopenError extends Error {}
 
+const BUSINESS_TIME_ZONE = "Europe/Madrid"
+const businessDateFormatter = new Intl.DateTimeFormat("en-CA", {
+  timeZone: BUSINESS_TIME_ZONE,
+  year: "numeric",
+  month: "2-digit",
+  day: "2-digit",
+})
+const businessOffsetFormatter = new Intl.DateTimeFormat("en-US", {
+  timeZone: BUSINESS_TIME_ZONE,
+  timeZoneName: "longOffset",
+})
+
+function businessOffsetMs(value: Date) {
+  const offset = businessOffsetFormatter.formatToParts(value).find((part) => part.type === "timeZoneName")?.value
+  if (!offset) return null
+  if (offset === "GMT") return 0
+  const match = offset.match(/^GMT([+-])(\d{2}):(\d{2})$/)
+  if (!match) return null
+  const minutes = Number(match[2]) * 60 + Number(match[3])
+  return (match[1] === "-" ? -1 : 1) * minutes * 60_000
+}
+
+function businessDateTime(value: string) {
+  const match = value.match(/^(\d{4})-(\d{2})-(\d{2})T(\d{2}):(\d{2})$/)
+  if (!match) return null
+  const [, rawYear, rawMonth, rawDay, rawHour, rawMinute] = match
+  const year = Number(rawYear)
+  const month = Number(rawMonth)
+  const day = Number(rawDay)
+  const hour = Number(rawHour)
+  const minute = Number(rawMinute)
+  const wallClock = new Date(Date.UTC(year, month - 1, day, hour, minute))
+  if (
+    wallClock.getUTCFullYear() !== year ||
+    wallClock.getUTCMonth() !== month - 1 ||
+    wallClock.getUTCDate() !== day ||
+    wallClock.getUTCHours() !== hour ||
+    wallClock.getUTCMinutes() !== minute
+  ) return null
+
+  const initialOffset = businessOffsetMs(wallClock)
+  if (initialOffset == null) return null
+  const firstCandidate = new Date(wallClock.getTime() - initialOffset)
+  const actualOffset = businessOffsetMs(firstCandidate)
+  if (actualOffset == null) return null
+  return new Date(wallClock.getTime() - actualOffset)
+}
+
 const moneyInput = z
   .union([z.string(), z.number()])
   .refine((value) => String(value).trim() !== "", "El importe es obligatorio")
@@ -51,12 +99,7 @@ const shiftCloseSchema = z.object({
 })
 
 function sameCalendarDate(value: string, shiftDate: Date) {
-  // PostgreSQL DATE is returned as local midnight; UTC conversion can move it to the previous day.
-  const shiftCalendarDate = [
-    shiftDate.getFullYear(),
-    String(shiftDate.getMonth() + 1).padStart(2, "0"),
-    String(shiftDate.getDate()).padStart(2, "0"),
-  ].join("-")
+  const shiftCalendarDate = businessDateFormatter.format(shiftDate)
   return value.slice(0, 10) === shiftCalendarDate
 }
 
@@ -117,6 +160,7 @@ export const PATCH = withAuth(async (req, session, context) => {
   }
 
   let close: z.infer<typeof shiftCloseSchema> | null = null
+  let closeTimes: { opening: Date; closing: Date } | null = null
   if (data.status === "CERRADO" && !data.noInformation) {
     if (!body.close) {
       return NextResponse.json(
@@ -130,6 +174,15 @@ export const PATCH = withAuth(async (req, session, context) => {
       return NextResponse.json({ error: parsedClose.error.issues[0]?.message || "Datos del ticket no válidos" }, { status: 400 })
     }
     close = parsedClose.data
+    const opening = businessDateTime(close.openingDateTime)
+    const closing = businessDateTime(close.closingDateTime)
+    if (!opening || !closing) {
+      return NextResponse.json(
+        { error: "La fecha y hora del ticket no son válidas" },
+        { status: 400 },
+      )
+    }
+    closeTimes = { opening, closing }
     const currentClose = await prisma.shiftClose.findUnique({ where: { shiftId } })
     if (!currentClose) {
       if (!sameCalendarDate(close.openingDateTime, shift.date) || !sameCalendarDate(close.closingDateTime, shift.date)) {
@@ -139,10 +192,10 @@ export const PATCH = withAuth(async (req, session, context) => {
         )
       }
 
-      const apertura = new Date(close.openingDateTime).getTime()
-      const closeDate = new Date(close.closingDateTime).getTime()
+      const apertura = opening.getTime()
+      const closeDate = closing.getTime()
       const tolerance = 15 * 60 * 1000
-      if (!Number.isFinite(apertura) || !Number.isFinite(closeDate) || closeDate < apertura || closeDate > Date.now() + tolerance) {
+      if (closeDate < apertura || closeDate > Date.now() + tolerance) {
         return NextResponse.json(
           { error: "La fecha y hora del ticket no son válidas o el cierre está en el futuro" },
           { status: 400 }
@@ -218,13 +271,14 @@ export const PATCH = withAuth(async (req, session, context) => {
       })
 
       if (close) {
+        if (!closeTimes) throw new Error("Faltan las fechas del cierre durante la actualización")
         await tx.shiftClose.upsert({
           where: { shiftId },
           create: {
             shiftId,
             cashCloseNumber: close.cashCloseNumber,
-            openingDateTime: new Date(close.openingDateTime),
-            closingDateTime: new Date(close.closingDateTime),
+            openingDateTime: closeTimes.opening,
+            closingDateTime: closeTimes.closing,
             grossSales: close.grossSales,
             refunds: close.refunds,
             discounts: close.discounts,
@@ -240,8 +294,8 @@ export const PATCH = withAuth(async (req, session, context) => {
           },
           update: {
             cashCloseNumber: close.cashCloseNumber,
-            openingDateTime: new Date(close.openingDateTime),
-            closingDateTime: new Date(close.closingDateTime),
+            openingDateTime: closeTimes.opening,
+            closingDateTime: closeTimes.closing,
             grossSales: close.grossSales,
             refunds: close.refunds,
             discounts: close.discounts,
