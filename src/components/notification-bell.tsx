@@ -1,16 +1,20 @@
 "use client"
 
 import { useState, useEffect, useCallback } from "react"
-import type { Order } from "@/types/order"
+import type { Order, PendingCoupon } from "@/types/order"
+import CouponShareButton from "@/components/coupons/coupon-share-button"
 
 interface NotificationBellProps {
   upcomingOrders?: Order[]
+  canShareCoupons?: boolean
 }
 
-export default function NotificationBell({ upcomingOrders }: NotificationBellProps) {
+export default function NotificationBell({ upcomingOrders, canShareCoupons = false }: NotificationBellProps) {
   const [orders, setOrders] = useState<Order[]>([])
+  const [pendingCoupons, setPendingCoupons] = useState<PendingCoupon[]>([])
   const [open, setOpen] = useState(false)
   const [loading, setLoading] = useState(false)
+  const [pendingLoading, setPendingLoading] = useState(false)
 
   const fetchOrders = useCallback(async () => {
     setLoading(true)
@@ -27,24 +31,44 @@ export default function NotificationBell({ upcomingOrders }: NotificationBellPro
     }
   }, [])
 
+  const fetchPendingCoupons = useCallback(async () => {
+    if (!canShareCoupons) return
+    setPendingLoading(true)
+    try {
+      const res = await fetch("/api/cupones/pendientes")
+      if (res.ok) {
+        const data = await res.json()
+        setPendingCoupons(data.coupons || [])
+      }
+    } catch {
+      // ignore
+    } finally {
+      setPendingLoading(false)
+    }
+  }, [canShareCoupons])
+
   const displayOrders = upcomingOrders ?? orders
 
   /* eslint-disable react-hooks/set-state-in-effect */
   useEffect(() => {
-    if (upcomingOrders === undefined) fetchOrders()
-  }, [fetchOrders, upcomingOrders])
+    if (upcomingOrders === undefined) void fetchOrders()
+    void fetchPendingCoupons()
+  }, [fetchOrders, fetchPendingCoupons, upcomingOrders])
   /* eslint-enable react-hooks/set-state-in-effect */
 
   function handleOpen() {
     setOpen(true)
-    fetchOrders()
+    void fetchOrders()
+    void fetchPendingCoupons()
   }
 
   const today = new Date().toISOString().slice(0, 10)
   const todayOrders = displayOrders.filter((o) => o.deliveryDate.slice(0, 10) === today)
   const tomorrowOrders = displayOrders.filter((o) => o.deliveryDate.slice(0, 10) !== today)
+  const totalNotifications = displayOrders.length + pendingCoupons.length
+  const isLoading = loading || (canShareCoupons && pendingLoading)
 
-  if (displayOrders.length === 0 && !open) return null
+  if (totalNotifications === 0 && !open) return null
 
   return (
     <>
@@ -57,9 +81,9 @@ export default function NotificationBell({ upcomingOrders }: NotificationBellPro
         <svg className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
           <path strokeLinecap="round" strokeLinejoin="round" d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9" />
         </svg>
-        {displayOrders.length > 0 && (
+        {totalNotifications > 0 && (
           <span className="absolute -right-1 -top-1 flex h-5 w-5 items-center justify-center rounded-full bg-red-500 text-[10px] font-bold">
-            {displayOrders.length}
+            {totalNotifications}
           </span>
         )}
       </button>
@@ -72,8 +96,8 @@ export default function NotificationBell({ upcomingOrders }: NotificationBellPro
             className="flex max-h-[calc(100dvh-1rem)] w-full max-w-md flex-col overflow-hidden rounded-t-xl bg-white shadow-xl sm:max-h-[calc(100dvh-2rem)] sm:rounded-xl"
             onClick={(e) => e.stopPropagation()}
           >
-              <div className="flex items-center justify-between border-b px-4 py-3">
-              <h3 className="text-base font-semibold text-gray-900">Encargos próximos</h3>
+            <div className="flex items-center justify-between border-b px-4 py-3">
+              <h3 className="text-base font-semibold text-gray-900">Notificaciones</h3>
               <button onClick={() => setOpen(false)} aria-label="Cerrar notificaciones" className="min-h-11 min-w-11 rounded-md p-2 text-gray-400 hover:text-gray-600">
                 <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
                   <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
@@ -82,29 +106,63 @@ export default function NotificationBell({ upcomingOrders }: NotificationBellPro
             </div>
 
             <div className="min-h-0 overflow-y-auto px-4 py-3">
-              {loading && orders.length === 0 ? (
+              {isLoading && orders.length === 0 && pendingCoupons.length === 0 ? (
                 <p className="py-4 text-center text-sm text-gray-500">Cargando...</p>
-              ) : orders.length === 0 ? (
-                <p className="py-4 text-center text-sm text-gray-500">No hay encargos próximos.</p>
+              ) : totalNotifications === 0 ? (
+                <p className="py-4 text-center text-sm text-gray-500">
+                  {canShareCoupons ? "No hay notificaciones pendientes." : "No hay encargos próximos."}
+                </p>
               ) : (
                 <div className="space-y-4">
-                  {todayOrders.length > 0 && (
+                  {pendingCoupons.length > 0 && (
                     <div>
-                      <p className="mb-2 text-xs font-semibold uppercase text-amber-600">Hoy</p>
+                      <p className="mb-2 text-xs font-semibold uppercase text-purple-600">Cupones por compartir</p>
                       <div className="space-y-2">
-                        {todayOrders.map((order) => (
-                          <OrderCard key={order.id} order={order} />
+                        {pendingCoupons.map((coupon) => (
+                          <div key={coupon.id} className="rounded-lg border border-purple-100 bg-purple-50 p-3">
+                            <div className="mb-2 flex min-w-0 items-start justify-between gap-3">
+                              <div className="min-w-0">
+                                <p className="break-words text-sm font-medium text-gray-900">{coupon.clientName}</p>
+                                <p className="break-words text-xs text-gray-600">{coupon.clientPhone}</p>
+                                <p className="mt-1 font-mono text-xs text-gray-900">{coupon.code}</p>
+                              </div>
+                              <span className="shrink-0 rounded-full bg-purple-100 px-2 py-0.5 text-xs font-medium text-purple-700">
+                                {coupon.discountPercentage}%
+                              </span>
+                            </div>
+                            <CouponShareButton
+                              coupon={coupon}
+                              onShared={() => setPendingCoupons((current) => current.filter((item) => item.id !== coupon.id))}
+                            />
+                          </div>
                         ))}
                       </div>
                     </div>
                   )}
-                  {tomorrowOrders.length > 0 && (
+                  {displayOrders.length > 0 && (
                     <div>
-                      <p className="mb-2 text-xs font-semibold uppercase text-blue-600">Mañana</p>
-                      <div className="space-y-2">
-                        {tomorrowOrders.map((order) => (
-                          <OrderCard key={order.id} order={order} />
-                        ))}
+                      <p className="mb-2 text-xs font-semibold uppercase text-gray-500">Encargos próximos</p>
+                      <div className="space-y-4">
+                        {todayOrders.length > 0 && (
+                          <div>
+                            <p className="mb-2 text-xs font-semibold uppercase text-amber-600">Hoy</p>
+                            <div className="space-y-2">
+                              {todayOrders.map((order) => (
+                                <OrderCard key={order.id} order={order} />
+                              ))}
+                            </div>
+                          </div>
+                        )}
+                        {tomorrowOrders.length > 0 && (
+                          <div>
+                            <p className="mb-2 text-xs font-semibold uppercase text-blue-600">Mañana</p>
+                            <div className="space-y-2">
+                              {tomorrowOrders.map((order) => (
+                                <OrderCard key={order.id} order={order} />
+                              ))}
+                            </div>
+                          </div>
+                        )}
                       </div>
                     </div>
                   )}

@@ -23,6 +23,17 @@ export interface OrderCoupon {
   usedAt: string | null
 }
 
+export interface PendingCoupon {
+  id: string
+  code: string
+  discountPercentage: number
+  scheduledFor: string
+  sendStatus: CouponSendStatus
+  lastError: string | null
+  clientName: string
+  clientPhone: string
+}
+
 export interface Order {
   id: string
   clientName: string

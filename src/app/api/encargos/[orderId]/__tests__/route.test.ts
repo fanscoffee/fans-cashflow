@@ -165,7 +165,7 @@ describe("Orders API /api/encargos/[orderId]", () => {
       )
     })
 
-    it("schedules a coupon when an order changes to delivered", async () => {
+    it("generates a pending coupon when an order changes to delivered", async () => {
       vi.mocked(auth).mockResolvedValue({
         user: { id: "2", role: "EMPLEADO" },
       } as any)
@@ -203,7 +203,8 @@ describe("Orders API /api/encargos/[orderId]", () => {
         expect.objectContaining({
           data: expect.objectContaining({
             orderId: "o1",
-            nextAttemptAt: expect.any(Date),
+            scheduledFor: expect.any(Date),
+            nextAttemptAt: null,
             code: expect.stringMatching(/^TARTA15-JUAN-/),
           }),
         })

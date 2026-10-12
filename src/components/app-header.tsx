@@ -7,7 +7,7 @@ import Image from "next/image"
 import { usePathname } from "next/navigation"
 import NotificationBell from "@/components/notification-bell"
 import { UserRole } from "@/lib/database-enums"
-import { normalizeRole } from "@/lib/roles"
+import { hasAnyRole, normalizeRole } from "@/lib/roles"
 
 interface HeaderLink {
   href: string
@@ -367,7 +367,7 @@ export default function AppHeader({
         </div>
       )}
 
-      <NotificationBell />
+      <NotificationBell canShareCoupons={hasAnyRole(session?.user?.role, [UserRole.ADMIN, UserRole.PARTNER])} />
     </header>
   )
 }

@@ -2,7 +2,7 @@ import { render, screen, waitFor } from "@testing-library/react"
 import userEvent from "@testing-library/user-event"
 import { http, HttpResponse } from "msw"
 import { setupServer } from "msw/node"
-import { afterAll, afterEach, beforeAll, describe, expect, it } from "vitest"
+import { afterAll, afterEach, beforeAll, describe, expect, it, vi } from "vitest"
 import NotificationBell from "../notification-bell"
 
 const today = new Date().toISOString().slice(0, 10)
@@ -105,5 +105,66 @@ describe("NotificationBell", () => {
     expect(screen.getByText("Entregar en la puerta")).toBeInTheDocument()
     expect(screen.getByText("María García")).toBeInTheDocument()
     expect(screen.getByText("555-5678")).toBeInTheDocument()
+  })
+
+  it("shows pending coupons for users allowed to share", async () => {
+    server.use(
+      http.get("/api/cupones/pendientes", () => HttpResponse.json({
+        coupons: [{
+          id: "c1",
+          code: "TARTA15-JUAN-ABC123",
+          discountPercentage: 15,
+          scheduledFor: new Date().toISOString(),
+          sendStatus: "PENDING",
+          lastError: null,
+          clientName: "Juan Pérez",
+          clientPhone: "555-1234",
+        }],
+      })),
+    )
+
+    render(<NotificationBell canShareCoupons />)
+
+    await waitFor(() => {
+      expect(screen.getByRole("button", { name: /notificaciones/i })).toBeInTheDocument()
+    })
+    await userEvent.setup().click(screen.getByRole("button", { name: /notificaciones/i }))
+    expect(screen.getByText("TARTA15-JUAN-ABC123")).toBeInTheDocument()
+    expect(screen.getByText("Cupones por compartir")).toBeInTheDocument()
+    expect(screen.getByRole("button", { name: "Compartir código" })).toBeInTheDocument()
+  })
+
+  it("activates a coupon only after the copied message is confirmed", async () => {
+    const clipboard = { writeText: vi.fn().mockResolvedValue(undefined) }
+    server.use(
+      http.get("/api/cupones/pendientes", () => HttpResponse.json({
+        coupons: [{
+          id: "c1",
+          code: "TARTA15-JUAN-ABC123",
+          discountPercentage: 15,
+          scheduledFor: new Date().toISOString(),
+          sendStatus: "PENDING",
+          lastError: null,
+          clientName: "Juan Pérez",
+          clientPhone: "555-1234",
+        }],
+      })),
+      http.post("/api/cupones/c1/compartir", () => HttpResponse.json({ id: "c1" })),
+    )
+
+    const user = userEvent.setup()
+    Object.defineProperty(navigator, "clipboard", { configurable: true, value: clipboard })
+    Object.defineProperty(navigator, "share", { configurable: true, value: undefined })
+    render(<NotificationBell canShareCoupons />)
+    await waitFor(() => expect(screen.getByRole("button", { name: /notificaciones/i })).toBeInTheDocument())
+    await user.click(screen.getByRole("button", { name: /notificaciones/i }))
+    await user.click(screen.getByRole("button", { name: "Compartir código" }))
+
+    await waitFor(() => expect(clipboard.writeText).toHaveBeenCalledWith(expect.stringContaining("TARTA15-JUAN-ABC123")))
+    expect(screen.getByRole("button", { name: "Marcar como compartido" })).toBeInTheDocument()
+    expect(screen.getByText("TARTA15-JUAN-ABC123")).toBeInTheDocument()
+
+    await user.click(screen.getByRole("button", { name: "Marcar como compartido" }))
+    await waitFor(() => expect(screen.queryByText("TARTA15-JUAN-ABC123")).not.toBeInTheDocument())
   })
 })

@@ -38,10 +38,7 @@ export async function lookupCoupon(code: string, now = new Date()): Promise<Coup
     return {
       valid: false,
       status: "PENDING",
-      message:
-        coupon.sendStatus === CouponSendStatus.FAILED
-          ? "Este código todavía no está activo porque el mensaje de WhatsApp no se pudo enviar."
-          : "Este código todavía no está activo.",
+      message: "Este código todavía no está activo porque aún no se ha compartido.",
     }
   }
 

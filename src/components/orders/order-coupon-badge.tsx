@@ -1,10 +1,10 @@
 import type { OrderCoupon } from "@/types/order"
 
 const statusLabels: Record<OrderCoupon["sendStatus"], string> = {
-  PENDING: "Cupón programado",
-  SENDING: "Enviando cupón",
-  SENT: "Cupón enviado",
-  FAILED: "Error de envío",
+  PENDING: "Cupón por compartir",
+  SENDING: "Cupón por compartir",
+  SENT: "Cupón compartido",
+  FAILED: "Cupón por compartir",
 }
 
 export default function OrderCouponBadge({ coupon }: { coupon?: OrderCoupon | null }) {

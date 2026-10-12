@@ -73,12 +73,13 @@ Cash and shift management application for the Fans venue. It controls revenue, e
 - CSV export (SOCIO/ADMIN)
 
 ### Coupons (`/cupones`)
-- Marking an order as delivered schedules one unique coupon for 24 hours later.
-- The Vercel cron at `/api/cupones/procesar` sends due coupons through the WhatsApp Business Cloud API and retries failed sends.
-- Coupons expire 15 days after WhatsApp confirms delivery.
+- Marking an order as delivered generates one unique coupon immediately.
+- ADMIN and SOCIO users see pending coupons in `/cupones` and the notification bell, with a manual share action.
+- Sharing through the device share sheet activates the coupon; the clipboard fallback requires confirming the share after pasting it into WhatsApp.
+- Coupons expire 15 days after they are shared.
 - Staff can validate and atomically redeem a coupon from the verification screen.
 
-The WhatsApp template configured in Meta must be approved and contain three body variables in this order: customer name, coupon code, and expiration date. Configure `CRON_SECRET` and the `WHATSAPP_*` variables from `.env.example` in the deployment environment. `COUPON_DELAY_HOURS` can be changed for testing or operations.
+The manual share flow does not require a Vercel cron, Meta API token, or WhatsApp template. Configure `COUPON_DISCOUNT_PERCENTAGE` from `.env.example` if the default 15% discount should change.
 
 ### Face ID / WebAuthn
 - Register a Passkey from the partner or employee dashboard
