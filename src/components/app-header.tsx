@@ -48,6 +48,7 @@ function getNavigation(role?: string): HeaderNavigation {
         { href: "/gestoria", label: "Gestoría" },
         { href: "/socio/pagos", label: "Pagos" },
         { href: "/encargos", label: "Encargos" },
+        { href: "/cupones", label: "Cupones" },
       ],
     },
   ]
@@ -81,13 +82,21 @@ function getNavigation(role?: string): HeaderNavigation {
         { href: "/empleado", label: "Turno" },
         { href: "/empleado/recepciones", label: "Recepciones" },
         { href: "/encargos", label: "Encargos" },
+        { href: "/cupones", label: "Cupones" },
       ],
       groups: [],
       utility: [],
     }
   }
   if (normalizedRole === UserRole.BAKERY) {
-    return { primary: [{ href: "/encargos", label: "Encargos" }], groups: [], utility: [] }
+    return {
+      primary: [
+        { href: "/encargos", label: "Encargos" },
+        { href: "/cupones", label: "Cupones" },
+      ],
+      groups: [],
+      utility: [],
+    }
   }
   return { primary: [], groups: [], utility: [] }
 }

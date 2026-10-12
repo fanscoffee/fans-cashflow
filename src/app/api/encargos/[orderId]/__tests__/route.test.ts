@@ -10,6 +10,12 @@ vi.mock("@/lib/prisma", () => ({
       update: vi.fn(),
       delete: vi.fn(),
     },
+    coupon: {
+      findUnique: vi.fn(),
+      create: vi.fn(),
+      update: vi.fn(),
+    },
+    $transaction: vi.fn(),
   },
 }))
 
@@ -156,6 +162,51 @@ describe("Orders API /api/encargos/[orderId]", () => {
       expect(res.status).toBe(200)
       expect(prisma.order.update).toHaveBeenCalledWith(
         expect.objectContaining({ data: expect.objectContaining({ isDelivered: true }) })
+      )
+    })
+
+    it("schedules a coupon when an order changes to delivered", async () => {
+      vi.mocked(auth).mockResolvedValue({
+        user: { id: "2", role: "EMPLEADO" },
+      } as any)
+      vi.mocked(prisma.order.findUnique).mockResolvedValue({
+        id: "o1",
+        isDelivered: false,
+        deliveredAt: null,
+      } as any)
+      const txOrder = {
+        update: vi.fn().mockResolvedValue({ id: "o1", clientName: "Juan" }),
+        findUnique: vi.fn().mockResolvedValue({
+          id: "o1",
+          clientName: "Juan",
+          coupon: { code: "TARTA15-JUAN-ABC123" },
+        }),
+      }
+      const txCoupon = {
+        findUnique: vi.fn().mockResolvedValue(null),
+        create: vi.fn().mockResolvedValue({ id: "c1" }),
+      }
+      vi.mocked(prisma.$transaction).mockImplementation(async (callback: any) =>
+        callback({ order: txOrder, coupon: txCoupon })
+      )
+
+      const req = new Request("http://localhost/api/encargos/o1", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ isDelivered: true }),
+      }) as unknown as NextRequest
+
+      const res = await PATCH(req, { params: mockParams })
+
+      expect(res.status).toBe(200)
+      expect(txCoupon.create).toHaveBeenCalledWith(
+        expect.objectContaining({
+          data: expect.objectContaining({
+            orderId: "o1",
+            nextAttemptAt: expect.any(Date),
+            code: expect.stringMatching(/^TARTA15-JUAN-/),
+          }),
+        })
       )
     })
 

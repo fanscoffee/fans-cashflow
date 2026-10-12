@@ -41,7 +41,20 @@ export const GET = withAuth(async (req, session) => {
 
   const orders = await prisma.order.findMany({
     where,
-    include: { createdBy: { select: { name: true, email: true } } },
+    include: {
+      createdBy: { select: { name: true, email: true } },
+      coupon: {
+        select: {
+          code: true,
+          discountPercentage: true,
+          scheduledFor: true,
+          sendStatus: true,
+          sentAt: true,
+          expiresAt: true,
+          usedAt: true,
+        },
+      },
+    },
     orderBy: { deliveryDate: "asc" },
   })
 

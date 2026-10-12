@@ -1,6 +1,7 @@
 import type { Order } from "@/types/order"
 import OrderActions from "./order-actions"
 import OrderLocationBadge from "./order-location-badge"
+import OrderCouponBadge from "./order-coupon-badge"
 
 interface OrderCardsProps {
   orders: Order[]
@@ -46,6 +47,7 @@ export default function OrderCards({
                     Entregado
                   </span>
                 )}
+                <OrderCouponBadge coupon={order.coupon} />
                 <OrderActions
                   order={order}
                   canEdit={canEdit}

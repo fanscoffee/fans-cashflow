@@ -14,6 +14,13 @@ enum UserRole {
   BAKERY   @map("OBRADOR")
 }
 
+enum CouponSendStatus {
+  PENDING @map("PENDIENTE")
+  SENDING @map("ENVIANDO")
+  SENT    @map("ENVIADO")
+  FAILED  @map("ERROR")
+}
+
 enum PaymentEntity {
   BAKERY      @map("OBRADOR")
   COFFEE_SHOP @map("CAFETERIA")
@@ -236,6 +243,7 @@ model User {
   wasteEntries                 WasteEntry[]             @relation("WasteCreator")
   reversedWasteEntries         WasteEntry[]             @relation("WasteReverser")
   shiftOperationalReviews      ShiftOperationalReview[]
+  redeemedCoupons              Coupon[]                 @relation("CouponRedemptions")
 }
 
 model Passkey {
@@ -365,10 +373,38 @@ model Order {
   comment          String?
   isPaid           Boolean  @default(false)
   isDelivered      Boolean  @default(false)
+  deliveredAt      DateTime?
   createdById      String
   createdBy        User     @relation(fields: [createdById], references: [id])
+  coupon           Coupon?
   createdAt        DateTime @default(now())
   updatedAt        DateTime @updatedAt
+}
+
+model Coupon {
+  id                 String           @id @default(cuid())
+  code               String           @unique
+  orderId            String           @unique
+  discountPercentage Int              @default(15)
+  scheduledFor       DateTime
+  sendStatus         CouponSendStatus @default(PENDING)
+  sentAt             DateTime?
+  expiresAt          DateTime?
+  sendAttempts       Int              @default(0)
+  lastAttemptAt      DateTime?
+  nextAttemptAt      DateTime?
+  lastError          String?
+  usedAt             DateTime?
+  usedById           String?
+  createdAt          DateTime         @default(now())
+  updatedAt          DateTime         @updatedAt
+
+  order  Order @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  usedBy User? @relation("CouponRedemptions", fields: [usedById], references: [id])
+
+  @@index([sendStatus, nextAttemptAt])
+  @@index([expiresAt, usedAt])
+  @@index([usedById])
 }
 
 model Catalog {

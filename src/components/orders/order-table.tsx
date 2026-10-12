@@ -2,6 +2,7 @@ import type { Order } from "@/types/order"
 import type { SortField, SortDirection } from "@/hooks/useOrderFilters"
 import OrderActions from "./order-actions"
 import OrderLocationBadge from "./order-location-badge"
+import OrderCouponBadge from "./order-coupon-badge"
 
 interface SortableHeaderProps {
   field: SortField
@@ -118,6 +119,7 @@ export default function OrderTable({
                         Entregado
                       </span>
                     )}
+                    <OrderCouponBadge coupon={order.coupon} />
                     <OrderActions
                       order={order}
                       canEdit={canEdit}

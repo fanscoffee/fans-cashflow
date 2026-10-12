@@ -104,11 +104,12 @@ export default function OrderForm({
         </div>
         <div>
           <label className="block text-sm font-medium text-gray-700">
-            Teléfono del cliente
+            WhatsApp / teléfono del cliente
           </label>
           <input
             type="tel"
             {...register("clientPhone")}
+            placeholder="+34 600 000 000"
             className="mt-1 block w-full rounded-md border border-gray-300 px-3 py-2 text-sm text-gray-900 shadow-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
           />
           {errors.clientPhone && (

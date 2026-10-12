@@ -1,0 +1,8 @@
+{
+  "crons": [
+    {
+      "path": "/api/cupones/procesar",
+      "schedule": "*/15 * * * *"
+    }
+  ]
+}

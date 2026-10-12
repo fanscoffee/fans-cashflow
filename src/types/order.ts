@@ -11,6 +11,18 @@ export function isOrderDeliveryLocation(value: string): value is OrderDeliveryLo
   return ORDER_DELIVERY_LOCATIONS.some((location) => location === value)
 }
 
+export type CouponSendStatus = "PENDING" | "SENDING" | "SENT" | "FAILED"
+
+export interface OrderCoupon {
+  code: string
+  discountPercentage: number
+  scheduledFor: string
+  sendStatus: CouponSendStatus
+  sentAt: string | null
+  expiresAt: string | null
+  usedAt: string | null
+}
+
 export interface Order {
   id: string
   clientName: string
@@ -20,6 +32,8 @@ export interface Order {
   comment: string | null
   isPaid: boolean
   isDelivered: boolean
+  deliveredAt?: string | null
+  coupon?: OrderCoupon | null
   createdAt: string
   createdBy?: { name: string | null; email: string }
 }

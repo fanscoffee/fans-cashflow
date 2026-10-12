@@ -4,6 +4,7 @@ import {
   CashCountStatus,
   CashDestination,
   CashReplenishmentStatus,
+  CouponSendStatus,
   CreditorStatus,
   CreditorType,
   CurrentExpenseStatus,
@@ -30,6 +31,7 @@ import {
   type CashCountStatus as CashCountStatusType,
   type CashDestination as CashDestinationType,
   type CashReplenishmentStatus as CashReplenishmentStatusType,
+  type CouponSendStatus as CouponSendStatusType,
   type CreditorStatus as CreditorStatusType,
   type CreditorType as CreditorTypeType,
   type CurrentExpenseStatus as CurrentExpenseStatusType,
@@ -59,6 +61,7 @@ export {
   CashCountStatus,
   CashDestination,
   CashReplenishmentStatus,
+  CouponSendStatus,
   CreditorStatus,
   CreditorType,
   CurrentExpenseStatus,
@@ -109,6 +112,7 @@ export type DatabaseMonthlyCloseStatus = MonthlyCloseStatusType
 export type DatabaseOperationalRecordStatus = OperationalRecordStatusType
 export type DatabaseRecipeVersionStatus = RecipeVersionStatusType
 export type DatabaseCashDestination = CashDestinationType
+export type DatabaseCouponSendStatus = CouponSendStatusType
 
 type EnumValue = string
 

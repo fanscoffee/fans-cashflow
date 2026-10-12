@@ -72,6 +72,14 @@ Cash and shift management application for the Fans venue. It controls revenue, e
 - Filterable by month/year (SOCIO/ADMIN)
 - CSV export (SOCIO/ADMIN)
 
+### Coupons (`/cupones`)
+- Marking an order as delivered schedules one unique coupon for 24 hours later.
+- The Vercel cron at `/api/cupones/procesar` sends due coupons through the WhatsApp Business Cloud API and retries failed sends.
+- Coupons expire 15 days after WhatsApp confirms delivery.
+- Staff can validate and atomically redeem a coupon from the verification screen.
+
+The WhatsApp template configured in Meta must be approved and contain three body variables in this order: customer name, coupon code, and expiration date. Configure `CRON_SECRET` and the `WHATSAPP_*` variables from `.env.example` in the deployment environment. `COUPON_DELAY_HOURS` can be changed for testing or operations.
+
 ### Face ID / WebAuthn
 - Register a Passkey from the partner or employee dashboard
 - Biometric login on the login screen

@@ -5,6 +5,7 @@ import { withAuth } from "@/lib/with-auth"
 import { UserRole } from "@/lib/database-enums"
 import { hasAnyRole } from "@/lib/roles"
 import { isOrderDeliveryLocation } from "@/types/order"
+import { scheduleCouponForOrder } from "@/lib/coupon-automation"
 
 const updateOrderSchema = z.object({
   clientName: z.string().trim().min(1).max(160).optional(),
@@ -37,19 +38,59 @@ export const PATCH = withAuth(async (req, session, context) => {
       return NextResponse.json({ error: "Encargo no encontrado" }, { status: 404 })
     }
 
-    const order = await prisma.order.update({
-      where: { id: orderId },
-      data: {
-        ...(data.clientName !== undefined && { clientName: data.clientName }),
-        ...(data.clientPhone !== undefined && { clientPhone: data.clientPhone }),
-        ...(data.deliveryDate !== undefined && { deliveryDate: new Date(data.deliveryDate) }),
-        ...(data.deliveryLocation !== undefined && { deliveryLocation: data.deliveryLocation }),
-        ...(data.comment !== undefined && { comment: data.comment }),
-        ...(data.isPaid !== undefined && { isPaid: data.isPaid }),
-        ...(data.isDelivered !== undefined && { isDelivered: data.isDelivered }),
+    const shouldScheduleCoupon = data.isDelivered === true && existing.isDelivered === false
+    const transitionDate = new Date()
+    const updateData = {
+      ...(data.clientName !== undefined && { clientName: data.clientName }),
+      ...(data.clientPhone !== undefined && { clientPhone: data.clientPhone }),
+      ...(data.deliveryDate !== undefined && { deliveryDate: new Date(data.deliveryDate) }),
+      ...(data.deliveryLocation !== undefined && { deliveryLocation: data.deliveryLocation }),
+      ...(data.comment !== undefined && { comment: data.comment }),
+      ...(data.isPaid !== undefined && { isPaid: data.isPaid }),
+      ...(data.isDelivered !== undefined && {
+        isDelivered: data.isDelivered,
+        deliveredAt: data.isDelivered ? existing.deliveredAt || transitionDate : null,
+      }),
+    }
+    const orderInclude = {
+      createdBy: { select: { name: true, email: true } },
+      coupon: {
+        select: {
+          code: true,
+          discountPercentage: true,
+          scheduledFor: true,
+          sendStatus: true,
+          sentAt: true,
+          expiresAt: true,
+          usedAt: true,
+        },
       },
-      include: { createdBy: { select: { name: true, email: true } } },
-    })
+    } as const
+
+    const order = shouldScheduleCoupon
+      ? await prisma.$transaction(async (tx) => {
+        const updatedOrder = await tx.order.update({
+          where: { id: orderId },
+          data: updateData,
+          include: orderInclude,
+        })
+
+        await scheduleCouponForOrder(tx, {
+          orderId,
+          clientName: updatedOrder.clientName,
+          deliveredAt: transitionDate,
+        })
+
+        return (await tx.order.findUnique({
+          where: { id: orderId },
+          include: orderInclude,
+        })) || updatedOrder
+      })
+      : await prisma.order.update({
+        where: { id: orderId },
+        data: updateData,
+        include: orderInclude,
+      })
 
     return NextResponse.json(order)
   } catch (error) {
