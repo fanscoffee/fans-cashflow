@@ -43,7 +43,7 @@ describe("ReceiptsPanel", () => {
               unitPrice: 2.5,
               batch: "LOT-1",
               dueDate: null,
-              product: { id: "product-1", code: "MP-001", posDescription: "Harina", purchaseUnit: "SACO", itemType: "MP" },
+              product: { id: "product-1", code: "MP-001", posDescription: "Harina", purchaseUnit: "SACO", itemType: "MP", purchaseVatPercentage: 10, vatPercentage: null },
             }],
           }),
         }
@@ -60,6 +60,7 @@ describe("ReceiptsPanel", () => {
     await user.click(screen.getByRole("button", { name: "Ver" }))
     expect(await screen.findByText("Coste Unit.")).toBeInTheDocument()
     expect(screen.queryByText("Precio Unit.")).not.toBeInTheDocument()
+    expect(screen.getAllByText("11.00 €")).toHaveLength(2)
     await user.click(screen.getByRole("button", { name: "Volver" }))
 
     await screen.findByText("ALB-001")

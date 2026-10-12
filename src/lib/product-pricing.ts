@@ -36,6 +36,15 @@ function round(value: number, decimals: number) {
   return Math.round((value + Number.EPSILON) * factor) / factor
 }
 
+export function calculateVatInclusiveAmount(input: { amount?: unknown; vatPercentage?: unknown }) {
+  const amount = toNullableNumber(input.amount)
+  if (amount === null) return null
+
+  const vatPercentage = toNullableNumber(input.vatPercentage)
+  if (vatPercentage === null) return amount
+  return round(amount * (1 + vatPercentage / 100), 4)
+}
+
 export function calculateProductUnitCost(input: {
   baseUnitCost?: unknown
   purchaseToBaseFactor?: unknown

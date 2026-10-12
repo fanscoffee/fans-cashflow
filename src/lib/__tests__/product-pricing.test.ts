@@ -1,7 +1,12 @@
 import { describe, expect, it } from "vitest"
-import { calculateProductPricing, calculateProductPricingCost, calculateProductUnitCost } from "../product-pricing"
+import { calculateProductPricing, calculateProductPricingCost, calculateProductUnitCost, calculateVatInclusiveAmount } from "../product-pricing"
 
 describe("calculateProductPricing", () => {
+  it("applies the product VAT rate to a net amount", () => {
+    expect(calculateVatInclusiveAmount({ amount: 2, vatPercentage: 10 })).toBe(2.2)
+    expect(calculateVatInclusiveAmount({ amount: 2, vatPercentage: null })).toBe(2)
+  })
+
   it("calculates the sales unit cost from the base unit cost and conversion factor", () => {
     expect(calculateProductUnitCost({
       baseUnitCost: 26.29,

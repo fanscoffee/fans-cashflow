@@ -5,6 +5,7 @@ import { useForm, useFieldArray } from "react-hook-form"
 import type { Resolver } from "react-hook-form"
 import { zodResolver } from "@hookform/resolvers/zod"
 import { z } from "zod"
+import { calculateVatInclusiveAmount } from "@/lib/product-pricing"
 
 interface Supplier {
   id: string
@@ -16,7 +17,9 @@ interface Product {
   code: string
   posDescription: string
   purchaseUnit: string
-  baseUnitCost: number | null
+  baseUnitCost: number | string | null
+  purchaseVatPercentage: number | string | null
+  vatPercentage: number | string | null
 }
 
 const lineSchema = z.object({
@@ -265,8 +268,16 @@ export default function ReceiptForm({
     return products.find((p) => p.id === productId)
   }
 
+  const getUnitPriceIncludingVat = (unitPrice: unknown, product?: Product) => {
+    return calculateVatInclusiveAmount({
+      amount: unitPrice,
+      vatPercentage: product?.purchaseVatPercentage ?? product?.vatPercentage,
+    }) ?? 0
+  }
+
   const totalReceipt = (lines || []).reduce((sum, l) => {
-    return sum + (l.receivedQuantity || 0) * (l.unitPrice || 0)
+    const product = getProductInfo(l.productId || "")
+    return sum + Number(l.receivedQuantity || 0) * getUnitPriceIncludingVat(l.unitPrice, product)
   }, 0)
   const productPlaceholder = !supplierId
     ? "Selecciona primero un proveedor..."
@@ -351,7 +362,9 @@ export default function ReceiptForm({
         <div className="space-y-3">
           {fields.map((field, index) => {
             const prod = getProductInfo(lines?.[index]?.productId || "")
-            const subtotal = (lines?.[index]?.receivedQuantity || 0) * (lines?.[index]?.unitPrice || 0)
+            const line = lines?.[index]
+            const unitPriceIncludingVat = getUnitPriceIncludingVat(line?.unitPrice, prod)
+            const subtotal = Number(line?.receivedQuantity || 0) * unitPriceIncludingVat
             const productId = `recepcion-producto-${field.id}`
             const quantityId = `recepcion-cantidad-${field.id}`
             const priceId = `recepcion-precio-${field.id}`
@@ -413,7 +426,7 @@ export default function ReceiptForm({
                   <div className="grid grid-cols-2 gap-3">
                     <div>
                       <label htmlFor={priceId} className="mb-1 block text-xs font-medium text-gray-600">
-                        Coste unitario
+                        Coste unitario sin IVA
                       </label>
                       <input
                         id={priceId}
@@ -424,10 +437,17 @@ export default function ReceiptForm({
                       />
                     </div>
                     <div>
-                      <span className="mb-1 block text-xs font-medium text-gray-600">Subtotal</span>
+                      <span className="mb-1 block text-xs font-medium text-gray-600">Coste unitario con IVA</span>
                       <div className="flex min-h-11 items-center rounded-md border border-gray-200 bg-white px-3 py-2 text-sm font-medium text-gray-900">
-                        {subtotal.toFixed(2)} EUR
+                        {unitPriceIncludingVat.toFixed(4)} EUR
                       </div>
+                    </div>
+                  </div>
+
+                  <div>
+                    <span className="mb-1 block text-xs font-medium text-gray-600">Subtotal con IVA</span>
+                    <div className="flex min-h-11 items-center rounded-md border border-gray-200 bg-white px-3 py-2 text-sm font-medium text-gray-900">
+                      {subtotal.toFixed(2)} EUR
                     </div>
                   </div>
 
@@ -477,7 +497,7 @@ export default function ReceiptForm({
             + Agregar línea
           </button>
           <div className="text-right text-sm font-semibold text-gray-900">
-            Total: {totalReceipt.toFixed(2)} EUR
+            Total con IVA: {totalReceipt.toFixed(2)} EUR
           </div>
         </div>
       </div>
