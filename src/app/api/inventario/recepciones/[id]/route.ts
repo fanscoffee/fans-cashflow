@@ -89,6 +89,7 @@ export const PATCH = withAuth(async (req, session, context) => {
         supplierId: input.supplierId,
         receivedAt: new Date(input.receivedAt),
         notes: input.notes || null,
+        transportCost: input.transportCost,
         lines: {
           deleteMany: {},
           create: input.lines.map((line) => ({

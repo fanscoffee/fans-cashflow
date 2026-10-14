@@ -30,6 +30,7 @@ interface Receipt {
   id: string
   deliveryNoteCode: string
   receivedAt: string
+  transportCost: number | string
   notes: string | null
   supplier: { id?: string; legalName: string }
   receivedBy: { name: string } | null
@@ -59,6 +60,7 @@ function toReceiptFormValues(receipt: Receipt): ReceiptFormValues {
     supplierId: receipt.supplier.id || "",
     deliveryNoteCode: receipt.deliveryNoteCode,
     receivedAt: dateInputValue(receipt.receivedAt),
+    transportCost: Number(receipt.transportCost || 0),
     notes: receipt.notes || "",
     lines: (receipt.lines || []).map((line) => ({
       productId: line.product.id,
@@ -260,6 +262,8 @@ export default function ReceiptsPanel({ canDelete = true, canEdit = false, initi
       (sum, l) => sum + Number(l.receivedQuantity) * unitPriceIncludingVat(l),
       0
     )
+    const transportCost = Number(selectedReceipt.transportCost || 0)
+    const totalReceipt = totalLines + transportCost
     return (
       <div className="rounded-lg border bg-white p-4 shadow-sm sm:p-6">
         <div className="mb-4 flex flex-col items-stretch gap-2 sm:flex-row sm:items-center sm:justify-between">
@@ -351,10 +355,28 @@ export default function ReceiptsPanel({ canDelete = true, canEdit = false, initi
               <tfoot>
                 <tr className="border-t bg-gray-50">
                   <td colSpan={6} className="px-3 py-2 text-right text-sm font-semibold text-gray-900">
-                    Total con IVA:
+                    Productos con IVA:
                   </td>
                   <td className="px-3 py-2 text-right text-sm font-bold text-gray-900">
                     {totalLines.toFixed(2)} €
+                  </td>
+                  <td colSpan={2}></td>
+                </tr>
+                <tr>
+                  <td colSpan={6} className="px-3 py-2 text-right text-sm font-semibold text-gray-900">
+                    Transporte:
+                  </td>
+                  <td className="px-3 py-2 text-right text-sm font-bold text-gray-900">
+                    {transportCost.toFixed(2)} €
+                  </td>
+                  <td colSpan={2}></td>
+                </tr>
+                <tr className="border-t bg-gray-50">
+                  <td colSpan={6} className="px-3 py-2 text-right text-sm font-semibold text-gray-900">
+                    Total albarán:
+                  </td>
+                  <td className="px-3 py-2 text-right text-sm font-bold text-gray-900">
+                    {totalReceipt.toFixed(2)} €
                   </td>
                   <td colSpan={2}></td>
                 </tr>

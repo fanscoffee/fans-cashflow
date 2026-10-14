@@ -10,6 +10,7 @@ export const receptionSchema = z.object({
   supplierId: z.string().min(1),
   receivedAt: z.string().min(1).refine((value) => Number.isFinite(new Date(value).getTime()), "Fecha no válida"),
   notes: z.string().trim().max(1000).nullable().optional(),
+  transportCost: z.coerce.number().finite().nonnegative().max(1_000_000_000).default(0),
   lines: z.array(z.object({
     productId: z.string().min(1),
     receivedQuantity: z.coerce.number().finite().positive().max(1_000_000),

@@ -46,7 +46,14 @@ describe("ReceiptForm provider products", () => {
     expect(screen.getByLabelText("Coste unitario sin IVA")).toHaveValue(2)
     expect(screen.getByText("Coste unitario con IVA")).toBeInTheDocument()
     expect(screen.getByText("2.2000 EUR")).toBeInTheDocument()
-    expect(screen.getByText("Total con IVA: 2.20 EUR")).toBeInTheDocument()
+    expect(screen.getByText("Productos con IVA: 2.20 EUR")).toBeInTheDocument()
+    expect(screen.getByText("Total albarán: 2.20 EUR")).toBeInTheDocument()
+
+    const transportInput = screen.getByLabelText("Importe de transporte")
+    await user.clear(transportInput)
+    await user.type(transportInput, "1.50")
+    expect(screen.getByText("Transporte: 1.50 EUR")).toBeInTheDocument()
+    expect(screen.getByText("Total albarán: 3.70 EUR")).toBeInTheDocument()
 
     await user.selectOptions(providerSelect, "provider-2")
     await waitFor(() => {
