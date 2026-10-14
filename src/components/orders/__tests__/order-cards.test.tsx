@@ -31,6 +31,16 @@ const mockOrders: Order[] = [
   },
 ]
 
+const coupon = {
+  code: "TARTA15-JUAN-ABC123",
+  discountPercentage: 15,
+  scheduledFor: "2026-07-22T10:00:00.000Z",
+  sendStatus: "SENT" as const,
+  sentAt: "2026-07-22T10:00:00.000Z",
+  expiresAt: "2026-08-06T10:00:00.000Z",
+  usedAt: null,
+}
+
 const defaultProps = {
   orders: mockOrders,
   canEdit: false,
@@ -105,5 +115,12 @@ describe("OrderCards", () => {
     render(<OrderCards {...defaultProps} />)
     const items = screen.getAllByText(/Por: Admin/)
     expect(items.length).toBe(2)
+  })
+
+  it("hides coupon details when coupon management is disabled", () => {
+    render(<OrderCards {...defaultProps} orders={[{ ...mockOrders[0], coupon }]} showCouponBadge={false} />)
+
+    expect(screen.queryByText("Cupón compartido")).not.toBeInTheDocument()
+    expect(screen.queryByText("TARTA15-JUAN-ABC123")).not.toBeInTheDocument()
   })
 })

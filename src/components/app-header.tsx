@@ -7,7 +7,7 @@ import Image from "next/image"
 import { usePathname } from "next/navigation"
 import NotificationBell from "@/components/notification-bell"
 import { UserRole } from "@/lib/database-enums"
-import { normalizeRole } from "@/lib/roles"
+import { hasAnyRole, normalizeRole } from "@/lib/roles"
 
 interface HeaderLink {
   href: string
@@ -48,6 +48,7 @@ function getNavigation(role?: string): HeaderNavigation {
         { href: "/gestoria", label: "Gestoría" },
         { href: "/socio/pagos", label: "Pagos" },
         { href: "/encargos", label: "Encargos" },
+        { href: "/cupones", label: "Cupones" },
       ],
     },
   ]
@@ -81,13 +82,21 @@ function getNavigation(role?: string): HeaderNavigation {
         { href: "/empleado", label: "Turno" },
         { href: "/empleado/recepciones", label: "Recepciones" },
         { href: "/encargos", label: "Encargos" },
+        { href: "/cupones", label: "Cupones" },
       ],
       groups: [],
       utility: [],
     }
   }
   if (normalizedRole === UserRole.BAKERY) {
-    return { primary: [{ href: "/encargos", label: "Encargos" }], groups: [], utility: [] }
+    return {
+      primary: [
+        { href: "/encargos", label: "Encargos" },
+        { href: "/cupones", label: "Cupones" },
+      ],
+      groups: [],
+      utility: [],
+    }
   }
   return { primary: [], groups: [], utility: [] }
 }
@@ -358,7 +367,10 @@ export default function AppHeader({
         </div>
       )}
 
-      <NotificationBell />
+      <NotificationBell
+        canManageCoupons={hasAnyRole(session?.user?.role, [UserRole.ADMIN, UserRole.PARTNER])}
+        canSeeCouponNotifications={Boolean(session?.user)}
+      />
     </header>
   )
 }

@@ -23,6 +23,8 @@ export const GET = withAuth(async (req, _session, context) => {
               posDescription: true,
               purchaseUnit: true,
               itemType: true,
+              purchaseVatPercentage: true,
+              vatPercentage: true,
             },
           },
         },
@@ -87,6 +89,7 @@ export const PATCH = withAuth(async (req, session, context) => {
         supplierId: input.supplierId,
         receivedAt: new Date(input.receivedAt),
         notes: input.notes || null,
+        transportCost: input.transportCost,
         lines: {
           deleteMany: {},
           create: input.lines.map((line) => ({
@@ -110,6 +113,8 @@ export const PATCH = withAuth(async (req, session, context) => {
                 posDescription: true,
                 purchaseUnit: true,
                 itemType: true,
+                purchaseVatPercentage: true,
+                vatPercentage: true,
               },
             },
           },

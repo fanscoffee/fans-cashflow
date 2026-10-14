@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useCallback } from "react"
 import ReceiptForm, { type ReceiptFormValues } from "./receipt-form"
+import { calculateVatInclusiveAmount } from "@/lib/product-pricing"
 
 interface Supplier {
   id: string
@@ -20,6 +21,8 @@ interface ReceiptLine {
     posDescription: string
     purchaseUnit: string
     itemType: string
+    purchaseVatPercentage: number | string | null
+    vatPercentage: number | string | null
   }
 }
 
@@ -27,6 +30,7 @@ interface Receipt {
   id: string
   deliveryNoteCode: string
   receivedAt: string
+  transportCost: number | string
   notes: string | null
   supplier: { id?: string; legalName: string }
   receivedBy: { name: string } | null
@@ -44,11 +48,19 @@ function dateInputValue(value: string) {
   return value.slice(0, 10)
 }
 
+function unitPriceIncludingVat(line: ReceiptLine) {
+  return calculateVatInclusiveAmount({
+    amount: line.unitPrice,
+    vatPercentage: line.product.purchaseVatPercentage ?? line.product.vatPercentage,
+  }) ?? Number(line.unitPrice)
+}
+
 function toReceiptFormValues(receipt: Receipt): ReceiptFormValues {
   return {
     supplierId: receipt.supplier.id || "",
     deliveryNoteCode: receipt.deliveryNoteCode,
     receivedAt: dateInputValue(receipt.receivedAt),
+    transportCost: Number(receipt.transportCost || 0),
     notes: receipt.notes || "",
     lines: (receipt.lines || []).map((line) => ({
       productId: line.product.id,
@@ -247,9 +259,11 @@ export default function ReceiptsPanel({ canDelete = true, canEdit = false, initi
 
   if (view === "detail" && selectedReceipt) {
     const totalLines = (selectedReceipt.lines || []).reduce(
-      (sum, l) => sum + Number(l.receivedQuantity) * Number(l.unitPrice),
+      (sum, l) => sum + Number(l.receivedQuantity) * unitPriceIncludingVat(l),
       0
     )
+    const transportCost = Number(selectedReceipt.transportCost || 0)
+    const totalReceipt = totalLines + transportCost
     return (
       <div className="rounded-lg border bg-white p-4 shadow-sm sm:p-6">
         <div className="mb-4 flex flex-col items-stretch gap-2 sm:flex-row sm:items-center sm:justify-between">
@@ -309,8 +323,8 @@ export default function ReceiptsPanel({ canDelete = true, canEdit = false, initi
                   <th className="px-3 py-2">Tipo</th>
                   <th className="px-3 py-2 text-right">Cantidad</th>
                   <th className="px-3 py-2">UoM</th>
-                  <th className="px-3 py-2 text-right">Coste Unit.</th>
-                  <th className="px-3 py-2 text-right">Subtotal</th>
+                  <th className="px-3 py-2 text-right" title="IVA incluido según producto">Coste Unit.</th>
+                  <th className="px-3 py-2 text-right">Subtotal con IVA</th>
                   <th className="px-3 py-2">Lote</th>
                   <th className="px-3 py-2">Vencimiento</th>
                 </tr>
@@ -323,9 +337,11 @@ export default function ReceiptsPanel({ canDelete = true, canEdit = false, initi
                     <td className="px-3 py-2 text-xs text-gray-600">{l.product.itemType}</td>
                     <td className="px-3 py-2 text-right text-gray-900">{Number(l.receivedQuantity)}</td>
                     <td className="px-3 py-2 text-xs text-gray-600">{l.product.purchaseUnit}</td>
-                    <td className="px-3 py-2 text-right text-gray-900">{Number(l.unitPrice).toFixed(4)}</td>
+                    <td className="px-3 py-2 text-right text-gray-900">
+                      {unitPriceIncludingVat(l).toFixed(4)}
+                    </td>
                     <td className="px-3 py-2 text-right font-medium text-gray-900">
-                      {(Number(l.receivedQuantity) * Number(l.unitPrice)).toFixed(2)} €
+                      {(Number(l.receivedQuantity) * unitPriceIncludingVat(l)).toFixed(2)} €
                     </td>
                     <td className="px-3 py-2 text-xs text-gray-600">{l.batch || "—"}</td>
                     <td className="px-3 py-2 text-xs text-gray-600">
@@ -339,10 +355,28 @@ export default function ReceiptsPanel({ canDelete = true, canEdit = false, initi
               <tfoot>
                 <tr className="border-t bg-gray-50">
                   <td colSpan={6} className="px-3 py-2 text-right text-sm font-semibold text-gray-900">
-                    Total:
+                    Productos con IVA:
                   </td>
                   <td className="px-3 py-2 text-right text-sm font-bold text-gray-900">
                     {totalLines.toFixed(2)} €
+                  </td>
+                  <td colSpan={2}></td>
+                </tr>
+                <tr>
+                  <td colSpan={6} className="px-3 py-2 text-right text-sm font-semibold text-gray-900">
+                    Transporte:
+                  </td>
+                  <td className="px-3 py-2 text-right text-sm font-bold text-gray-900">
+                    {transportCost.toFixed(2)} €
+                  </td>
+                  <td colSpan={2}></td>
+                </tr>
+                <tr className="border-t bg-gray-50">
+                  <td colSpan={6} className="px-3 py-2 text-right text-sm font-semibold text-gray-900">
+                    Total albarán:
+                  </td>
+                  <td className="px-3 py-2 text-right text-sm font-bold text-gray-900">
+                    {totalReceipt.toFixed(2)} €
                   </td>
                   <td colSpan={2}></td>
                 </tr>

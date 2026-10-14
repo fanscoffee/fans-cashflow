@@ -56,7 +56,7 @@ export const POST = withAuth(async (req, session) => {
   }
 
   try {
-    const { deliveryNoteCode, supplierId, receivedAt, notes, lines } = receptionSchema.parse(await req.json())
+    const { deliveryNoteCode, supplierId, receivedAt, notes, transportCost, lines } = receptionSchema.parse(await req.json())
 
     const existing = await prisma.receipt.findUnique({
       where: { deliveryNoteCode_supplierId: { deliveryNoteCode, supplierId } },
@@ -94,6 +94,7 @@ export const POST = withAuth(async (req, session) => {
           receivedAt: new Date(receivedAt),
           receivedById: session.user.id,
           notes: notes || null,
+          transportCost,
           lines: {
             create: lines.map(
               (l) => ({

@@ -15,7 +15,7 @@ describe("ReceiptForm provider products", () => {
         return Promise.resolve({ ok: true, json: async () => ({ suppliers: [{ id: "provider-1", legalName: "Proveedor 1" }, { id: "provider-2", legalName: "Proveedor 2" }] }) })
       }
       if (url.includes("supplierId=provider-1")) {
-        return Promise.resolve({ ok: true, json: async () => ({ products: [{ id: "product-1", code: "P-001", posDescription: "Producto 1", purchaseUnit: "UD", baseUnitCost: 2 }] }) })
+        return Promise.resolve({ ok: true, json: async () => ({ products: [{ id: "product-1", code: "P-001", posDescription: "Producto 1", purchaseUnit: "UD", baseUnitCost: 2, purchaseVatPercentage: null, vatPercentage: 10 }] }) })
       }
       return Promise.resolve({ ok: true, json: async () => ({ products: [{ id: "product-2", code: "P-002", posDescription: "Producto 2", purchaseUnit: "UD", baseUnitCost: 3 }] }) })
     })
@@ -23,7 +23,7 @@ describe("ReceiptForm provider products", () => {
 
     render(<ReceiptForm onSubmit={vi.fn().mockResolvedValue(undefined)} onCancel={vi.fn()} saving={false} />)
 
-    expect(screen.getByLabelText("Coste unitario")).toBeInTheDocument()
+    expect(screen.getByLabelText("Coste unitario sin IVA")).toBeInTheDocument()
     expect(screen.queryByLabelText("Precio unitario")).not.toBeInTheDocument()
 
     const providerSelect = screen.getByLabelText("Proveedor *")
@@ -43,6 +43,17 @@ describe("ReceiptForm provider products", () => {
     expect(screen.queryByRole("button", { name: /P-002 Producto 2/ })).not.toBeInTheDocument()
     await user.click(screen.getByRole("button", { name: /P-001 Producto 1/ }))
     expect(screen.getByDisplayValue("P-001 - Producto 1")).toBeInTheDocument()
+    expect(screen.getByLabelText("Coste unitario sin IVA")).toHaveValue(2)
+    expect(screen.getByText("Coste unitario con IVA")).toBeInTheDocument()
+    expect(screen.getByText("2.2000 EUR")).toBeInTheDocument()
+    expect(screen.getByText("Productos con IVA: 2.20 EUR")).toBeInTheDocument()
+    expect(screen.getByText("Total albarán: 2.20 EUR")).toBeInTheDocument()
+
+    const transportInput = screen.getByLabelText("Importe de transporte")
+    await user.clear(transportInput)
+    await user.type(transportInput, "1.50")
+    expect(screen.getByText("Transporte: 1.50 EUR")).toBeInTheDocument()
+    expect(screen.getByText("Total albarán: 3.70 EUR")).toBeInTheDocument()
 
     await user.selectOptions(providerSelect, "provider-2")
     await waitFor(() => {

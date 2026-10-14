@@ -50,6 +50,7 @@ describe("Orders Upcoming API /api/encargos/upcoming", () => {
             lte: expect.any(Date),
           }),
         }),
+        include: expect.not.objectContaining({ coupon: expect.anything() }),
       })
     )
   })

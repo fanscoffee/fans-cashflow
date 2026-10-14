@@ -37,6 +37,7 @@ const body = {
   deliveryNoteCode: "ALB-002",
   receivedAt: "2026-10-02",
   notes: "Corregida",
+  transportCost: 2.75,
   lines: [{ productId: "product-1", receivedQuantity: 3, unitPrice: 4.5, batch: "LOT-2", dueDate: "2027-01-01" }],
 }
 
@@ -61,6 +62,7 @@ describe("PATCH /api/inventario/recepciones/[id]", () => {
       data: expect.objectContaining({
         supplierId: "provider-1",
         deliveryNoteCode: "ALB-002",
+        transportCost: 2.75,
         lines: {
           deleteMany: {},
           create: [{
