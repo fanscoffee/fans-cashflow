@@ -10,7 +10,26 @@ interface CouponResult {
     code: string
     clientName: string
     discountPercentage: number
-    expiresAt: string
+    sentAt: string | null
+    expiresAt: string | null
+    usedAt: string | null
+    usedBy: {
+      name: string | null
+      email: string
+      role: string
+    } | null
+    order: {
+      id: string
+      clientName: string
+      clientPhone: string
+      deliveryDate: string
+      deliveryLocation: string | null
+      comment: string | null
+      isPaid: boolean
+      isDelivered: boolean
+      deliveredAt: string | null
+      createdAt: string
+    }
   }
 }
 
@@ -18,6 +37,11 @@ function resultStyle(result: CouponResult) {
   if (result.status === "VALID") return "border-green-200 bg-green-50 text-green-800"
   if (result.status === "USED" || result.status === "EXPIRED") return "border-amber-200 bg-amber-50 text-amber-900"
   return "border-red-200 bg-red-50 text-red-800"
+}
+
+function formatDateTime(value: string | null | undefined) {
+  if (!value) return "No disponible"
+  return new Date(value).toLocaleString("es-ES", { dateStyle: "short", timeStyle: "short" })
 }
 
 export default function CouponVerifier() {
@@ -87,7 +111,7 @@ export default function CouponVerifier() {
               setCode(event.target.value)
               setResult(null)
             }}
-            placeholder="TARTA15-JUAN-ABC123"
+            placeholder="A7K9"
             autoComplete="off"
             autoCapitalize="characters"
             spellCheck={false}
@@ -116,10 +140,102 @@ export default function CouponVerifier() {
                   <span className="font-medium">{result.coupon.discountPercentage}%</span>
                 </div>
                 <div>
-                  <span className="block text-xs opacity-70">Caduca</span>
+                  <span className="block text-xs opacity-70">Caduca el</span>
                   <span className="font-medium">
-                    {new Date(result.coupon.expiresAt).toLocaleDateString("es-ES")}
+                    {result.coupon.expiresAt ? new Date(result.coupon.expiresAt).toLocaleDateString("es-ES") : "No disponible"}
                   </span>
+                </div>
+              </div>
+            )}
+            {result.status === "USED" && result.coupon && (
+              <div className="mt-4 rounded-lg border border-amber-200 bg-white/60 p-3 text-sm">
+                <p className="font-semibold">Primer canje</p>
+                <div className="mt-3 grid gap-3 sm:grid-cols-2">
+                  <div>
+                    <span className="block text-xs opacity-70">Código</span>
+                    <span className="font-mono font-medium">{result.coupon.code}</span>
+                  </div>
+                  <div>
+                    <span className="block text-xs opacity-70">Compartido</span>
+                    <span className="font-medium">{formatDateTime(result.coupon.sentAt)}</span>
+                  </div>
+                  <div>
+                    <span className="block text-xs opacity-70">Canjeado el</span>
+                    <span className="font-medium">{formatDateTime(result.coupon.usedAt)}</span>
+                  </div>
+                  <div>
+                    <span className="block text-xs opacity-70">Canjeado por</span>
+                    <span className="font-medium">
+                      {result.coupon.usedBy?.name || result.coupon.usedBy?.email || "Usuario no disponible"}
+                    </span>
+                    {result.coupon.usedBy && (
+                      <span className="block text-xs opacity-70">
+                        {result.coupon.usedBy.email} · {result.coupon.usedBy.role}
+                      </span>
+                    )}
+                  </div>
+                </div>
+              </div>
+            )}
+            {result.status === "EXPIRED" && result.coupon && (
+              <div className="mt-4 rounded-lg border border-amber-200 bg-white/60 p-3 text-sm">
+                <p className="font-semibold">Encargo asociado</p>
+                <p className="mt-1 text-xs opacity-70">La caducidad se calcula desde el momento en que se compartió el cupón, no desde la fecha del encargo.</p>
+                <div className="mt-3 grid gap-3 sm:grid-cols-2">
+                  <div>
+                    <span className="block text-xs opacity-70">Referencia</span>
+                    <span className="font-mono font-medium">{result.coupon.order.id}</span>
+                  </div>
+                  <div>
+                    <span className="block text-xs opacity-70">Código</span>
+                    <span className="font-mono font-medium">{result.coupon.code}</span>
+                  </div>
+                  <div>
+                    <span className="block text-xs opacity-70">Cliente</span>
+                    <span className="font-medium">{result.coupon.order.clientName}</span>
+                  </div>
+                  <div>
+                    <span className="block text-xs opacity-70">Teléfono</span>
+                    <span className="font-medium">{result.coupon.order.clientPhone}</span>
+                  </div>
+                  <div>
+                    <span className="block text-xs opacity-70">Compartido el</span>
+                    <span className="font-medium">{formatDateTime(result.coupon.sentAt)}</span>
+                  </div>
+                  <div>
+                    <span className="block text-xs opacity-70">Caducó el</span>
+                    <span className="font-medium">{formatDateTime(result.coupon.expiresAt)}</span>
+                  </div>
+                  <div>
+                    <span className="block text-xs opacity-70">Pedido creado</span>
+                    <span className="font-medium">{formatDateTime(result.coupon.order.createdAt)}</span>
+                  </div>
+                  <div>
+                    <span className="block text-xs opacity-70">Entrega prevista</span>
+                    <span className="font-medium">{formatDateTime(result.coupon.order.deliveryDate)}</span>
+                  </div>
+                  <div>
+                    <span className="block text-xs opacity-70">Entregado</span>
+                    <span className="font-medium">
+                      {result.coupon.order.isDelivered
+                        ? formatDateTime(result.coupon.order.deliveredAt)
+                        : "Aún no entregado"}
+                    </span>
+                  </div>
+                  <div>
+                    <span className="block text-xs opacity-70">Lugar de entrega</span>
+                    <span className="font-medium">{result.coupon.order.deliveryLocation || "No indicado"}</span>
+                  </div>
+                  <div>
+                    <span className="block text-xs opacity-70">Pago</span>
+                    <span className="font-medium">{result.coupon.order.isPaid ? "Pagado" : "Pendiente"}</span>
+                  </div>
+                  {result.coupon.order.comment && (
+                    <div className="sm:col-span-2">
+                      <span className="block text-xs opacity-70">Comentario</span>
+                      <span className="font-medium">{result.coupon.order.comment}</span>
+                    </div>
+                  )}
                 </div>
               </div>
             )}

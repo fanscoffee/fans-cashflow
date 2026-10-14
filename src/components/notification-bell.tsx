@@ -4,14 +4,22 @@ import { useState, useEffect, useCallback } from "react"
 import type { Order, PendingCoupon } from "@/types/order"
 import CouponShareButton from "@/components/coupons/coupon-share-button"
 
+const PENDING_COUPON_REFRESH_INTERVAL = 15_000
+
 interface NotificationBellProps {
   upcomingOrders?: Order[]
-  canShareCoupons?: boolean
+  canManageCoupons?: boolean
+  canSeeCouponNotifications?: boolean
 }
 
-export default function NotificationBell({ upcomingOrders, canShareCoupons = false }: NotificationBellProps) {
+export default function NotificationBell({
+  upcomingOrders,
+  canManageCoupons = false,
+  canSeeCouponNotifications = false,
+}: NotificationBellProps) {
   const [orders, setOrders] = useState<Order[]>([])
   const [pendingCoupons, setPendingCoupons] = useState<PendingCoupon[]>([])
+  const [pendingCouponCount, setPendingCouponCount] = useState(0)
   const [open, setOpen] = useState(false)
   const [loading, setLoading] = useState(false)
   const [pendingLoading, setPendingLoading] = useState(false)
@@ -32,28 +40,45 @@ export default function NotificationBell({ upcomingOrders, canShareCoupons = fal
   }, [])
 
   const fetchPendingCoupons = useCallback(async () => {
-    if (!canShareCoupons) return
+    if (!canSeeCouponNotifications) return
     setPendingLoading(true)
     try {
       const res = await fetch("/api/cupones/pendientes")
       if (res.ok) {
         const data = await res.json()
-        setPendingCoupons(data.coupons || [])
+        setPendingCoupons(data.canManageCoupons ? data.coupons || [] : [])
+        setPendingCouponCount(Number(data.count ?? data.coupons?.length) || 0)
       }
     } catch {
       // ignore
     } finally {
       setPendingLoading(false)
     }
-  }, [canShareCoupons])
+  }, [canSeeCouponNotifications])
 
   const displayOrders = upcomingOrders ?? orders
 
   /* eslint-disable react-hooks/set-state-in-effect */
   useEffect(() => {
     if (upcomingOrders === undefined) void fetchOrders()
+  }, [fetchOrders, upcomingOrders])
+
+  useEffect(() => {
     void fetchPendingCoupons()
-  }, [fetchOrders, fetchPendingCoupons, upcomingOrders])
+
+    if (!canSeeCouponNotifications) return
+
+    const interval = window.setInterval(() => {
+      void fetchPendingCoupons()
+    }, PENDING_COUPON_REFRESH_INTERVAL)
+    const handleFocus = () => void fetchPendingCoupons()
+    window.addEventListener("focus", handleFocus)
+
+    return () => {
+      window.clearInterval(interval)
+      window.removeEventListener("focus", handleFocus)
+    }
+  }, [canSeeCouponNotifications, fetchPendingCoupons])
   /* eslint-enable react-hooks/set-state-in-effect */
 
   function handleOpen() {
@@ -65,8 +90,8 @@ export default function NotificationBell({ upcomingOrders, canShareCoupons = fal
   const today = new Date().toISOString().slice(0, 10)
   const todayOrders = displayOrders.filter((o) => o.deliveryDate.slice(0, 10) === today)
   const tomorrowOrders = displayOrders.filter((o) => o.deliveryDate.slice(0, 10) !== today)
-  const totalNotifications = displayOrders.length + pendingCoupons.length
-  const isLoading = loading || (canShareCoupons && pendingLoading)
+  const totalNotifications = displayOrders.length + pendingCouponCount
+  const isLoading = loading || (canSeeCouponNotifications && pendingLoading)
 
   if (totalNotifications === 0 && !open) return null
 
@@ -110,10 +135,18 @@ export default function NotificationBell({ upcomingOrders, canShareCoupons = fal
                 <p className="py-4 text-center text-sm text-gray-500">Cargando...</p>
               ) : totalNotifications === 0 ? (
                 <p className="py-4 text-center text-sm text-gray-500">
-                  {canShareCoupons ? "No hay notificaciones pendientes." : "No hay encargos próximos."}
+                  {canSeeCouponNotifications ? "No hay notificaciones pendientes." : "No hay encargos próximos."}
                 </p>
               ) : (
                 <div className="space-y-4">
+                  {pendingCouponCount > 0 && !canManageCoupons && (
+                    <div className="rounded-lg border border-amber-200 bg-amber-50 p-3">
+                      <p className="text-sm font-semibold text-amber-900">Cupones pendientes</p>
+                      <p className="mt-1 text-xs text-amber-800">
+                        Hay {pendingCouponCount} {pendingCouponCount === 1 ? "cupón" : "cupones"} por compartir. Avisa a un socio o administrador.
+                      </p>
+                    </div>
+                  )}
                   {pendingCoupons.length > 0 && (
                     <div>
                       <p className="mb-2 text-xs font-semibold uppercase text-purple-600">Cupones por compartir</p>
@@ -132,7 +165,10 @@ export default function NotificationBell({ upcomingOrders, canShareCoupons = fal
                             </div>
                             <CouponShareButton
                               coupon={coupon}
-                              onShared={() => setPendingCoupons((current) => current.filter((item) => item.id !== coupon.id))}
+                              onShared={() => {
+                                setPendingCoupons((current) => current.filter((item) => item.id !== coupon.id))
+                                setPendingCouponCount((current) => Math.max(0, current - 1))
+                              }}
                             />
                           </div>
                         ))}

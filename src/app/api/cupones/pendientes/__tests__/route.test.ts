@@ -5,6 +5,7 @@ vi.mock("@/lib/prisma", () => ({
   prisma: {
     coupon: {
       findMany: vi.fn(),
+      count: vi.fn(),
     },
   },
 }))
@@ -30,12 +31,18 @@ describe("GET /api/cupones/pendientes", () => {
     expect(response.status).toBe(401)
   })
 
-  it("rejects employees", async () => {
+  it("returns only a pending count for employees", async () => {
     vi.mocked(auth).mockResolvedValue({ user: { id: "u1", role: "EMPLEADO" } } as any)
+    vi.mocked(prisma.coupon.count).mockResolvedValue(2)
 
     const response = await GET(new Request("http://localhost/api/cupones/pendientes") as unknown as NextRequest)
+    const body = await response.json()
 
-    expect(response.status).toBe(403)
+    expect(response.status).toBe(200)
+    expect(body).toEqual({ canManageCoupons: false, count: 2, coupons: [] })
+    expect(prisma.coupon.count).toHaveBeenCalledWith(
+      expect.objectContaining({ where: { usedAt: null, sendStatus: { in: ["PENDING", "SENDING", "FAILED"] }, order: { isDelivered: true } } })
+    )
     expect(prisma.coupon.findMany).not.toHaveBeenCalled()
   })
 
@@ -57,6 +64,8 @@ describe("GET /api/cupones/pendientes", () => {
     const body = await response.json()
 
     expect(response.status).toBe(200)
+    expect(body.canManageCoupons).toBe(true)
+    expect(body.count).toBe(1)
     expect(body.coupons).toEqual([
       expect.objectContaining({
         id: "c1",

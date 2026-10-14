@@ -52,6 +52,7 @@ interface OrderTableProps {
   sortField: SortField
   sortDirection: SortDirection
   onSort: (field: SortField) => void
+  showCouponBadge?: boolean
 }
 
 export default function OrderTable({
@@ -64,6 +65,7 @@ export default function OrderTable({
   sortField,
   sortDirection,
   onSort,
+  showCouponBadge = false,
 }: OrderTableProps) {
   return (
     <div className="hidden overflow-x-auto sm:block">
@@ -119,7 +121,7 @@ export default function OrderTable({
                         Entregado
                       </span>
                     )}
-                    <OrderCouponBadge coupon={order.coupon} />
+                    {showCouponBadge && <OrderCouponBadge coupon={order.coupon} />}
                     <OrderActions
                       order={order}
                       canEdit={canEdit}

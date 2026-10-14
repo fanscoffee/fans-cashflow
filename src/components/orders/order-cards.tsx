@@ -10,6 +10,7 @@ interface OrderCardsProps {
   onEdit: (order: Order) => void
   onDelete: (orderId: string) => void
   onToggleStatus: (orderId: string, field: "isPaid" | "isDelivered", value: boolean) => void
+  showCouponBadge?: boolean
 }
 
 export default function OrderCards({
@@ -19,6 +20,7 @@ export default function OrderCards({
   onEdit,
   onDelete,
   onToggleStatus,
+  showCouponBadge = false,
 }: OrderCardsProps) {
   return (
     <div className="space-y-3 sm:hidden">
@@ -47,7 +49,7 @@ export default function OrderCards({
                     Entregado
                   </span>
                 )}
-                <OrderCouponBadge coupon={order.coupon} />
+                {showCouponBadge && <OrderCouponBadge coupon={order.coupon} />}
                 <OrderActions
                   order={order}
                   canEdit={canEdit}

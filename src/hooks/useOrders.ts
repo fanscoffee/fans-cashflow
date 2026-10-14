@@ -168,7 +168,7 @@ export function useOrders({ month, year }: UseOrdersOptions = {}) {
           prev.map((o) => (o.id === orderId ? { ...o, ...updatedOrder } : o))
         )
         if (field === "isDelivered" && value) {
-          setSuccess("Entregado. El cupón se enviará automáticamente en 24 horas.")
+          setSuccess("Entregado. El cupón está pendiente de compartir.")
         }
         return true
       } catch {

@@ -11,16 +11,20 @@ const shareableStatuses: CouponSendStatus[] = [
 ]
 
 export const GET = withAuth(async (_req, session) => {
-  if (!hasAnyRole(session.user.role, [UserRole.ADMIN, UserRole.PARTNER])) {
-    return NextResponse.json({ error: "No autorizado" }, { status: 403 })
+  const canManageCoupons = hasAnyRole(session.user.role, [UserRole.ADMIN, UserRole.PARTNER])
+  const where = {
+    usedAt: null,
+    sendStatus: { in: shareableStatuses },
+    order: { isDelivered: true },
+  }
+
+  if (!canManageCoupons) {
+    const count = await prisma.coupon.count({ where })
+    return NextResponse.json({ canManageCoupons: false, count, coupons: [] })
   }
 
   const coupons = await prisma.coupon.findMany({
-    where: {
-      usedAt: null,
-      sendStatus: { in: shareableStatuses },
-      order: { isDelivered: true },
-    },
+    where,
     select: {
       id: true,
       code: true,
@@ -39,6 +43,8 @@ export const GET = withAuth(async (_req, session) => {
   })
 
   return NextResponse.json({
+    canManageCoupons: true,
+    count: coupons.length,
     coupons: coupons.map((coupon) => ({
       id: coupon.id,
       code: coupon.code,

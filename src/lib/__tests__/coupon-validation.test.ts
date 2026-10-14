@@ -23,6 +23,7 @@ describe("coupon validation", () => {
       sentAt: new Date("2026-10-11T10:00:00.000Z"),
       expiresAt: new Date("2026-10-26T10:00:00.000Z"),
       usedAt: null,
+      usedBy: null,
       order: { clientName: "Juan" },
     } as any)
 
@@ -33,18 +34,57 @@ describe("coupon validation", () => {
   })
 
   it("distinguishes used and expired coupons", async () => {
-    vi.mocked(prisma.coupon.findUnique).mockResolvedValue({ usedAt: new Date() } as any)
-    await expect(lookupCoupon("USED")).resolves.toMatchObject({ status: "USED", valid: false })
+    const usedAt = new Date("2026-10-11T11:30:00.000Z")
+    vi.mocked(prisma.coupon.findUnique).mockResolvedValue({
+      code: "USED",
+      discountPercentage: 15,
+      sentAt: new Date("2026-10-01T10:00:00.000Z"),
+      expiresAt: new Date("2026-10-16T10:00:00.000Z"),
+      usedAt,
+      usedBy: { name: "Ana", email: "ana@example.com", role: "PARTNER" },
+      order: { clientName: "Juan" },
+    } as any)
+    await expect(lookupCoupon("USED")).resolves.toMatchObject({
+      status: "USED",
+      valid: false,
+      coupon: {
+        usedAt,
+        usedBy: { name: "Ana", email: "ana@example.com", role: "PARTNER" },
+      },
+    })
 
     vi.mocked(prisma.coupon.findUnique).mockResolvedValue({
+      code: "EXPIRED",
       usedAt: null,
       sendStatus: "SENT",
       sentAt: new Date("2026-10-01T10:00:00.000Z"),
       expiresAt: new Date("2026-10-10T10:00:00.000Z"),
+      discountPercentage: 15,
+      usedBy: null,
+      order: {
+        id: "order-1",
+        clientName: "Juan",
+        clientPhone: "600123456",
+        deliveryDate: new Date("2026-10-05T12:00:00.000Z"),
+        deliveryLocation: "CAFETERIA",
+        comment: "Llamar al llegar",
+        isPaid: true,
+        isDelivered: true,
+        deliveredAt: new Date("2026-10-05T12:30:00.000Z"),
+        createdAt: new Date("2026-10-04T09:00:00.000Z"),
+      },
     } as any)
     await expect(lookupCoupon("EXPIRED", new Date("2026-10-11T10:00:00.000Z"))).resolves.toMatchObject({
       status: "EXPIRED",
       valid: false,
+      message: "Este código ha caducado porque han pasado 15 días desde que se compartió. Estos son los datos del encargo asociado:",
+      coupon: {
+        order: {
+          id: "order-1",
+          clientPhone: "600123456",
+          deliveryLocation: "CAFETERIA",
+        },
+      },
     })
   })
 
@@ -56,6 +96,7 @@ describe("coupon validation", () => {
       sentAt: new Date("2026-10-11T10:00:00.000Z"),
       expiresAt: new Date("2026-10-26T10:00:00.000Z"),
       usedAt: null,
+      usedBy: null,
       order: { clientName: "Ana" },
     } as any)
     vi.mocked(prisma.coupon.updateMany).mockResolvedValue({ count: 1 })

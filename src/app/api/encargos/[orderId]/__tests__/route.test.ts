@@ -205,8 +205,14 @@ describe("Orders API /api/encargos/[orderId]", () => {
             orderId: "o1",
             scheduledFor: expect.any(Date),
             nextAttemptAt: null,
-            code: expect.stringMatching(/^TARTA15-JUAN-/),
+            code: expect.stringMatching(/^[A-Z0-9]{4}$/),
+            discountPercentage: 10,
           }),
+        })
+      )
+      expect(txOrder.update).toHaveBeenCalledWith(
+        expect.objectContaining({
+          include: expect.not.objectContaining({ coupon: expect.anything() }),
         })
       )
     })

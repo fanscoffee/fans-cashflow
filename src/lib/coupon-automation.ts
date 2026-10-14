@@ -2,15 +2,15 @@ import { Prisma } from "@/generated/prisma/client"
 import { CouponSendStatus } from "@/lib/database-enums"
 import { generateCouponCode, getCouponDiscountPercentage } from "@/lib/coupons"
 
+const MAX_CODE_GENERATION_ATTEMPTS = 10
+
 export async function scheduleCouponForOrder(
   tx: Prisma.TransactionClient,
   {
     orderId,
-    clientName,
     deliveredAt,
   }: {
     orderId: string
-    clientName: string
     deliveredAt: Date
   }
 ) {
@@ -31,9 +31,21 @@ export async function scheduleCouponForOrder(
     return existing
   }
 
+  let code: string | null = null
+  for (let attempt = 0; attempt < MAX_CODE_GENERATION_ATTEMPTS; attempt += 1) {
+    const candidate = generateCouponCode()
+    const existingCode = await tx.coupon.findUnique({ where: { code: candidate }, select: { id: true } })
+    if (!existingCode) {
+      code = candidate
+      break
+    }
+  }
+
+  if (!code) throw new Error("No se pudo generar un código de cupón único")
+
   return tx.coupon.create({
     data: {
-      code: generateCouponCode(clientName),
+      code,
       orderId,
       discountPercentage: getCouponDiscountPercentage(),
       scheduledFor: deliveredAt,

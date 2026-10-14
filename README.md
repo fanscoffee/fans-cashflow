@@ -74,12 +74,14 @@ Cash and shift management application for the Fans venue. It controls revenue, e
 
 ### Coupons (`/cupones`)
 - Marking an order as delivered generates one unique coupon immediately.
+- New coupon codes contain exactly four uppercase alphanumeric characters.
 - ADMIN and SOCIO users see pending coupons in `/cupones` and the notification bell, with a manual share action.
+- EMPLOYEE users can access coupon verification and see a notification when coupons are pending, but never receive coupon codes or management actions.
 - Sharing through the device share sheet activates the coupon; the clipboard fallback requires confirming the share after pasting it into WhatsApp.
 - Coupons expire 15 days after they are shared.
 - Staff can validate and atomically redeem a coupon from the verification screen.
 
-The manual share flow does not require a Vercel cron, Meta API token, or WhatsApp template. Configure `COUPON_DISCOUNT_PERCENTAGE` from `.env.example` if the default 15% discount should change.
+The manual share flow does not require a Vercel cron, Meta API token, or WhatsApp template. Configure `COUPON_DISCOUNT_PERCENTAGE` from `.env.example` if the default 10% discount should change.
 
 ### Face ID / WebAuthn
 - Register a Passkey from the partner or employee dashboard

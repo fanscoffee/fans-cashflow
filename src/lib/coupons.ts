@@ -1,6 +1,7 @@
 import { randomBytes } from "node:crypto"
 
 export const COUPON_VALIDITY_DAYS = 15
+const COUPON_CODE_ALPHABET = "ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789"
 
 function readPositiveInteger(value: string | undefined, fallback: number) {
   const parsed = Number(value)
@@ -8,7 +9,7 @@ function readPositiveInteger(value: string | undefined, fallback: number) {
 }
 
 export function getCouponDiscountPercentage() {
-  return Math.min(readPositiveInteger(process.env.COUPON_DISCOUNT_PERCENTAGE, 15), 100)
+  return Math.min(readPositiveInteger(process.env.COUPON_DISCOUNT_PERCENTAGE, 10), 100)
 }
 
 export function expireCouponAt(sentAt: Date) {
@@ -19,19 +20,6 @@ export function normalizeCouponCode(code: string) {
   return code.trim().toUpperCase().replace(/\s+/g, "")
 }
 
-function clientNameSlug(clientName: string) {
-  const slug = clientName
-    .normalize("NFD")
-    .replace(/[\u0300-\u036f]/g, "")
-    .toUpperCase()
-    .replace(/[^A-Z0-9]+/g, "-")
-    .replace(/^-|-$/g, "")
-    .slice(0, 18)
-
-  return slug || "CLIENTE"
-}
-
-export function generateCouponCode(clientName: string) {
-  const suffix = randomBytes(3).toString("hex").toUpperCase()
-  return `TARTA${getCouponDiscountPercentage()}-${clientNameSlug(clientName)}-${suffix}`
+export function generateCouponCode() {
+  return Array.from(randomBytes(4), (byte) => COUPON_CODE_ALPHABET[byte % COUPON_CODE_ALPHABET.length]).join("")
 }

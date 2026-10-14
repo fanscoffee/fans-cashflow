@@ -1,18 +1,70 @@
 import { CouponSendStatus } from "@/lib/database-enums"
 import { prisma } from "@/lib/prisma"
-import { normalizeCouponCode } from "@/lib/coupons"
+import { COUPON_VALIDITY_DAYS, normalizeCouponCode } from "@/lib/coupons"
 
 export type CouponLookupStatus = "VALID" | "NOT_FOUND" | "USED" | "EXPIRED" | "PENDING"
 
 export type CouponLookupResult =
   | { valid: true; status: "VALID"; message: string; coupon: CouponSummary }
-  | { valid: false; status: Exclude<CouponLookupStatus, "VALID">; message: string }
+  | { valid: false; status: "USED" | "EXPIRED"; message: string; coupon: CouponDetails }
+  | { valid: false; status: Exclude<CouponLookupStatus, "VALID" | "USED" | "EXPIRED">; message: string }
 
-export interface CouponSummary {
+export interface CouponRedeemer {
+  name: string | null
+  email: string
+  role: string
+}
+
+export interface CouponOrderDetails {
+  id: string
+  clientName: string
+  clientPhone: string
+  deliveryDate: Date
+  deliveryLocation: string | null
+  comment: string | null
+  isPaid: boolean
+  isDelivered: boolean
+  deliveredAt: Date | null
+  createdAt: Date
+}
+
+export interface CouponDetails {
   code: string
   clientName: string
   discountPercentage: number
+  sentAt: Date | null
+  expiresAt: Date | null
+  usedAt: Date | null
+  usedBy: CouponRedeemer | null
+  order: CouponOrderDetails
+}
+
+export interface CouponSummary extends CouponDetails {
+  sentAt: Date
   expiresAt: Date
+}
+
+function couponDetails(coupon: {
+  code: string
+  discountPercentage: number
+  sentAt: Date | null
+  expiresAt: Date | null
+  usedAt: Date | null
+  usedBy?: { name: string | null; email: string; role: string } | null
+  order: CouponOrderDetails
+}): CouponDetails {
+  return {
+    code: coupon.code,
+    clientName: coupon.order.clientName,
+    discountPercentage: coupon.discountPercentage,
+    sentAt: coupon.sentAt,
+    expiresAt: coupon.expiresAt,
+    usedAt: coupon.usedAt,
+    usedBy: coupon.usedBy
+      ? { name: coupon.usedBy.name, email: coupon.usedBy.email, role: coupon.usedBy.role }
+      : null,
+    order: coupon.order,
+  }
 }
 
 export async function lookupCoupon(code: string, now = new Date()): Promise<CouponLookupResult> {
@@ -23,7 +75,23 @@ export async function lookupCoupon(code: string, now = new Date()): Promise<Coup
 
   const coupon = await prisma.coupon.findUnique({
     where: { code: normalizedCode },
-    include: { order: { select: { clientName: true } } },
+    include: {
+      order: {
+        select: {
+          id: true,
+          clientName: true,
+          clientPhone: true,
+          deliveryDate: true,
+          deliveryLocation: true,
+          comment: true,
+          isPaid: true,
+          isDelivered: true,
+          deliveredAt: true,
+          createdAt: true,
+        },
+      },
+      usedBy: { select: { name: true, email: true, role: true } },
+    },
   })
 
   if (!coupon) {
@@ -31,7 +99,12 @@ export async function lookupCoupon(code: string, now = new Date()): Promise<Coup
   }
 
   if (coupon.usedAt) {
-    return { valid: false, status: "USED", message: "Este código ya ha sido utilizado." }
+    return {
+      valid: false,
+      status: "USED",
+      message: "Este código ya ha sido utilizado. Estos son los datos de su primer canje:",
+      coupon: couponDetails(coupon),
+    }
   }
 
   if (coupon.sendStatus !== CouponSendStatus.SENT || !coupon.sentAt || !coupon.expiresAt) {
@@ -43,7 +116,12 @@ export async function lookupCoupon(code: string, now = new Date()): Promise<Coup
   }
 
   if (coupon.expiresAt <= now) {
-    return { valid: false, status: "EXPIRED", message: "Este código ha caducado." }
+    return {
+      valid: false,
+      status: "EXPIRED",
+      message: `Este código ha caducado porque han pasado ${COUPON_VALIDITY_DAYS} días desde que se compartió. Estos son los datos del encargo asociado:`,
+      coupon: couponDetails(coupon),
+    }
   }
 
   return {
@@ -51,9 +129,8 @@ export async function lookupCoupon(code: string, now = new Date()): Promise<Coup
     status: "VALID",
     message: "Código válido.",
     coupon: {
-      code: coupon.code,
-      clientName: coupon.order.clientName,
-      discountPercentage: coupon.discountPercentage,
+      ...couponDetails(coupon),
+      sentAt: coupon.sentAt,
       expiresAt: coupon.expiresAt,
     },
   }

@@ -21,6 +21,7 @@ const dataFields = ["clientName", "clientPhone", "deliveryDate", "deliveryLocati
 
 export const PATCH = withAuth(async (req, session, context) => {
   const role = session.user.role
+  const canManageCoupons = hasAnyRole(role, [UserRole.ADMIN, UserRole.PARTNER])
 
   const { orderId } = await context.params
 
@@ -54,17 +55,19 @@ export const PATCH = withAuth(async (req, session, context) => {
     }
     const orderInclude = {
       createdBy: { select: { name: true, email: true } },
-      coupon: {
-        select: {
-          code: true,
-          discountPercentage: true,
-          scheduledFor: true,
-          sendStatus: true,
-          sentAt: true,
-          expiresAt: true,
-          usedAt: true,
+      ...(canManageCoupons && {
+        coupon: {
+          select: {
+            code: true,
+            discountPercentage: true,
+            scheduledFor: true,
+            sendStatus: true,
+            sentAt: true,
+            expiresAt: true,
+            usedAt: true,
+          },
         },
-      },
+      }),
     } as const
 
     const order = shouldScheduleCoupon
@@ -77,7 +80,6 @@ export const PATCH = withAuth(async (req, session, context) => {
 
         await scheduleCouponForOrder(tx, {
           orderId,
-          clientName: updatedOrder.clientName,
           deliveredAt: transitionDate,
         })
 

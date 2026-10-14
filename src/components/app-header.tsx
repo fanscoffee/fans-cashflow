@@ -367,7 +367,10 @@ export default function AppHeader({
         </div>
       )}
 
-      <NotificationBell canShareCoupons={hasAnyRole(session?.user?.role, [UserRole.ADMIN, UserRole.PARTNER])} />
+      <NotificationBell
+        canManageCoupons={hasAnyRole(session?.user?.role, [UserRole.ADMIN, UserRole.PARTNER])}
+        canSeeCouponNotifications={Boolean(session?.user)}
+      />
     </header>
   )
 }

@@ -6,7 +6,8 @@ Fans Cashflow genera el cupón cuando un encargo pasa a estado **Entregado**. El
 
 1. Marca el encargo como **Entregado**.
 2. El sistema genera un código único en estado **Pendiente de compartir**.
-3. Un usuario **ADMIN** o **SOCIO** lo verá en `/cupones` y en el botón de notificaciones.
+   El código tiene exactamente cuatro caracteres alfanuméricos en mayúsculas.
+3. Un usuario **ADMIN** o **SOCIO** lo verá con el código en `/cupones` y en el botón de notificaciones.
 4. Pulsa **Compartir código**.
 5. En móvil, selecciona WhatsApp desde la hoja de compartir.
 6. Si el dispositivo no ofrece compartir, copia el mensaje, pégalo en WhatsApp y pulsa **Marcar como compartido**.
@@ -14,10 +15,12 @@ Fans Cashflow genera el cupón cuando un encargo pasa a estado **Entregado**. El
 
 El cupón no puede validarse ni canjearse antes de compartirlo. El código contiene el descuento configurado y el nombre del cliente aparece también en el mensaje.
 
+Todos los usuarios autenticados pueden comprobar un código desde el verificador. Los usuarios **EMPLOYEE** solo reciben en la campana un aviso y el número de cupones pendientes; no pueden ver códigos, activarlos ni compartirlos.
+
 ## Requisitos
 
 - Sesión iniciada con rol `ADMIN` o `SOCIO` para compartir cupones.
-- `COUPON_DISCOUNT_PERCENTAGE` opcional; por defecto es `15`.
+- `COUPON_DISCOUNT_PERCENTAGE` opcional; por defecto es `10`.
 - No hace falta configurar `CRON_SECRET`, tokens de Meta ni plantillas de WhatsApp.
 
 ## Prueba completa
@@ -38,7 +41,8 @@ El cupón no puede validarse ni canjearse antes de compartirlo. El código conti
 - Compartir dos veces el mismo cupón es seguro y conserva la primera activación válida.
 - Un cupón no compartido devuelve el estado **Pendiente** en el verificador.
 - Un cupón compartido caduca 15 días después de la activación.
-- Solo `ADMIN` y `SOCIO` pueden consultar la lista pendiente o activar un cupón.
+- Solo `ADMIN` y `SOCIO` pueden consultar la lista pendiente, activar un cupón o compartirlo.
+- `EMPLOYEE` puede comprobar códigos y recibe un aviso de pendientes sin acceder a los códigos.
 
 ## Solución de problemas
 

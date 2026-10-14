@@ -6,6 +6,7 @@ import type { PendingCoupon } from "@/types/order"
 
 export default function PendingCoupons() {
   const [coupons, setCoupons] = useState<PendingCoupon[]>([])
+  const [canManageCoupons, setCanManageCoupons] = useState(false)
   const [loading, setLoading] = useState(true)
 
   useEffect(() => {
@@ -14,12 +15,15 @@ export default function PendingCoupons() {
         if (!response.ok) return { coupons: [] }
         return response.json()
       })
-      .then((data) => setCoupons(data.coupons || []))
+      .then((data) => {
+        setCanManageCoupons(data.canManageCoupons === true)
+        setCoupons(data.canManageCoupons === true ? data.coupons || [] : [])
+      })
       .catch(() => setCoupons([]))
       .finally(() => setLoading(false))
   }, [])
 
-  if (loading || coupons.length === 0) return null
+  if (loading || !canManageCoupons || coupons.length === 0) return null
 
   return (
     <section className="mb-6 rounded-lg border border-amber-200 bg-amber-50 p-4 shadow-sm sm:p-6">

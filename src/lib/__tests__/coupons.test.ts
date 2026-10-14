@@ -2,6 +2,7 @@ import { afterEach, describe, expect, it, vi } from "vitest"
 import {
   expireCouponAt,
   generateCouponCode,
+  getCouponDiscountPercentage,
   normalizeCouponCode,
 } from "@/lib/coupons"
 
@@ -10,12 +11,16 @@ describe("coupon helpers", () => {
     vi.unstubAllEnvs()
   })
 
-  it("generates a readable unique code from the customer name", () => {
-    vi.stubEnv("COUPON_DISCOUNT_PERCENTAGE", "15")
+  it("generates a four-character alphanumeric code", () => {
+    const code = generateCouponCode()
 
-    const code = generateCouponCode("María José")
+    expect(code).toMatch(/^[A-Z0-9]{4}$/)
+  })
 
-    expect(code).toMatch(/^TARTA15-MARIA-JOSE-[A-F0-9]{6}$/)
+  it("uses a 10 percent discount by default", () => {
+    vi.stubEnv("COUPON_DISCOUNT_PERCENTAGE", "")
+
+    expect(getCouponDiscountPercentage()).toBe(10)
   })
 
   it("expires a coupon 15 calendar days after sending", () => {

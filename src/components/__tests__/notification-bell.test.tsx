@@ -110,6 +110,8 @@ describe("NotificationBell", () => {
   it("shows pending coupons for users allowed to share", async () => {
     server.use(
       http.get("/api/cupones/pendientes", () => HttpResponse.json({
+        canManageCoupons: true,
+        count: 1,
         coupons: [{
           id: "c1",
           code: "TARTA15-JUAN-ABC123",
@@ -123,7 +125,7 @@ describe("NotificationBell", () => {
       })),
     )
 
-    render(<NotificationBell canShareCoupons />)
+    render(<NotificationBell canManageCoupons canSeeCouponNotifications />)
 
     await waitFor(() => {
       expect(screen.getByRole("button", { name: /notificaciones/i })).toBeInTheDocument()
@@ -134,10 +136,47 @@ describe("NotificationBell", () => {
     expect(screen.getByRole("button", { name: "Compartir código" })).toBeInTheDocument()
   })
 
+  it("refreshes pending coupons when the window regains focus", async () => {
+    let pendingCalls = 0
+    server.use(
+      http.get("/api/cupones/pendientes", () => {
+        pendingCalls += 1
+        return HttpResponse.json(pendingCalls === 1
+          ? { canManageCoupons: true, count: 0, coupons: [] }
+          : {
+              canManageCoupons: true,
+              count: 1,
+              coupons: [{
+                id: "c1",
+                code: "A7K9",
+                discountPercentage: 10,
+                scheduledFor: new Date().toISOString(),
+                sendStatus: "PENDING",
+                lastError: null,
+                clientName: "Juan Pérez",
+                clientPhone: "555-1234",
+              }],
+            })
+      }),
+    )
+
+    const user = userEvent.setup()
+    render(<NotificationBell canManageCoupons canSeeCouponNotifications />)
+    await waitFor(() => expect(pendingCalls).toBe(1))
+
+    window.dispatchEvent(new Event("focus"))
+
+    await waitFor(() => expect(pendingCalls).toBe(2))
+    await user.click(screen.getByRole("button", { name: /notificaciones/i }))
+    expect(screen.getByText("A7K9")).toBeInTheDocument()
+  })
+
   it("activates a coupon only after the copied message is confirmed", async () => {
     const clipboard = { writeText: vi.fn().mockResolvedValue(undefined) }
     server.use(
       http.get("/api/cupones/pendientes", () => HttpResponse.json({
+        canManageCoupons: true,
+        count: 1,
         coupons: [{
           id: "c1",
           code: "TARTA15-JUAN-ABC123",
@@ -155,7 +194,7 @@ describe("NotificationBell", () => {
     const user = userEvent.setup()
     Object.defineProperty(navigator, "clipboard", { configurable: true, value: clipboard })
     Object.defineProperty(navigator, "share", { configurable: true, value: undefined })
-    render(<NotificationBell canShareCoupons />)
+    render(<NotificationBell canManageCoupons canSeeCouponNotifications />)
     await waitFor(() => expect(screen.getByRole("button", { name: /notificaciones/i })).toBeInTheDocument())
     await user.click(screen.getByRole("button", { name: /notificaciones/i }))
     await user.click(screen.getByRole("button", { name: "Compartir código" }))
@@ -166,5 +205,24 @@ describe("NotificationBell", () => {
 
     await user.click(screen.getByRole("button", { name: "Marcar como compartido" }))
     await waitFor(() => expect(screen.queryByText("TARTA15-JUAN-ABC123")).not.toBeInTheDocument())
+  })
+
+  it("shows employees a pending reminder without exposing coupon management", async () => {
+    server.use(
+      http.get("/api/cupones/pendientes", () => HttpResponse.json({
+        canManageCoupons: false,
+        count: 2,
+        coupons: [],
+      })),
+    )
+
+    const user = userEvent.setup()
+    render(<NotificationBell canSeeCouponNotifications />)
+    await waitFor(() => expect(screen.getByRole("button", { name: /notificaciones/i })).toBeInTheDocument())
+    await user.click(screen.getByRole("button", { name: /notificaciones/i }))
+
+    expect(screen.getByText("Cupones pendientes")).toBeInTheDocument()
+    expect(screen.getByText("Cupones pendientes").parentElement).toHaveTextContent("Hay 2 cupones por compartir")
+    expect(screen.queryByRole("button", { name: "Compartir código" })).not.toBeInTheDocument()
   })
 })
