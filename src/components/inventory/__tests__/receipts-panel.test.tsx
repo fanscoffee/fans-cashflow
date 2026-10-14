@@ -18,6 +18,7 @@ describe("ReceiptsPanel", () => {
               id: "receipt-1",
               deliveryNoteCode: "ALB-001",
               receivedAt: "2026-10-01T00:00:00.000Z",
+              transportCost: 1.5,
               notes: "Recepción inicial",
               supplier: { legalName: "Proveedor prueba" },
               receivedBy: { name: "Admin" },
@@ -33,8 +34,9 @@ describe("ReceiptsPanel", () => {
           json: async () => ({
             id: "receipt-1",
             deliveryNoteCode: "ALB-001",
-            receivedAt: "2026-10-01T00:00:00.000Z",
-            notes: "Recepción inicial",
+              receivedAt: "2026-10-01T00:00:00.000Z",
+              transportCost: 1.5,
+              notes: "Recepción inicial",
             supplier: { id: "supplier-1", legalName: "Proveedor prueba" },
             receivedBy: { name: "Admin" },
             lines: [{
@@ -43,7 +45,7 @@ describe("ReceiptsPanel", () => {
               unitPrice: 2.5,
               batch: "LOT-1",
               dueDate: null,
-              product: { id: "product-1", code: "MP-001", posDescription: "Harina", purchaseUnit: "SACO", itemType: "MP" },
+              product: { id: "product-1", code: "MP-001", posDescription: "Harina", purchaseUnit: "SACO", itemType: "MP", purchaseVatPercentage: 10, vatPercentage: null },
             }],
           }),
         }
@@ -60,6 +62,11 @@ describe("ReceiptsPanel", () => {
     await user.click(screen.getByRole("button", { name: "Ver" }))
     expect(await screen.findByText("Coste Unit.")).toBeInTheDocument()
     expect(screen.queryByText("Precio Unit.")).not.toBeInTheDocument()
+    expect(screen.getAllByText("11.00 €")).toHaveLength(2)
+    expect(screen.getByText("Transporte:")).toBeInTheDocument()
+    expect(screen.getByText("1.50 €")).toBeInTheDocument()
+    expect(screen.getByText("Total albarán:")).toBeInTheDocument()
+    expect(screen.getByText("12.50 €")).toBeInTheDocument()
     await user.click(screen.getByRole("button", { name: "Volver" }))
 
     await screen.findByText("ALB-001")

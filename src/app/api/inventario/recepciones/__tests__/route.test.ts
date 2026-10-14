@@ -28,6 +28,7 @@ const requestBody = {
   deliveryNoteCode: "ALB-001",
   receivedAt: "2026-09-01",
   notes: "Recepción de prueba",
+  transportCost: 4.25,
   lines: [{ productId: "product-1", receivedQuantity: 2, unitPrice: 3.5 }],
 }
 
@@ -69,6 +70,7 @@ describe("POST /api/inventario/recepciones", () => {
         supplierId: "provider-1",
         deliveryNoteCode: "ALB-001",
         receivedById: "employee-1",
+        transportCost: 4.25,
       }),
     }))
   })

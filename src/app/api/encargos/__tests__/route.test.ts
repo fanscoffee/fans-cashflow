@@ -58,11 +58,12 @@ describe("Orders API /api/encargos", () => {
 
       await GET(mockRequest("http://localhost/api/encargos"))
       expect(prisma.order.findMany).toHaveBeenCalledWith(
-        expect.objectContaining({
-          where: expect.objectContaining({
-            deliveryDate: expect.objectContaining({ gte: expect.any(Date) }),
-          }),
-        })
+      expect.objectContaining({
+        where: expect.objectContaining({
+          deliveryDate: expect.objectContaining({ gte: expect.any(Date) }),
+        }),
+        include: expect.not.objectContaining({ coupon: expect.anything() }),
+      })
       )
     })
 

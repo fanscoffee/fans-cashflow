@@ -2,6 +2,7 @@ import type { Order } from "@/types/order"
 import type { SortField, SortDirection } from "@/hooks/useOrderFilters"
 import OrderActions from "./order-actions"
 import OrderLocationBadge from "./order-location-badge"
+import OrderCouponBadge from "./order-coupon-badge"
 
 interface SortableHeaderProps {
   field: SortField
@@ -51,6 +52,7 @@ interface OrderTableProps {
   sortField: SortField
   sortDirection: SortDirection
   onSort: (field: SortField) => void
+  showCouponBadge?: boolean
 }
 
 export default function OrderTable({
@@ -63,6 +65,7 @@ export default function OrderTable({
   sortField,
   sortDirection,
   onSort,
+  showCouponBadge = false,
 }: OrderTableProps) {
   return (
     <div className="hidden overflow-x-auto sm:block">
@@ -118,6 +121,7 @@ export default function OrderTable({
                         Entregado
                       </span>
                     )}
+                    {showCouponBadge && <OrderCouponBadge coupon={order.coupon} />}
                     <OrderActions
                       order={order}
                       canEdit={canEdit}

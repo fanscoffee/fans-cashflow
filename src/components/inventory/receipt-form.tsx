@@ -5,6 +5,7 @@ import { useForm, useFieldArray } from "react-hook-form"
 import type { Resolver } from "react-hook-form"
 import { zodResolver } from "@hookform/resolvers/zod"
 import { z } from "zod"
+import { calculateVatInclusiveAmount } from "@/lib/product-pricing"
 
 interface Supplier {
   id: string
@@ -16,7 +17,9 @@ interface Product {
   code: string
   posDescription: string
   purchaseUnit: string
-  baseUnitCost: number | null
+  baseUnitCost: number | string | null
+  purchaseVatPercentage: number | string | null
+  vatPercentage: number | string | null
 }
 
 const lineSchema = z.object({
@@ -32,6 +35,7 @@ const receiptSchema = z.object({
   deliveryNoteCode: z.string().min(1, "El código de albarán es obligatorio"),
   receivedAt: z.string().min(1, "La fecha es obligatoria"),
   notes: z.string().optional(),
+  transportCost: z.coerce.number().finite().nonnegative("El transporte no puede ser negativo"),
   lines: z
     .array(lineSchema)
     .min(1, "Agrega al menos una línea de producto"),
@@ -49,6 +53,7 @@ function defaultReceiptValues(): ReceiptFormValues {
     deliveryNoteCode: "",
     receivedAt: todayString(),
     notes: "",
+    transportCost: 0,
     lines: [{ productId: "", receivedQuantity: 1, unitPrice: 0, batch: "", dueDate: "" }],
   }
 }
@@ -265,9 +270,19 @@ export default function ReceiptForm({
     return products.find((p) => p.id === productId)
   }
 
-  const totalReceipt = (lines || []).reduce((sum, l) => {
-    return sum + (l.receivedQuantity || 0) * (l.unitPrice || 0)
+  const getUnitPriceIncludingVat = (unitPrice: unknown, product?: Product) => {
+    return calculateVatInclusiveAmount({
+      amount: unitPrice,
+      vatPercentage: product?.purchaseVatPercentage ?? product?.vatPercentage,
+    }) ?? 0
+  }
+
+  const productsTotal = (lines || []).reduce((sum, l) => {
+    const product = getProductInfo(l.productId || "")
+    return sum + Number(l.receivedQuantity || 0) * getUnitPriceIncludingVat(l.unitPrice, product)
   }, 0)
+  const transportCost = Number(watch("transportCost") || 0)
+  const totalReceipt = productsTotal + transportCost
   const productPlaceholder = !supplierId
     ? "Selecciona primero un proveedor..."
     : productsLoading
@@ -338,6 +353,24 @@ export default function ReceiptForm({
             className="w-full rounded-md border border-gray-300 px-3 py-2 text-sm text-gray-900 shadow-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
           />
         </div>
+
+        <div>
+          <label htmlFor="recepcion-transporte" className="mb-1 block text-sm font-medium text-gray-700">
+            Importe de transporte
+          </label>
+          <input
+            id="recepcion-transporte"
+            type="number"
+            min="0"
+            step="0.01"
+            {...register("transportCost")}
+            className="w-full rounded-md border border-gray-300 px-3 py-2 text-sm text-gray-900 shadow-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
+          />
+          <p className="mt-1 text-xs text-gray-500">Importe del transporte indicado en el albarán. Se suma directamente al total.</p>
+          {errors.transportCost && (
+            <p className="mt-1 text-xs text-red-600">{errors.transportCost.message}</p>
+          )}
+        </div>
       </div>
 
       <div>
@@ -351,7 +384,9 @@ export default function ReceiptForm({
         <div className="space-y-3">
           {fields.map((field, index) => {
             const prod = getProductInfo(lines?.[index]?.productId || "")
-            const subtotal = (lines?.[index]?.receivedQuantity || 0) * (lines?.[index]?.unitPrice || 0)
+            const line = lines?.[index]
+            const unitPriceIncludingVat = getUnitPriceIncludingVat(line?.unitPrice, prod)
+            const subtotal = Number(line?.receivedQuantity || 0) * unitPriceIncludingVat
             const productId = `recepcion-producto-${field.id}`
             const quantityId = `recepcion-cantidad-${field.id}`
             const priceId = `recepcion-precio-${field.id}`
@@ -413,7 +448,7 @@ export default function ReceiptForm({
                   <div className="grid grid-cols-2 gap-3">
                     <div>
                       <label htmlFor={priceId} className="mb-1 block text-xs font-medium text-gray-600">
-                        Coste unitario
+                        Coste unitario sin IVA
                       </label>
                       <input
                         id={priceId}
@@ -424,10 +459,17 @@ export default function ReceiptForm({
                       />
                     </div>
                     <div>
-                      <span className="mb-1 block text-xs font-medium text-gray-600">Subtotal</span>
+                      <span className="mb-1 block text-xs font-medium text-gray-600">Coste unitario con IVA</span>
                       <div className="flex min-h-11 items-center rounded-md border border-gray-200 bg-white px-3 py-2 text-sm font-medium text-gray-900">
-                        {subtotal.toFixed(2)} EUR
+                        {unitPriceIncludingVat.toFixed(4)} EUR
                       </div>
+                    </div>
+                  </div>
+
+                  <div>
+                    <span className="mb-1 block text-xs font-medium text-gray-600">Subtotal con IVA</span>
+                    <div className="flex min-h-11 items-center rounded-md border border-gray-200 bg-white px-3 py-2 text-sm font-medium text-gray-900">
+                      {subtotal.toFixed(2)} EUR
                     </div>
                   </div>
 
@@ -476,8 +518,10 @@ export default function ReceiptForm({
           >
             + Agregar línea
           </button>
-          <div className="text-right text-sm font-semibold text-gray-900">
-            Total: {totalReceipt.toFixed(2)} EUR
+          <div className="space-y-1 text-right text-sm text-gray-900">
+            <p>Productos con IVA: {productsTotal.toFixed(2)} EUR</p>
+            <p>Transporte: {transportCost.toFixed(2)} EUR</p>
+            <p className="font-semibold">Total albarán: {totalReceipt.toFixed(2)} EUR</p>
           </div>
         </div>
       </div>

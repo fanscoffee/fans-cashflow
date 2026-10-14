@@ -163,6 +163,13 @@ export function useOrders({ month, year }: UseOrdersOptions = {}) {
           setError("Error al actualizar el estado")
           return false
         }
+        const updatedOrder = await res.json()
+        setOrders((prev) =>
+          prev.map((o) => (o.id === orderId ? { ...o, ...updatedOrder } : o))
+        )
+        if (field === "isDelivered" && value) {
+          setSuccess("Entregado. El cupón está pendiente de compartir.")
+        }
         return true
       } catch {
         setOrders((prev) =>

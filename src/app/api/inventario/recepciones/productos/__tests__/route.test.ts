@@ -47,6 +47,8 @@ describe("GET /api/inventario/recepciones/productos", () => {
         posDescription: true,
         purchaseUnit: true,
         baseUnitCost: true,
+        purchaseVatPercentage: true,
+        vatPercentage: true,
       },
       orderBy: { code: "asc" },
     })

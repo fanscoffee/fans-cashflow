@@ -23,6 +23,8 @@ export const GET = withAuth(async (req) => {
       posDescription: true,
       purchaseUnit: true,
       baseUnitCost: true,
+      purchaseVatPercentage: true,
+      vatPercentage: true,
     },
     orderBy: { code: "asc" },
   })

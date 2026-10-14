@@ -243,8 +243,9 @@ export default function OrdersPage() {
               onDelete={handleDelete}
               onToggleStatus={toggleOrderStatus}
               sortField={upcomingFilters.sortField}
-              sortDirection={upcomingFilters.sortDirection}
-              onSort={upcomingFilters.handleSort}
+               sortDirection={upcomingFilters.sortDirection}
+               onSort={upcomingFilters.handleSort}
+               showCouponBadge={showFilters}
             />
           )}
         </section>
@@ -292,6 +293,7 @@ export default function OrdersPage() {
                     sortField={pastFilters.sortField}
                     sortDirection={pastFilters.sortDirection}
                     onSort={pastFilters.handleSort}
+                    showCouponBadge={showFilters}
                   />
                 )}
               </div>

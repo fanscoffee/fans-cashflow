@@ -13,6 +13,7 @@ interface OrderListProps {
   sortField: SortField
   sortDirection: SortDirection
   onSort: (field: SortField) => void
+  showCouponBadge?: boolean
 }
 
 export default function OrderList({
@@ -25,6 +26,7 @@ export default function OrderList({
   sortField,
   sortDirection,
   onSort,
+  showCouponBadge = false,
 }: OrderListProps) {
   return (
     <>
@@ -35,6 +37,7 @@ export default function OrderList({
         onEdit={onEdit}
         onDelete={onDelete}
         onToggleStatus={onToggleStatus}
+        showCouponBadge={showCouponBadge}
       />
       <OrderTable
         orders={orders}
@@ -46,6 +49,7 @@ export default function OrderList({
         sortField={sortField}
         sortDirection={sortDirection}
         onSort={onSort}
+        showCouponBadge={showCouponBadge}
       />
     </>
   )
