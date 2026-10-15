@@ -77,7 +77,7 @@ Cash and shift management application for the Fans venue. It controls revenue, e
 - New coupon codes contain exactly four uppercase alphanumeric characters.
 - ADMIN and SOCIO users see pending coupons in `/cupones` and the notification bell, with a manual share action.
 - EMPLOYEE users can access coupon verification and see a notification when coupons are pending, but never receive coupon codes or management actions.
-- Sharing through the device share sheet activates the coupon; the clipboard fallback requires confirming the share after pasting it into WhatsApp.
+- Sharing through the device share sheet or the direct WhatsApp option activates the coupon; the clipboard fallback requires confirming the share after pasting it into WhatsApp.
 - Coupons expire 15 days after they are shared.
 - Staff can validate and atomically redeem a coupon from the verification screen.
 
