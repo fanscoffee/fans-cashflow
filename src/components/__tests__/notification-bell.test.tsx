@@ -185,7 +185,7 @@ describe("NotificationBell", () => {
           sendStatus: "PENDING",
           lastError: null,
           clientName: "Juan Pérez",
-          clientPhone: "555-1234",
+          clientPhone: "600123456",
         }],
       })),
       http.post("/api/cupones/c1/compartir", () => HttpResponse.json({ id: "c1" })),
@@ -201,10 +201,44 @@ describe("NotificationBell", () => {
 
     await waitFor(() => expect(clipboard.writeText).toHaveBeenCalledWith(expect.stringContaining("TARTA15-JUAN-ABC123")))
     expect(screen.getByRole("button", { name: "Marcar como compartido" })).toBeInTheDocument()
+    expect(screen.getByRole("status")).toHaveTextContent("Mensaje copiado")
+    const whatsappHref = screen.getByRole("link", { name: "Abrir WhatsApp" }).getAttribute("href")
+    expect(whatsappHref).toMatch(/^https:\/\/api\.whatsapp\.com\/send\?phone=34600123456&text=/)
+    expect(whatsappHref).not.toContain("%EF%BF%BD")
+    expect(new URL(whatsappHref!).searchParams.get("text")).toContain("☕🍰")
+    expect(new URL(whatsappHref!).searchParams.get("text")).toContain("🎟️")
     expect(screen.getByText("TARTA15-JUAN-ABC123")).toBeInTheDocument()
 
     await user.click(screen.getByRole("button", { name: "Marcar como compartido" }))
     await waitFor(() => expect(screen.queryByText("TARTA15-JUAN-ABC123")).not.toBeInTheDocument())
+  })
+
+  it("activates a coupon automatically when WhatsApp is opened", async () => {
+    server.use(
+      http.get("/api/cupones/pendientes", () => HttpResponse.json({
+        canManageCoupons: true,
+        count: 1,
+        coupons: [{
+          id: "c1",
+          code: "WHATSAPP-COUPON",
+          discountPercentage: 10,
+          scheduledFor: new Date().toISOString(),
+          sendStatus: "PENDING",
+          lastError: null,
+          clientName: "Yomira",
+          clientPhone: "600123456",
+        }],
+      })),
+      http.post("/api/cupones/c1/compartir", () => HttpResponse.json({ id: "c1" })),
+    )
+
+    const user = userEvent.setup()
+    render(<NotificationBell canManageCoupons canSeeCouponNotifications />)
+    await waitFor(() => expect(screen.getByRole("button", { name: /notificaciones/i })).toBeInTheDocument())
+    await user.click(screen.getByRole("button", { name: /notificaciones/i }))
+    await user.click(screen.getByRole("link", { name: "Abrir WhatsApp" }))
+
+    await waitFor(() => expect(screen.queryByText("WHATSAPP-COUPON")).not.toBeInTheDocument())
   })
 
   it("shows employees a pending reminder without exposing coupon management", async () => {
