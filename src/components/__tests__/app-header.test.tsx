@@ -65,6 +65,7 @@ describe("AppHeader", () => {
     expect(screen.getByRole("link", { name: "Inventario" })).toBeInTheDocument()
     expect(screen.getByRole("link", { name: "Facturas" })).toBeInTheDocument()
     expect(screen.getByRole("link", { name: "Gestoría" })).toBeInTheDocument()
+    expect(screen.getByRole("link", { name: "Tickets de turnos" })).toBeInTheDocument()
     expect(screen.getByRole("link", { name: "Pagos" })).toBeInTheDocument()
     expect(screen.getByRole("link", { name: "Encargos" })).toBeInTheDocument()
   })
