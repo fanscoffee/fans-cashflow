@@ -46,6 +46,7 @@ function getNavigation(role?: string): HeaderNavigation {
         { href: "/socio/inventario", label: "Inventario" },
         { href: "/socio/facturas", label: "Facturas" },
         { href: "/gestoria", label: "Gestoría" },
+        { href: "/gestoria/tickets", label: "Tickets de turnos" },
         { href: "/socio/pagos", label: "Pagos" },
         { href: "/encargos", label: "Encargos" },
         { href: "/cupones", label: "Cupones" },
@@ -121,7 +122,7 @@ export default function AppHeader({
     : getNavigation(session?.user?.role)
 
   function isActive(href: string) {
-    if (href === "/socio" || href === "/empleado" || href === "/admin") return pathname === href
+    if (href === "/socio" || href === "/empleado" || href === "/admin" || href === "/gestoria") return pathname === href
     return pathname.startsWith(href)
   }
 
