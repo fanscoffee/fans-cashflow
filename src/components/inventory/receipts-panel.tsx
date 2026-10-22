@@ -262,6 +262,10 @@ export default function ReceiptsPanel({ canDelete = true, canEdit = false, initi
       (sum, l) => sum + Number(l.receivedQuantity) * unitPriceIncludingVat(l),
       0
     )
+    const totalLinesWithoutVat = (selectedReceipt.lines || []).reduce(
+      (sum, l) => sum + Number(l.receivedQuantity) * Number(l.unitPrice),
+      0
+    )
     const transportCost = Number(selectedReceipt.transportCost || 0)
     const totalReceipt = totalLines + transportCost
     return (
@@ -325,6 +329,7 @@ export default function ReceiptsPanel({ canDelete = true, canEdit = false, initi
                   <th className="px-3 py-2">UoM</th>
                   <th className="px-3 py-2 text-right" title="IVA incluido según producto">Coste Unit.</th>
                   <th className="px-3 py-2 text-right">Subtotal con IVA</th>
+                  <th className="px-3 py-2 text-right">Subtotal sin IVA</th>
                   <th className="px-3 py-2">Lote</th>
                   <th className="px-3 py-2">Vencimiento</th>
                 </tr>
@@ -343,6 +348,9 @@ export default function ReceiptsPanel({ canDelete = true, canEdit = false, initi
                     <td className="px-3 py-2 text-right font-medium text-gray-900">
                       {(Number(l.receivedQuantity) * unitPriceIncludingVat(l)).toFixed(2)} €
                     </td>
+                    <td className="px-3 py-2 text-right font-medium text-gray-900">
+                      {(Number(l.receivedQuantity) * Number(l.unitPrice)).toFixed(2)} €
+                    </td>
                     <td className="px-3 py-2 text-xs text-gray-600">{l.batch || "—"}</td>
                     <td className="px-3 py-2 text-xs text-gray-600">
                       {l.dueDate
@@ -360,6 +368,17 @@ export default function ReceiptsPanel({ canDelete = true, canEdit = false, initi
                   <td className="px-3 py-2 text-right text-sm font-bold text-gray-900">
                     {totalLines.toFixed(2)} €
                   </td>
+                  <td></td>
+                  <td colSpan={2}></td>
+                </tr>
+                <tr>
+                  <td colSpan={6} className="px-3 py-2 text-right text-sm font-semibold text-gray-900">
+                    Productos sin IVA:
+                  </td>
+                  <td></td>
+                  <td className="px-3 py-2 text-right text-sm font-bold text-gray-900">
+                    {totalLinesWithoutVat.toFixed(2)} €
+                  </td>
                   <td colSpan={2}></td>
                 </tr>
                 <tr>
@@ -369,6 +388,7 @@ export default function ReceiptsPanel({ canDelete = true, canEdit = false, initi
                   <td className="px-3 py-2 text-right text-sm font-bold text-gray-900">
                     {transportCost.toFixed(2)} €
                   </td>
+                  <td></td>
                   <td colSpan={2}></td>
                 </tr>
                 <tr className="border-t bg-gray-50">
@@ -378,6 +398,7 @@ export default function ReceiptsPanel({ canDelete = true, canEdit = false, initi
                   <td className="px-3 py-2 text-right text-sm font-bold text-gray-900">
                     {totalReceipt.toFixed(2)} €
                   </td>
+                  <td></td>
                   <td colSpan={2}></td>
                 </tr>
               </tfoot>
