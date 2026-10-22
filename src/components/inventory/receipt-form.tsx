@@ -385,8 +385,11 @@ export default function ReceiptForm({
           {fields.map((field, index) => {
             const prod = getProductInfo(lines?.[index]?.productId || "")
             const line = lines?.[index]
+            const unitPriceWithoutVat = Number(line?.unitPrice || 0)
             const unitPriceIncludingVat = getUnitPriceIncludingVat(line?.unitPrice, prod)
-            const subtotal = Number(line?.receivedQuantity || 0) * unitPriceIncludingVat
+            const quantity = Number(line?.receivedQuantity || 0)
+            const subtotalWithoutVat = quantity * unitPriceWithoutVat
+            const subtotal = quantity * unitPriceIncludingVat
             const productId = `recepcion-producto-${field.id}`
             const quantityId = `recepcion-cantidad-${field.id}`
             const priceId = `recepcion-precio-${field.id}`
@@ -466,10 +469,18 @@ export default function ReceiptForm({
                     </div>
                   </div>
 
-                  <div>
-                    <span className="mb-1 block text-xs font-medium text-gray-600">Subtotal con IVA</span>
-                    <div className="flex min-h-11 items-center rounded-md border border-gray-200 bg-white px-3 py-2 text-sm font-medium text-gray-900">
-                      {subtotal.toFixed(2)} EUR
+                  <div className="grid grid-cols-1 gap-3 min-[420px]:grid-cols-2">
+                    <div>
+                      <span className="mb-1 block text-xs font-medium text-gray-600">Subtotal con IVA</span>
+                      <div className="flex min-h-11 items-center rounded-md border border-gray-200 bg-white px-3 py-2 text-sm font-medium text-gray-900">
+                        {subtotal.toFixed(2)} EUR
+                      </div>
+                    </div>
+                    <div>
+                      <span className="mb-1 block text-xs font-medium text-gray-600">Subtotal sin IVA</span>
+                      <div className="flex min-h-11 items-center rounded-md border border-gray-200 bg-white px-3 py-2 text-sm font-medium text-gray-900">
+                        {subtotalWithoutVat.toFixed(2)} EUR
+                      </div>
                     </div>
                   </div>
 
