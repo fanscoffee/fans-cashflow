@@ -46,6 +46,8 @@ describe("ReceiptForm provider products", () => {
     expect(screen.getByLabelText("Coste unitario sin IVA")).toHaveValue(2)
     expect(screen.getByText("Coste unitario con IVA")).toBeInTheDocument()
     expect(screen.getByText("2.2000 EUR")).toBeInTheDocument()
+    expect(screen.getByText("Subtotal sin IVA")).toBeInTheDocument()
+    expect(screen.getByText("2.00 EUR")).toBeInTheDocument()
     expect(screen.getByText("Productos con IVA: 2.20 EUR")).toBeInTheDocument()
     expect(screen.getByText("Total albarán: 2.20 EUR")).toBeInTheDocument()
 

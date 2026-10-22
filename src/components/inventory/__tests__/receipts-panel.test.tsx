@@ -61,8 +61,11 @@ describe("ReceiptsPanel", () => {
 
     await user.click(screen.getByRole("button", { name: "Ver" }))
     expect(await screen.findByText("Coste Unit.")).toBeInTheDocument()
+    expect(screen.getByText("Subtotal sin IVA")).toBeInTheDocument()
     expect(screen.queryByText("Precio Unit.")).not.toBeInTheDocument()
     expect(screen.getAllByText("11.00 €")).toHaveLength(2)
+    expect(screen.getAllByText("10.00 €")).toHaveLength(2)
+    expect(screen.getByText("Productos sin IVA:")).toBeInTheDocument()
     expect(screen.getByText("Transporte:")).toBeInTheDocument()
     expect(screen.getByText("1.50 €")).toBeInTheDocument()
     expect(screen.getByText("Total albarán:")).toBeInTheDocument()
