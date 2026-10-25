@@ -37,28 +37,28 @@ export default function OrderCards({
                 <p className="break-words font-medium text-gray-900 [overflow-wrap:anywhere]">{order.clientName}</p>
                 <p className="break-words text-sm text-gray-700 [overflow-wrap:anywhere]">{order.clientPhone}</p>
               </div>
-              <div className="flex shrink-0 flex-wrap justify-end gap-1">
-                <OrderLocationBadge location={order.deliveryLocation} />
-                {order.isPaid && (
-                  <span className="inline-flex items-center rounded-full bg-green-50 px-2 py-0.5 text-xs font-medium text-green-700">
-                    Pagado
-                  </span>
-                )}
-                {order.isDelivered && (
-                  <span className="inline-flex items-center rounded-full bg-blue-50 px-2 py-0.5 text-xs font-medium text-blue-700">
-                    Entregado
-                  </span>
-                )}
-                {showCouponBadge && <OrderCouponBadge coupon={order.coupon} />}
-                <OrderActions
-                  order={order}
-                  canEdit={canEdit}
-                  canDelete={canDelete}
-                  onEdit={onEdit}
-                  onDelete={onDelete}
-                  onToggleStatus={onToggleStatus}
-                />
-              </div>
+              <OrderActions
+                order={order}
+                canEdit={canEdit}
+                canDelete={canDelete}
+                onEdit={onEdit}
+                onDelete={onDelete}
+                onToggleStatus={onToggleStatus}
+              />
+            </div>
+            <div className="mt-2 flex flex-wrap items-center gap-1">
+              <OrderLocationBadge location={order.deliveryLocation} />
+              {order.isPaid && (
+                <span className="inline-flex items-center rounded-full bg-green-50 px-2 py-0.5 text-xs font-medium text-green-700">
+                  Pagado
+                </span>
+              )}
+              {order.isDelivered && (
+                <span className="inline-flex items-center rounded-full bg-blue-50 px-2 py-0.5 text-xs font-medium text-blue-700">
+                  Entregado
+                </span>
+              )}
+              {showCouponBadge && <OrderCouponBadge coupon={order.coupon} />}
             </div>
             <div className="mt-2 grid grid-cols-1 gap-1 text-sm text-gray-800 min-[360px]:grid-cols-2">
               <div>
