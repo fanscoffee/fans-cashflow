@@ -1,6 +1,6 @@
 "use client"
 
-import { useRef, useState } from "react"
+import { useEffect, useRef, useState } from "react"
 import { extractDocument } from "@/lib/document-ocr"
 import { parseInvoiceText } from "@/lib/invoice-ocr"
 import {
@@ -15,8 +15,14 @@ function numberValue(value: string) {
   return Number.isFinite(parsed) ? parsed : 0
 }
 
-function Input({ id, label, value, onChange, type = "text", required = false, error = false }: { id?: string; label: string; value: string; onChange: (value: string) => void; type?: string; required?: boolean; error?: boolean }) {
-  return <label className="block text-xs text-gray-600"><span className="mb-1 block font-medium">{label}{required ? " *" : ""}</span><input id={id} type={type} min={type === "number" ? "0" : undefined} step={type === "number" ? "0.01" : undefined} value={value} onChange={(event) => onChange(event.target.value)} className={`w-full rounded-md border px-2 py-1.5 text-sm text-gray-900 focus:outline-none focus:ring-1 ${error ? "border-red-500 bg-red-50 focus:border-red-500 focus:ring-red-500" : "border-gray-300 focus:border-blue-500 focus:ring-blue-500"}`} aria-invalid={error || undefined} /></label>
+function Input({ id, label, value, onChange, type = "text", required = false, error = false, readOnly = false }: { id?: string; label: string; value: string; onChange: (value: string) => void; type?: string; required?: boolean; error?: boolean; readOnly?: boolean }) {
+  return <label className="block text-xs text-gray-600"><span className="mb-1 block font-medium">{label}{required ? " *" : ""}</span><input id={id} type={type} min={type === "number" ? "0" : undefined} step={type === "number" ? "0.01" : undefined} value={value} onChange={(event) => onChange(event.target.value)} readOnly={readOnly} className={`w-full rounded-md border px-2 py-1.5 text-sm text-gray-900 focus:outline-none focus:ring-1 ${error ? "border-red-500 bg-red-50 focus:border-red-500 focus:ring-red-500" : readOnly ? "border-gray-300 bg-gray-50 focus:border-gray-300 focus:ring-gray-300" : "border-gray-300 focus:border-blue-500 focus:ring-blue-500"}`} aria-invalid={error || undefined} aria-readonly={readOnly || undefined} /></label>
+}
+
+interface SupplierOption {
+  id: string
+  legalName: string
+  taxId: string
 }
 
 const TAX_FIELDS = [
@@ -33,10 +39,64 @@ export default function AccountingInvoiceForm({ initialValues, onCancel, onSubmi
   const [documentRead, setDocumentRead] = useState(initialValues?.source === "OCR")
   const [submitted, setSubmitted] = useState(false)
   const [ocrCopied, setOcrCopied] = useState(false)
+  const [supplierOptions, setSupplierOptions] = useState<SupplierOption[]>([])
+  const [supplierSearch, setSupplierSearch] = useState("")
+  const [supplierMenuOpen, setSupplierMenuOpen] = useState(false)
+  const [supplierLoading, setSupplierLoading] = useState(false)
   const fileInputRef = useRef<HTMLInputElement>(null)
 
   function update<K extends keyof AccountingInvoiceFormData>(field: K, value: AccountingInvoiceFormData[K]) {
     setData((current) => ({ ...current, [field]: value }))
+  }
+
+  function updateTaxBase(tax: (typeof TAX_FIELDS)[number], value: string) {
+    setData((current) => ({
+      ...current,
+      [tax.base]: value,
+      [tax.vat]: current.source === "MANUAL" ? (numberValue(value) * Number(tax.rate) / 100).toFixed(2) : current[tax.vat],
+    }))
+  }
+
+  /* eslint-disable react-hooks/set-state-in-effect */
+  useEffect(() => {
+    const query = supplierSearch.trim()
+    if (!query) {
+      setSupplierOptions([])
+      setSupplierLoading(false)
+      return
+    }
+
+    const controller = new AbortController()
+    const timeout = window.setTimeout(async () => {
+      setSupplierLoading(true)
+      try {
+        const params = new URLSearchParams({ search: query })
+        const response = await fetch(`/api/gestoria/proveedores?${params.toString()}`, { signal: controller.signal })
+        if (!response.ok) throw new Error("No se pudieron cargar los proveedores")
+        const result = await response.json() as { suppliers?: SupplierOption[] }
+        setSupplierOptions(result.suppliers || [])
+        setSupplierMenuOpen(true)
+      } catch (reason) {
+        if (reason instanceof DOMException && reason.name === "AbortError") return
+        setSupplierOptions([])
+      } finally {
+        if (!controller.signal.aborted) setSupplierLoading(false)
+      }
+    }, 200)
+
+    return () => {
+      controller.abort()
+      window.clearTimeout(timeout)
+    }
+  }, [supplierSearch])
+  /* eslint-enable react-hooks/set-state-in-effect */
+
+  function selectSupplier(supplier: SupplierOption) {
+    update("supplierOrCreditor", supplier.legalName)
+    update("taxId", supplier.taxId.toUpperCase())
+    setSupplierSearch("")
+    setSupplierOptions([])
+    setSupplierMenuOpen(false)
   }
 
   async function handleFile(file: File) {
@@ -120,8 +180,20 @@ export default function AccountingInvoiceForm({ initialValues, onCancel, onSubmi
       <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
         <Input id="gestoria-fecha" label="Fecha" type="date" value={data.date} onChange={(value) => update("date", value)} required error={submitted && missingDate} />
         <Input label="Factura Nº" value={data.invoiceNumber} onChange={(value) => update("invoiceNumber", value)} />
-        <Input id="gestoria-proveedor" label="Proveedor / acreedor (opcional)" value={data.supplierOrCreditor} onChange={(value) => update("supplierOrCreditor", value)} />
-        <Input label="NIF" value={data.taxId} onChange={(value) => update("taxId", value.toUpperCase())} />
+        <div
+          className="relative grid grid-cols-1 gap-3 sm:col-span-2 sm:grid-cols-2"
+          onBlur={(event) => {
+            if (!event.currentTarget.contains(event.relatedTarget as Node | null)) setSupplierMenuOpen(false)
+          }}
+        >
+          <label className="block text-xs text-gray-600"><span className="mb-1 block font-medium">Proveedor / acreedor (opcional)</span><input id="gestoria-proveedor" role="combobox" value={data.supplierOrCreditor} onChange={(event) => { update("supplierOrCreditor", event.target.value); setSupplierSearch(event.target.value); setSupplierMenuOpen(true) }} onFocus={() => { if (data.supplierOrCreditor) { setSupplierSearch(data.supplierOrCreditor); setSupplierMenuOpen(true) } }} aria-autocomplete="list" aria-controls="gestoria-proveedores-lista" aria-expanded={supplierMenuOpen} className="w-full rounded-md border border-gray-300 px-2 py-1.5 text-sm text-gray-900 focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500" /></label>
+          <label className="block text-xs text-gray-600"><span className="mb-1 block font-medium">NIF</span><input id="gestoria-nif" role="combobox" value={data.taxId} onChange={(event) => { const value = event.target.value.toUpperCase(); update("taxId", value); setSupplierSearch(value); setSupplierMenuOpen(true) }} onFocus={() => { if (data.taxId) { setSupplierSearch(data.taxId); setSupplierMenuOpen(true) } }} aria-autocomplete="list" aria-controls="gestoria-proveedores-lista" aria-expanded={supplierMenuOpen} className="w-full rounded-md border border-gray-300 px-2 py-1.5 text-sm text-gray-900 focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500" /></label>
+          {supplierMenuOpen && supplierSearch.trim() && (
+            <div id="gestoria-proveedores-lista" role="listbox" className="absolute left-0 right-0 top-full z-20 mt-1 max-h-60 overflow-y-auto rounded-md border border-gray-200 bg-white py-1 shadow-lg sm:col-span-2">
+              {supplierLoading ? <p className="px-3 py-2 text-xs text-gray-500">Buscando proveedores...</p> : supplierOptions.length === 0 ? <p className="px-3 py-2 text-xs text-gray-500">No se encontraron proveedores.</p> : supplierOptions.map((supplier) => <button key={supplier.id} type="button" role="option" aria-selected={false} onMouseDown={(event) => event.preventDefault()} onClick={() => selectSupplier(supplier)} className="flex w-full items-center justify-between gap-3 px-3 py-2 text-left text-sm hover:bg-blue-50"><span className="min-w-0 truncate font-medium text-gray-900">{supplier.legalName}</span><span className="shrink-0 font-mono text-xs text-gray-500">{supplier.taxId}</span></button>)}
+            </div>
+          )}
+        </div>
         <Input label="Concepto" value={data.concept} onChange={(value) => update("concept", value)} />
         <Input label="Forma pago" value={data.paymentMethod} onChange={(value) => update("paymentMethod", value)} />
       </div>
@@ -131,7 +203,7 @@ export default function AccountingInvoiceForm({ initialValues, onCancel, onSubmi
       <h3 className="mb-2 text-sm font-semibold text-gray-900">Impuestos</h3>
       <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
         <Input label="Base exenta / 0%" type="number" value={data.exemptBase} onChange={(value) => update("exemptBase", value)} />
-        {TAX_FIELDS.map((tax) => <div key={tax.rate} className="grid grid-cols-2 gap-2 rounded-md border border-gray-200 p-2"><Input label={`Base ${tax.rate}%`} type="number" value={data[tax.base]} onChange={(value) => update(tax.base, value)} /><Input label={`IVA ${tax.rate}%`} type="number" value={data[tax.vat]} onChange={(value) => update(tax.vat, value)} /></div>)}
+        {TAX_FIELDS.map((tax) => <div key={tax.rate} className="grid grid-cols-2 gap-2 rounded-md border border-gray-200 p-2"><Input label={`Base ${tax.rate}%`} type="number" value={data[tax.base]} onChange={(value) => updateTaxBase(tax, value)} /><Input label={`IVA ${tax.rate}%`} type="number" value={data[tax.vat]} onChange={(value) => update(tax.vat, value)} readOnly={data.source === "MANUAL"} /></div>)}
       </div>
     </section>
 
