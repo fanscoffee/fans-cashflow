@@ -55,6 +55,37 @@ function unitPriceIncludingVat(line: ReceiptLine) {
   }) ?? Number(line.unitPrice)
 }
 
+function lineVatPercentage(line: ReceiptLine) {
+  const rawValue = line.product.purchaseVatPercentage ?? line.product.vatPercentage
+  const percentage = Number(rawValue)
+  return Number.isFinite(percentage) ? percentage : 0
+}
+
+function formatVatPercentage(percentage: number) {
+  return Number.isInteger(percentage) ? String(percentage) : percentage.toFixed(2).replace(/0+$/, "").replace(/\.$/, "")
+}
+
+function vatLabel(percentage: number) {
+  return percentage === 0 ? "Sin IVA" : `IVA ${formatVatPercentage(percentage)}%`
+}
+
+function vatBreakdown(lines: ReceiptLine[]) {
+  const totals = new Map<number, { percentage: number; base: number; vat: number; total: number }>()
+
+  for (const line of lines) {
+    const percentage = lineVatPercentage(line)
+    const base = Number(line.receivedQuantity) * Number(line.unitPrice)
+    const total = Number(line.receivedQuantity) * unitPriceIncludingVat(line)
+    const current = totals.get(percentage) || { percentage, base: 0, vat: 0, total: 0 }
+    current.base += base
+    current.total += total
+    current.vat += total - base
+    totals.set(percentage, current)
+  }
+
+  return Array.from(totals.values()).sort((left, right) => left.percentage - right.percentage)
+}
+
 function toReceiptFormValues(receipt: Receipt): ReceiptFormValues {
   return {
     supplierId: receipt.supplier.id || "",
@@ -258,11 +289,13 @@ export default function ReceiptsPanel({ canDelete = true, canEdit = false, initi
   }
 
   if (view === "detail" && selectedReceipt) {
-    const totalLines = (selectedReceipt.lines || []).reduce(
+    const lines = selectedReceipt.lines || []
+    const breakdown = vatBreakdown(lines)
+    const totalLines = lines.reduce(
       (sum, l) => sum + Number(l.receivedQuantity) * unitPriceIncludingVat(l),
       0
     )
-    const totalLinesWithoutVat = (selectedReceipt.lines || []).reduce(
+    const totalLinesWithoutVat = lines.reduce(
       (sum, l) => sum + Number(l.receivedQuantity) * Number(l.unitPrice),
       0
     )
@@ -327,7 +360,8 @@ export default function ReceiptsPanel({ canDelete = true, canEdit = false, initi
                   <th className="px-3 py-2">Tipo</th>
                   <th className="px-3 py-2 text-right">Cantidad</th>
                   <th className="px-3 py-2">UoM</th>
-                  <th className="px-3 py-2 text-right" title="IVA incluido según producto">Coste Unit.</th>
+                  <th className="px-3 py-2 text-center">IVA</th>
+                  <th className="px-3 py-2 text-right" title="IVA incluido según producto">Coste Unit. con IVA</th>
                   <th className="px-3 py-2 text-right">Subtotal con IVA</th>
                   <th className="px-3 py-2 text-right">Subtotal sin IVA</th>
                   <th className="px-3 py-2">Lote</th>
@@ -335,13 +369,18 @@ export default function ReceiptsPanel({ canDelete = true, canEdit = false, initi
                 </tr>
               </thead>
               <tbody className="divide-y">
-                {(selectedReceipt.lines || []).map((l) => (
+                {lines.map((l) => (
                   <tr key={l.id} className="hover:bg-gray-50">
                     <td className="px-3 py-2 font-mono text-xs text-gray-900">{l.product.code}</td>
                     <td className="px-3 py-2 text-gray-900">{l.product.posDescription}</td>
                     <td className="px-3 py-2 text-xs text-gray-600">{l.product.itemType}</td>
                     <td className="px-3 py-2 text-right text-gray-900">{Number(l.receivedQuantity)}</td>
                     <td className="px-3 py-2 text-xs text-gray-600">{l.product.purchaseUnit}</td>
+                    <td className="px-3 py-2 text-center">
+                      <span className={`inline-flex whitespace-nowrap rounded-full px-2 py-0.5 text-xs font-medium ${lineVatPercentage(l) === 0 ? "bg-gray-100 text-gray-600" : "bg-blue-50 text-blue-700"}`}>
+                        {vatLabel(lineVatPercentage(l))}
+                      </span>
+                    </td>
                     <td className="px-3 py-2 text-right text-gray-900">
                       {unitPriceIncludingVat(l).toFixed(4)}
                     </td>
@@ -362,7 +401,7 @@ export default function ReceiptsPanel({ canDelete = true, canEdit = false, initi
               </tbody>
               <tfoot>
                 <tr className="border-t bg-gray-50">
-                  <td colSpan={6} className="px-3 py-2 text-right text-sm font-semibold text-gray-900">
+                  <td colSpan={7} className="px-3 py-2 text-right text-sm font-semibold text-gray-900">
                     Productos con IVA:
                   </td>
                   <td className="px-3 py-2 text-right text-sm font-bold text-gray-900">
@@ -372,7 +411,7 @@ export default function ReceiptsPanel({ canDelete = true, canEdit = false, initi
                   <td colSpan={2}></td>
                 </tr>
                 <tr>
-                  <td colSpan={6} className="px-3 py-2 text-right text-sm font-semibold text-gray-900">
+                  <td colSpan={7} className="px-3 py-2 text-right text-sm font-semibold text-gray-900">
                     Productos sin IVA:
                   </td>
                   <td></td>
@@ -381,8 +420,27 @@ export default function ReceiptsPanel({ canDelete = true, canEdit = false, initi
                   </td>
                   <td colSpan={2}></td>
                 </tr>
+                <tr className="border-t bg-white">
+                  <td colSpan={11} className="px-3 py-3">
+                    <div className="space-y-2">
+                      <p className="text-right text-sm font-semibold text-gray-900">Desglose por IVA</p>
+                      <div className="grid grid-cols-1 gap-2 text-left min-[640px]:grid-cols-2 min-[1024px]:grid-cols-3">
+                        {breakdown.map((item) => (
+                          <div key={item.percentage} className="rounded-md border border-gray-200 bg-gray-50 p-2 text-xs text-gray-700">
+                            <p className="font-semibold text-gray-900">{vatLabel(item.percentage)}</p>
+                            <div className="mt-1 grid grid-cols-3 gap-2">
+                              <div><span className="block text-gray-500">Base</span><span className="font-medium">{item.base.toFixed(2)} €</span></div>
+                              <div><span className="block text-gray-500">Cuota</span><span className="font-medium">{item.vat.toFixed(2)} €</span></div>
+                              <div><span className="block text-gray-500">Total</span><span className="font-medium">{item.total.toFixed(2)} €</span></div>
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  </td>
+                </tr>
                 <tr>
-                  <td colSpan={6} className="px-3 py-2 text-right text-sm font-semibold text-gray-900">
+                  <td colSpan={7} className="px-3 py-2 text-right text-sm font-semibold text-gray-900">
                     Transporte:
                   </td>
                   <td className="px-3 py-2 text-right text-sm font-bold text-gray-900">
@@ -392,7 +450,7 @@ export default function ReceiptsPanel({ canDelete = true, canEdit = false, initi
                   <td colSpan={2}></td>
                 </tr>
                 <tr className="border-t bg-gray-50">
-                  <td colSpan={6} className="px-3 py-2 text-right text-sm font-semibold text-gray-900">
+                  <td colSpan={7} className="px-3 py-2 text-right text-sm font-semibold text-gray-900">
                     Total albarán:
                   </td>
                   <td className="px-3 py-2 text-right text-sm font-bold text-gray-900">
