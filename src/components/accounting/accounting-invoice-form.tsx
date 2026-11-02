@@ -5,8 +5,10 @@ import { extractDocument } from "@/lib/document-ocr"
 import { parseInvoiceText } from "@/lib/invoice-ocr"
 import {
   buildAccountingAmountWarnings,
+  calculateVat,
   emptyAccountingInvoice,
   invoiceDraftToAccounting,
+  withCalculatedAccountingTotals,
   type AccountingInvoiceFormData,
 } from "@/lib/accounting-invoices"
 
@@ -33,7 +35,7 @@ const TAX_FIELDS = [
 ] as const
 
 export default function AccountingInvoiceForm({ initialValues, onCancel, onSubmit, saving }: { initialValues?: AccountingInvoiceFormData; onCancel: () => void; onSubmit: (data: AccountingInvoiceFormData) => Promise<boolean>; saving: boolean }) {
-  const [data, setData] = useState<AccountingInvoiceFormData>(initialValues || emptyAccountingInvoice())
+  const [data, setData] = useState<AccountingInvoiceFormData>(() => withCalculatedAccountingTotals(initialValues || emptyAccountingInvoice()))
   const [ocrStatus, setOcrStatus] = useState("")
   const [ocrError, setOcrError] = useState("")
   const [documentRead, setDocumentRead] = useState(initialValues?.source === "OCR")
@@ -46,16 +48,25 @@ export default function AccountingInvoiceForm({ initialValues, onCancel, onSubmi
   const fileInputRef = useRef<HTMLInputElement>(null)
 
   function update<K extends keyof AccountingInvoiceFormData>(field: K, value: AccountingInvoiceFormData[K]) {
-    setData((current) => ({ ...current, [field]: value }))
+    setData((current) => withCalculatedAccountingTotals({ ...current, [field]: value }))
   }
 
   function updateTaxBase(tax: (typeof TAX_FIELDS)[number], value: string) {
-    setData((current) => ({
-      ...current,
-      [tax.base]: value,
-      [tax.vat]: current.source === "MANUAL" ? (numberValue(value) * Number(tax.rate) / 100).toFixed(2) : current[tax.vat],
-    }))
+    setData((current) => {
+      const next = { ...current, [tax.base]: value }
+      if (current.source === "MANUAL") next[tax.vat] = calculateVat(value, Number(tax.rate)).toFixed(2)
+      return withCalculatedAccountingTotals(next)
+    })
   }
+
+  /* eslint-disable react-hooks/set-state-in-effect */
+  useEffect(() => {
+    const next = initialValues || emptyAccountingInvoice()
+    setData(withCalculatedAccountingTotals(next))
+    setDocumentRead(next.source === "OCR")
+    setSubmitted(false)
+  }, [initialValues])
+  /* eslint-enable react-hooks/set-state-in-effect */
 
   /* eslint-disable react-hooks/set-state-in-effect */
   useEffect(() => {
@@ -105,7 +116,7 @@ export default function AccountingInvoiceForm({ initialValues, onCancel, onSubmi
     try {
       const text = await extractDocument(file, setOcrStatus, "spa+eng")
       if (!text.trim()) throw new Error("El documento no contiene texto legible")
-      setData(invoiceDraftToAccounting(parseInvoiceText(text), text))
+      setData(withCalculatedAccountingTotals(invoiceDraftToAccounting(parseInvoiceText(text), text)))
       setDocumentRead(true)
       setOcrStatus("Documento leído. Revisa los datos antes de guardar.")
     } catch {
@@ -210,10 +221,10 @@ export default function AccountingInvoiceForm({ initialValues, onCancel, onSubmi
     <section>
       <h3 className="mb-2 text-sm font-semibold text-gray-900">Totales</h3>
       <div className="grid grid-cols-1 gap-3 sm:grid-cols-4">
-        <Input label="Total base imponible" type="number" value={data.totalBase} onChange={(value) => update("totalBase", value)} />
-        <Input label="Total cuota IVA" type="number" value={data.totalVat} onChange={(value) => update("totalVat", value)} />
+        <Input label="Total base imponible" type="number" value={data.totalBase} onChange={(value) => update("totalBase", value)} readOnly />
+        <Input label="Total cuota IVA" type="number" value={data.totalVat} onChange={(value) => update("totalVat", value)} readOnly />
         <Input label="IRPF" type="number" value={data.withholdingTax} onChange={(value) => update("withholdingTax", value)} />
-        <Input id="gestoria-total" label="Total factura" type="number" value={data.invoiceTotal} onChange={(value) => update("invoiceTotal", value)} required error={submitted && missingTotal} />
+        <Input id="gestoria-total" label="Total factura" type="number" value={data.invoiceTotal} onChange={(value) => update("invoiceTotal", value)} required error={submitted && missingTotal} readOnly />
       </div>
     </section>
 
