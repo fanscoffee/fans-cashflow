@@ -7,6 +7,7 @@ import {
   canAccessAccounting,
   accountingInvoiceSchema,
   accountingDbData,
+  calculateAccountingTotals,
   normalizeAccountingInvoiceNumber,
   normalizeAccountingTaxId,
 } from "@/lib/accounting-invoices"
@@ -21,11 +22,15 @@ function serializeInvoice(invoice: Record<string, unknown>) {
   const result: Record<string, unknown> = { ...invoice }
   if (invoice.date instanceof Date) result.date = invoice.date.toISOString()
   for (const field of decimalFields) result[field] = toN(invoice[field])
+  const totals = calculateAccountingTotals(result)
+  result.totalBase = totals.totalBase
+  result.totalVat = totals.totalVat
+  result.invoiceTotal = totals.invoiceTotal
   return result
 }
 
 async function alertsFor(input: ReturnType<typeof accountingInvoiceSchema.parse>, excludeId?: string) {
-  const alerts = [...buildAccountingAmountWarnings(input)]
+  const alerts = [...buildAccountingAmountWarnings({ ...input, ...calculateAccountingTotals(input) })]
   const taxId = normalizeAccountingTaxId(input.taxId)
   const invoiceNumber = normalizeAccountingInvoiceNumber(input.invoiceNumber)
   if (taxId && invoiceNumber) {
