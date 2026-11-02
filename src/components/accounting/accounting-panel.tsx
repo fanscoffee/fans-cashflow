@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useState } from "react"
 import AccountingInvoiceForm from "./accounting-invoice-form"
-import type { AccountingInvoiceFormData } from "@/lib/accounting-invoices"
+import { withCalculatedAccountingTotals, type AccountingInvoiceFormData } from "@/lib/accounting-invoices"
 
 interface AccountingInvoice {
   id: string
@@ -46,7 +46,7 @@ function dateValue(value: Date) {
 function alerts(value: unknown) { return Array.isArray(value) ? value.map(String) : [] }
 
 function toFormValues(invoice: AccountingInvoice): AccountingInvoiceFormData {
-  return {
+  return withCalculatedAccountingTotals({
     date: dateInput(invoice.date),
     invoiceNumber: invoice.invoiceNumber,
     supplierOrCreditor: invoice.supplierOrCreditor,
@@ -68,7 +68,7 @@ function toFormValues(invoice: AccountingInvoice): AccountingInvoiceFormData {
     paymentMethod: invoice.paymentMethod,
     ocrText: invoice.ocrText || "",
     source: invoice.source,
-  }
+  })
 }
 
 const currentDate = new Date()

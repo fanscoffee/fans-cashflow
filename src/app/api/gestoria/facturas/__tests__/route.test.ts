@@ -113,6 +113,12 @@ describe("GET/POST /api/gestoria/facturas", () => {
     expect(prisma.accountingInvoice.create).toHaveBeenCalledWith(expect.objectContaining({ data: expect.objectContaining({ supplierOrCreditor: "Proveedor independiente", taxId: "B12345678", invoiceTotal: 121, createdById: "admin-1" }) }))
   })
 
+  it("calculates totals before saving a capture", async () => {
+    const response = await POST(request("http://localhost/api/gestoria/facturas", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify(validBody({ totalBase: 999, totalVat: 999, invoiceTotal: 999 })) }))
+    expect(response.status).toBe(201)
+    expect(prisma.accountingInvoice.create).toHaveBeenCalledWith(expect.objectContaining({ data: expect.objectContaining({ totalBase: 100, totalVat: 21, invoiceTotal: 121 }) }))
+  })
+
   it("rejects captures missing required fields", async () => {
     const response = await POST(request("http://localhost/api/gestoria/facturas", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify(validBody({ date: "", supplierOrCreditor: "", invoiceTotal: "" })) }))
     expect(response.status).toBe(400)

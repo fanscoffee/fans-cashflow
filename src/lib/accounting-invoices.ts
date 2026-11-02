@@ -76,6 +76,60 @@ export interface AccountingInvoiceFormData {
   source: "OCR" | "MANUAL"
 }
 
+export type AccountingAmountInput = {
+  exemptBase?: unknown
+  base21?: unknown
+  vat21?: unknown
+  base10?: unknown
+  vat10?: unknown
+  base4?: unknown
+  vat4?: unknown
+  base2?: unknown
+  vat2?: unknown
+  withholdingTax?: unknown
+}
+
+function amountValue(value: unknown) {
+  const parsed = typeof value === "string" ? Number(value.replace(",", ".")) : toN(value)
+  return Number.isFinite(parsed) ? parsed : 0
+}
+
+function roundMoney(value: number) {
+  return Math.round((value + Number.EPSILON) * 100) / 100
+}
+
+export function calculateVat(base: unknown, rate: number) {
+  return roundMoney(amountValue(base) * rate / 100)
+}
+
+export function calculateAccountingTotals(input: AccountingAmountInput) {
+  const totalBase = roundMoney(
+    amountValue(input.exemptBase) +
+    amountValue(input.base21) +
+    amountValue(input.base10) +
+    amountValue(input.base4) +
+    amountValue(input.base2)
+  )
+  const totalVat = roundMoney(
+    amountValue(input.vat21) +
+    amountValue(input.vat10) +
+    amountValue(input.vat4) +
+    amountValue(input.vat2)
+  )
+  const invoiceTotal = roundMoney(totalBase + totalVat - amountValue(input.withholdingTax))
+  return { totalBase, totalVat, invoiceTotal }
+}
+
+export function withCalculatedAccountingTotals(data: AccountingInvoiceFormData): AccountingInvoiceFormData {
+  const totals = calculateAccountingTotals(data)
+  return {
+    ...data,
+    totalBase: textMoney(totals.totalBase),
+    totalVat: textMoney(totals.totalVat),
+    invoiceTotal: textMoney(totals.invoiceTotal),
+  }
+}
+
 function textMoney(value: unknown) {
   return toN(value).toFixed(2)
 }
@@ -99,7 +153,7 @@ export function emptyAccountingInvoice(): AccountingInvoiceFormData {
     totalBase: "0.00",
     totalVat: "0.00",
     withholdingTax: "0.00",
-    invoiceTotal: "",
+    invoiceTotal: "0.00",
     paymentMethod: "",
     ocrText: "",
     source: "MANUAL",
@@ -177,6 +231,7 @@ export function normalizeAccountingInvoiceNumber(value: string) {
 }
 
 export function accountingDbData(input: AccountingInvoiceInput, createdById: string, alerts: string[]) {
+  const totals = calculateAccountingTotals(input)
   return {
     date: new Date(`${input.date}T00:00:00.000Z`),
     invoiceNumber: normalizeAccountingInvoiceNumber(input.invoiceNumber),
@@ -192,10 +247,10 @@ export function accountingDbData(input: AccountingInvoiceInput, createdById: str
     vat4: input.vat4,
     base2: input.base2,
     vat2: input.vat2,
-    totalBase: input.totalBase,
-    totalVat: input.totalVat,
+    totalBase: totals.totalBase,
+    totalVat: totals.totalVat,
     withholdingTax: input.withholdingTax,
-    invoiceTotal: input.invoiceTotal,
+    invoiceTotal: totals.invoiceTotal,
     paymentMethod: input.paymentMethod,
     ocrText: input.ocrText || null,
     source: input.source,
