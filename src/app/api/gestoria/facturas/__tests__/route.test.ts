@@ -9,6 +9,7 @@ vi.mock("@/lib/prisma", () => ({
       count: vi.fn(),
       create: vi.fn(),
     },
+    $queryRaw: vi.fn(),
     invoice: { findMany: vi.fn() },
   },
 }))
@@ -89,6 +90,7 @@ describe("GET/POST /api/gestoria/facturas", () => {
     vi.mocked(prisma.invoice.findMany).mockResolvedValue([] as any)
     vi.mocked(prisma.accountingInvoice.count).mockResolvedValue(0)
     vi.mocked(prisma.accountingInvoice.create).mockResolvedValue(storedInvoice as any)
+    vi.mocked(prisma.$queryRaw).mockResolvedValue([] as any)
   })
 
   it("requires authentication and accounting access", async () => {
@@ -105,6 +107,17 @@ describe("GET/POST /api/gestoria/facturas", () => {
     const response = await GET(request("http://localhost/api/gestoria/facturas?search=CAP-1"))
     expect(response.status).toBe(200)
     await expect(response.json()).resolves.toMatchObject({ total: 1, invoices: [{ id: "gestoria-1", invoiceTotal: 121, date: "2026-07-15T00:00:00.000Z", createdAt: "2026-07-15T00:00:00.000Z" }] })
+  })
+
+  it("filters captures by month across all years when no year is provided", async () => {
+    vi.mocked(prisma.$queryRaw).mockResolvedValue([{ id: "november-invoice" }] as any)
+
+    const response = await GET(request("http://localhost/api/gestoria/facturas?month=11"))
+
+    expect(response.status).toBe(200)
+    expect(prisma.$queryRaw).toHaveBeenCalled()
+    expect(prisma.accountingInvoice.findMany).toHaveBeenCalledWith(expect.objectContaining({ where: expect.objectContaining({ id: { in: ["november-invoice"] } }) }))
+    expect(prisma.accountingInvoice.count).toHaveBeenCalledWith(expect.objectContaining({ where: expect.objectContaining({ id: { in: ["november-invoice"] } }) }))
   })
 
   it("creates a standalone capture and returns duplicate warnings without blocking", async () => {

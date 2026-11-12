@@ -72,14 +72,36 @@ export const GET = withAuth(async (request, session) => {
   const search = searchParams.get("search")?.trim() || ""
   const page = Math.max(1, Number(searchParams.get("page") || 1) || 1)
   const pageSize = Math.min(100, Math.max(1, Number(searchParams.get("pageSize") || 20) || 20))
-  const where = search ? {
-    OR: [
-      { invoiceNumber: { contains: search, mode: "insensitive" as const } },
-      { supplierOrCreditor: { contains: search, mode: "insensitive" as const } },
-      { taxId: { contains: search, mode: "insensitive" as const } },
-      { concept: { contains: search, mode: "insensitive" as const } },
-    ],
-  } : {}
+  const requestedMonth = Number(searchParams.get("month") || "")
+  const requestedYear = Number(searchParams.get("year") || "")
+  const month = Number.isInteger(requestedMonth) && requestedMonth >= 1 && requestedMonth <= 12 ? requestedMonth : null
+  const year = Number.isInteger(requestedYear) && requestedYear >= 1900 && requestedYear <= 2200 ? requestedYear : null
+  let monthInvoiceIds: string[] | undefined
+
+  if (month && !year) {
+    const matchingInvoices = await prisma.$queryRaw<Array<{ id: string }>>(Prisma.sql`
+      SELECT "id"
+      FROM "AccountingInvoice"
+      WHERE EXTRACT(MONTH FROM "date") = ${month}
+    `)
+    monthInvoiceIds = matchingInvoices.map((invoice) => invoice.id)
+  }
+
+  const dateFilter = year
+    ? { gte: new Date(Date.UTC(year, month ? month - 1 : 0, 1)), lt: new Date(Date.UTC(year, month || 12, 1)) }
+    : undefined
+  const where: Prisma.AccountingInvoiceWhereInput = {
+    ...(search ? {
+      OR: [
+        { invoiceNumber: { contains: search, mode: "insensitive" as const } },
+        { supplierOrCreditor: { contains: search, mode: "insensitive" as const } },
+        { taxId: { contains: search, mode: "insensitive" as const } },
+        { concept: { contains: search, mode: "insensitive" as const } },
+      ],
+    } : {}),
+    ...(dateFilter ? { date: dateFilter } : {}),
+    ...(monthInvoiceIds ? { id: { in: monthInvoiceIds } } : {}),
+  }
 
   const [invoices, total] = await Promise.all([
     prisma.accountingInvoice.findMany({

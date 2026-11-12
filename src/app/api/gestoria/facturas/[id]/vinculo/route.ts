@@ -14,7 +14,7 @@ import {
 } from "@/lib/accounting-reconciliation"
 
 export const DELETE = withAuth(async (request, session, context) => {
-  if (!isRole(session.user.role, UserRole.ADMIN)) return NextResponse.json({ error: "Solo ADMIN puede desvincular capturas" }, { status: 403 })
+  if (!isRole(session.user.role, UserRole.ADMIN) && !isRole(session.user.role, UserRole.PARTNER)) return NextResponse.json({ error: "Solo ADMIN y SOCIO pueden desvincular capturas" }, { status: 403 })
   const { id } = await context.params
 
   try {
