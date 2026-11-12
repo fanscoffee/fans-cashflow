@@ -631,7 +631,7 @@ export async function deleteCurrentExpense(user: { id: string; role: string }, e
       applications: { select: { id: true } },
     },
   })
-  if (!expense || !expense.shiftId || expense.status === CurrentExpenseStatus.VOID) {
+  if (!expense || expense.status === CurrentExpenseStatus.VOID) {
     throw new PaymentDomainError("Gasto corriente no encontrado", 404, "DOCUMENT_NOT_FOUND")
   }
   await requireOpenAccountingPeriod(prisma, expense.entity, expense.accrualDate)
@@ -653,7 +653,7 @@ export async function deleteCurrentExpense(user: { id: string; role: string }, e
     before: { status: expense.status, amount: expense.amount.toString(), shiftId: expense.shiftId },
     after: { status: "ANULADO", amount: expense.amount.toString(), shiftId: expense.shiftId },
   })
-  await recalculateShiftFundFinal(expense.shiftId)
+  if (expense.shiftId) await recalculateShiftFundFinal(expense.shiftId)
   return updated
 }
 

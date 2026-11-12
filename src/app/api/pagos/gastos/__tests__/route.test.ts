@@ -12,21 +12,22 @@ vi.mock("@/lib/auth", () => ({
   auth: vi.fn(),
 }))
 
+vi.mock("@/lib/payments", async () => {
+  const actual = await vi.importActual<typeof import("@/lib/payments")>("@/lib/payments")
+  return { ...actual, createExpense: vi.fn(), requirePaymentFunction: vi.fn() }
+})
+
 import { GET, POST } from "../route"
 import { prisma } from "@/lib/prisma"
 import { auth } from "@/lib/auth"
+import { createExpense, requirePaymentFunction } from "@/lib/payments"
 
 const request = new Request("http://localhost/api/pagos/gastos") as unknown as NextRequest
-
-const postRequest = new Request("http://localhost/api/pagos/gastos", {
-  method: "POST",
-  headers: { "Content-Type": "application/json" },
-  body: JSON.stringify({}),
-}) as unknown as NextRequest
 
 describe("GET /api/pagos/gastos", () => {
   beforeEach(() => {
     vi.clearAllMocks()
+    vi.mocked(requirePaymentFunction).mockResolvedValue(undefined)
   })
 
   it("is restricted to ADMIN and PARTNER", async () => {
@@ -49,7 +50,7 @@ describe("GET /api/pagos/gastos", () => {
 
     expect(response.status).toBe(200)
     expect(prisma.currentExpense.findMany).toHaveBeenCalledWith(expect.objectContaining({
-      where: { shiftId: { not: null }, status: { not: "VOID" } },
+      where: { status: { not: "VOID" } },
       include: expect.objectContaining({
         shift: { select: { id: true, date: true, shift: true } },
       }),
@@ -58,12 +59,26 @@ describe("GET /api/pagos/gastos", () => {
     await expect(response.json()).resolves.toMatchObject([{ id: "expense-1", shift: { id: "shift-1" } }])
   })
 
-  it("rejects direct expense creation outside an open shift", async () => {
+  it("creates an extra expense without a shift or invoice", async () => {
     vi.mocked(auth).mockResolvedValue({ user: { id: "partner-1", role: "SOCIO" } } as any)
+    vi.mocked(createExpense).mockResolvedValue({ id: "expense-extra-1", shiftId: null, status: "PENDING_AUTHORIZATION" } as any)
 
-    const response = await POST(postRequest)
+    const response = await POST(new Request("http://localhost/api/pagos/gastos", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        entity: "BAKERY",
+        categoryId: "category-1",
+        concept: "Compra urgente de material",
+        accrualDate: "2026-11-12",
+        amount: 24.5,
+        receipt: "NO_RECEIPT",
+      }),
+    }) as unknown as NextRequest)
 
-    expect(response.status).toBe(410)
-    await expect(response.json()).resolves.toMatchObject({ error: "Los gastos corrientes deben registrarse desde un turno abierto" })
+    expect(response.status).toBe(201)
+    expect(requirePaymentFunction).toHaveBeenCalledWith("partner-1", "REQUEST", "BAKERY", "SOCIO")
+    expect(createExpense).toHaveBeenCalledWith({ id: "partner-1", role: "SOCIO" }, expect.objectContaining({ entity: "BAKERY", receipt: "NO_RECEIPT", concept: "Compra urgente de material" }))
+    await expect(response.json()).resolves.toMatchObject({ id: "expense-extra-1", shiftId: null })
   })
 })

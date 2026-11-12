@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server"
 import { withAuth } from "@/lib/with-auth"
-import { requirePaymentFunction } from "@/lib/payments"
+import { createExpense, createExpenseSchema, requirePaymentFunction } from "@/lib/payments"
 import { paymentErrorResponse } from "@/lib/payments-http"
 import { prisma } from "@/lib/prisma"
 import { CurrentExpenseStatus, PaymentFunction, UserRole } from "@/lib/database-enums"
@@ -14,7 +14,7 @@ export const GET = withAuth(async (_req, session) => {
   try {
     await requirePaymentFunction(session.user.id, PaymentFunction.REQUEST, undefined, session.user.role)
     const expenses = await prisma.currentExpense.findMany({
-      where: { shiftId: { not: null }, status: { not: CurrentExpenseStatus.VOID } },
+      where: { status: { not: CurrentExpenseStatus.VOID } },
       include: { category: true, creditor: { select: { id: true, code: true, name: true } }, requester: { select: { id: true, name: true, email: true } }, authorizer: { select: { id: true, name: true, email: true } }, shift: { select: { id: true, date: true, shift: true } }, applications: true },
       orderBy: { createdAt: "desc" },
       take: 500,
@@ -25,6 +25,13 @@ export const GET = withAuth(async (_req, session) => {
   }
 })
 
-export const POST = withAuth(async () => {
-  return NextResponse.json({ error: "Los gastos corrientes deben registrarse desde un turno abierto" }, { status: 410 })
+export const POST = withAuth(async (req, session) => {
+  try {
+    const input = createExpenseSchema.parse(await req.json())
+    await requirePaymentFunction(session.user.id, PaymentFunction.REQUEST, input.entity, session.user.role)
+    const expense = await createExpense({ id: session.user.id, role: session.user.role }, input)
+    return NextResponse.json(expense, { status: 201 })
+  } catch (error) {
+    return paymentErrorResponse(error)
+  }
 })
