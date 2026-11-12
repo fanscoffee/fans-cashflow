@@ -66,10 +66,20 @@ describe("AccountingPanel reconciliation navigation", () => {
     expect(screen.getByText("Compra de mercancía")).toBeInTheDocument()
     expect(screen.getByText("Sugerida")).toBeInTheDocument()
 
-    fireEvent.click(screen.getByRole("button", { name: "Vincular albaranes" }))
+    fireEvent.click(screen.getByRole("button", { name: "Acciones" }))
+    fireEvent.click(screen.getByRole("menuitem", { name: "Vincular albaranes" }))
 
     await waitFor(() => expect(screen.getByText("Conciliación de gestoría")).toBeInTheDocument())
     expect(screen.getByText("Selecciona y confirma manualmente")).toBeInTheDocument()
     expect(screen.getByText("ALB-1")).toBeInTheDocument()
+  })
+
+  it("filters the list by month without requiring a year", async () => {
+    render(<AccountingPanel />)
+
+    await screen.findByText("A/42")
+    fireEvent.change(screen.getByLabelText("Filtrar por mes"), { target: { value: "11" } })
+
+    await waitFor(() => expect(vi.mocked(fetch)).toHaveBeenLastCalledWith("/api/gestoria/facturas?page=1&pageSize=20&month=11"))
   })
 })

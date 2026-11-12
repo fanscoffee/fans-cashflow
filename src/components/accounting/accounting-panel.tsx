@@ -5,9 +5,11 @@ import { useSession } from "next-auth/react"
 import AccountingInvoiceForm from "./accounting-invoice-form"
 import AccountingCaptureLinkPanel from "./accounting-capture-link-panel"
 import AccountingReconciliationPanel from "./accounting-reconciliation-panel"
+import AccountingInvoiceActions from "./accounting-invoice-actions"
 import { withCalculatedAccountingTotals, type AccountingInvoiceFormData } from "@/lib/accounting-invoices"
 import { AccountingReconciliationStatus, PaymentDocumentType, UserRole, type DatabaseAccountingReconciliationStatus, type DatabasePaymentDocumentType } from "@/lib/database-enums"
-import { isRole } from "@/lib/roles"
+import { MONTH_NAMES } from "@/lib/constants"
+import { hasAnyRole } from "@/lib/roles"
 
 interface AccountingInvoice {
   id: string
@@ -51,8 +53,6 @@ function dateValue(value: Date) {
   const day = String(value.getDate()).padStart(2, "0")
   return `${year}-${month}-${day}`
 }
-function alerts(value: unknown) { return Array.isArray(value) ? value.map(String) : [] }
-
 function toFormValues(invoice: AccountingInvoice): AccountingInvoiceFormData {
   return withCalculatedAccountingTotals({
     date: dateInput(invoice.date),
@@ -107,6 +107,7 @@ const currentDate = new Date()
 const currentMonthStart = new Date(currentDate.getFullYear(), currentDate.getMonth(), 1)
 const currentMonthStartValue = dateValue(currentMonthStart)
 const currentDateValue = dateValue(currentDate)
+const currentYearValue = String(currentDate.getFullYear())
 
 export default function AccountingPanel() {
   const { data: session } = useSession()
@@ -117,6 +118,9 @@ export default function AccountingPanel() {
   const [captureLinkInvoiceId, setCaptureLinkInvoiceId] = useState<string | undefined>()
   const [invoices, setInvoices] = useState<AccountingInvoice[]>([])
   const [search, setSearch] = useState("")
+  const [filterMonth, setFilterMonth] = useState("")
+  const [filterYearEnabled, setFilterYearEnabled] = useState(false)
+  const [filterYear, setFilterYear] = useState(currentYearValue)
   const [page, setPage] = useState(1)
   const [total, setTotal] = useState(0)
   const [loading, setLoading] = useState(true)
@@ -149,6 +153,8 @@ export default function AccountingPanel() {
     try {
       const params = new URLSearchParams({ page: String(page), pageSize: String(pageSize) })
       if (search.trim()) params.set("search", search.trim())
+      if (filterMonth) params.set("month", filterMonth)
+      if (filterYearEnabled && filterYear) params.set("year", filterYear)
       const response = await fetch(`/api/gestoria/facturas?${params}`)
       const result = await response.json()
       if (!response.ok) throw new Error(result.error || "No se pudieron cargar las facturas")
@@ -159,7 +165,7 @@ export default function AccountingPanel() {
     } finally {
       setLoading(false)
     }
-  }, [page, search])
+  }, [filterMonth, filterYear, filterYearEnabled, page, search])
 
   /* eslint-disable react-hooks/set-state-in-effect */
   useEffect(() => { void loadInvoices() }, [loadInvoices])
@@ -178,6 +184,13 @@ export default function AccountingPanel() {
     setSuccess("")
     setReconciliationId(id)
     setView("reconciliation")
+  }
+
+  function clearDateFilters() {
+    setFilterMonth("")
+    setFilterYearEnabled(false)
+    setFilterYear(currentYearValue)
+    setPage(1)
   }
 
   function startEdit(invoice: AccountingInvoice) {
@@ -258,7 +271,7 @@ export default function AccountingPanel() {
   if (view === "reconciliation" && reconciliationId) {
     return <AccountingReconciliationPanel
       captureId={reconciliationId}
-      canUnlink={isRole(session?.user?.role, UserRole.ADMIN)}
+       canUnlink={hasAnyRole(session?.user?.role, [UserRole.ADMIN, UserRole.PARTNER])}
       onBack={() => { setView("list"); setReconciliationId(undefined) }}
       onComplete={(message) => { setSuccess(message); setView("list"); setReconciliationId(undefined); void loadInvoices() }}
     />
@@ -289,9 +302,58 @@ export default function AccountingPanel() {
           <button type="button" onClick={() => void exportInvoices()} disabled={exporting || !exportFrom || !exportTo || exportFrom > exportTo} className="rounded-md border border-gray-300 px-3 py-2 text-sm font-medium text-gray-700 disabled:opacity-60">{exporting ? "Generando..." : "Exportar Excel"}</button>
         </div>
         <p className="mt-2 text-xs text-gray-500">La exportación de gestoría incluye capturas sin vínculo; las vinculadas aparecen una sola vez en la exportación operativa.</p>
-      </div>
-    <div className="flex flex-col gap-2 sm:flex-row sm:items-center"><input value={search} onChange={(event) => { setSearch(event.target.value); setPage(1) }} placeholder="Buscar factura, proveedor, NIF..." className="min-w-0 flex-1 rounded-md border px-3 py-2 text-sm text-gray-900" /><span className="text-sm text-gray-500">{total} registro(s)</span></div>
-     {loading ? <p className="text-sm text-gray-500">Cargando...</p> : invoices.length === 0 ? <div className="rounded-lg border bg-white p-8 text-center text-sm text-gray-500">No hay facturas capturadas.</div> : <div className="overflow-x-auto rounded-lg border bg-white shadow-sm"><table className="w-full min-w-[1100px] text-left text-sm text-black"><thead className="bg-gray-50 text-xs text-black"><tr><th className="px-3 py-2">Fecha</th><th className="px-3 py-2">Subida</th><th className="px-3 py-2">Factura Nº</th><th className="px-3 py-2">Proveedor / acreedor</th><th className="px-3 py-2">NIF</th><th className="px-3 py-2">Tipo</th><th className="px-3 py-2">Vinculación</th><th className="px-3 py-2">Origen</th><th className="px-3 py-2 text-right">Total</th><th className="px-3 py-2 text-right">Acciones</th></tr></thead><tbody className="divide-y">{invoices.map((invoice) => { const invoiceAlerts = alerts(invoice.alerts); const linked = Boolean(invoice.inventoryInvoice); return <tr key={invoice.id}><td className="whitespace-nowrap px-3 py-3">{new Date(invoice.date).toLocaleDateString("es-ES")}</td><td className="whitespace-nowrap px-3 py-3 text-xs text-gray-600">{timestamp(invoice.createdAt)}</td><td className="px-3 py-3 font-medium">{invoice.invoiceNumber || "Sin número"}</td><td className="px-3 py-3">{invoice.supplierOrCreditor}</td><td className="px-3 py-3">{invoice.taxId || "-"}</td><td className="px-3 py-3 text-xs">{documentTypeLabel(invoice.documentType)}</td><td className="px-3 py-3 text-xs"><span className={`rounded-full px-2 py-1 font-medium ${reconciliationStatusClass(invoice.reconciliationStatus)}`}>{reconciliationStatusLabel(invoice.reconciliationStatus)}</span>{linked && <button type="button" onClick={() => openReconciliation(invoice.id)} className="ml-2 text-blue-700 underline">Ver factura operativa</button>}</td><td className="px-3 py-3 text-xs">{invoice.source}{invoiceAlerts.length > 0 && <span className="ml-2 text-amber-700">⚠ {invoiceAlerts.length}</span>}</td><td className="px-3 py-3 text-right font-semibold">{number(invoice.invoiceTotal)} €</td><td className="px-3 py-3 text-right"><div className="flex justify-end gap-2">{!linked && <button type="button" onClick={() => openReconciliation(invoice.id)} className="rounded-md border border-blue-200 px-2 py-1 text-xs text-blue-700">{invoice.documentType === PaymentDocumentType.EXPENSE ? "Revisar" : invoice.documentType === PaymentDocumentType.MERCHANDISE_PURCHASE ? "Vincular albaranes" : "Revisar / vincular"}</button>}{!linked && <button type="button" onClick={() => startEdit(invoice)} className="rounded-md border px-2 py-1 text-xs text-gray-700">Editar</button>}{linked && <button type="button" onClick={() => openReconciliation(invoice.id)} className="rounded-md border px-2 py-1 text-xs text-gray-700">Ver vínculo</button>}{!linked && <button type="button" onClick={() => void deleteInvoice(invoice.id)} className="rounded-md border border-red-200 px-2 py-1 text-xs text-red-700">Eliminar</button>}</div></td></tr> })}</tbody></table></div>}
+     </div>
+     <div className="rounded-xl border border-gray-200 bg-gray-50/60 p-4 shadow-sm">
+       <div className="flex flex-col gap-3 lg:flex-row lg:items-end">
+         <label className="text-xs font-medium text-gray-700"><span className="mb-1 block">Filtrar por mes</span><select value={filterMonth} onChange={(event) => { setFilterMonth(event.target.value); setPage(1) }} className="w-full rounded-md border border-gray-300 bg-white px-3 py-2 text-sm text-gray-900 sm:w-48"><option value="">Todos los meses</option>{MONTH_NAMES.map((monthName, index) => <option key={monthName} value={index + 1}>{monthName}</option>)}</select></label>
+         <label className="flex min-h-10 items-center gap-2 text-sm text-gray-700"><input type="checkbox" checked={filterYearEnabled} onChange={(event) => { setFilterYearEnabled(event.target.checked); setPage(1) }} />Filtrar también por año</label>
+         <label className="text-xs font-medium text-gray-700"><span className="mb-1 block">Año</span><input type="number" min="1900" max="2200" value={filterYear} disabled={!filterYearEnabled} onChange={(event) => { setFilterYear(event.target.value); setPage(1) }} className="w-full rounded-md border border-gray-300 bg-white px-3 py-2 text-sm text-gray-900 disabled:cursor-not-allowed disabled:bg-gray-100 disabled:text-gray-400 sm:w-32" /></label>
+         <button type="button" onClick={clearDateFilters} disabled={!filterMonth && !filterYearEnabled} className="rounded-md border border-gray-300 bg-white px-3 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50 disabled:cursor-not-allowed disabled:opacity-50">Limpiar filtro</button>
+       </div>
+       <p className="mt-2 text-xs text-gray-500">Selecciona solo un mes para ver ese mes en todos los años. Activa el año para limitar la búsqueda a un año concreto.</p>
+     </div>
+     <div className="flex flex-col gap-2 sm:flex-row sm:items-center"><input value={search} onChange={(event) => { setSearch(event.target.value); setPage(1) }} placeholder="Buscar factura, proveedor, NIF..." className="min-w-0 flex-1 rounded-md border px-3 py-2 text-sm text-gray-900" /><span className="text-sm text-gray-500">{total} registro(s)</span></div>
+     {loading ? (
+       <p className="text-sm text-gray-500">Cargando...</p>
+     ) : invoices.length === 0 ? (
+       <div className="rounded-xl border border-gray-200 bg-white p-8 text-center text-sm text-gray-500">No hay facturas capturadas.</div>
+     ) : (
+       <div className="overflow-x-auto rounded-xl border border-gray-200 bg-white shadow-sm">
+         <table className="w-full min-w-[1050px] text-left text-sm text-black">
+           <thead className="border-b border-gray-200 bg-gray-50 text-[11px] font-semibold uppercase tracking-wide text-gray-600">
+             <tr>
+               <th scope="col" className="whitespace-nowrap px-4 py-3">Fecha</th>
+               <th scope="col" className="whitespace-nowrap px-4 py-3">Subida</th>
+               <th scope="col" className="whitespace-nowrap px-4 py-3">Factura Nº</th>
+               <th scope="col" className="px-4 py-3">Proveedor / acreedor</th>
+               <th scope="col" className="whitespace-nowrap px-4 py-3">NIF</th>
+               <th scope="col" className="whitespace-nowrap px-4 py-3">Tipo</th>
+               <th scope="col" className="whitespace-nowrap px-4 py-3">Vinculación</th>
+               <th scope="col" className="whitespace-nowrap px-4 py-3 text-right">Total</th>
+               <th scope="col" className="whitespace-nowrap px-4 py-3 text-right">Acciones</th>
+             </tr>
+           </thead>
+           <tbody className="divide-y divide-gray-200">
+             {invoices.map((invoice) => {
+                const linked = Boolean(invoice.inventoryInvoice)
+               return (
+                 <tr key={invoice.id} className="transition-colors even:bg-gray-50/40 hover:bg-blue-50/40">
+                   <td className="whitespace-nowrap px-4 py-4 align-middle font-medium text-gray-900">{new Date(invoice.date).toLocaleDateString("es-ES")}</td>
+                   <td className="whitespace-nowrap px-4 py-4 align-middle text-xs text-gray-500">{timestamp(invoice.createdAt)}</td>
+                   <td className="whitespace-nowrap px-4 py-4 align-middle font-semibold text-gray-900">{invoice.invoiceNumber || "Sin número"}</td>
+                   <td className="px-4 py-4 align-middle font-medium text-gray-900"><div className="max-w-[230px] break-words">{invoice.supplierOrCreditor || "—"}</div></td>
+                   <td className="whitespace-nowrap px-4 py-4 align-middle font-mono text-xs text-gray-700">{invoice.taxId || "-"}</td>
+                   <td className="px-4 py-4 align-middle text-xs"><span className="inline-flex whitespace-nowrap rounded-full bg-gray-100 px-2.5 py-1 font-medium text-gray-700">{documentTypeLabel(invoice.documentType)}</span></td>
+                   <td className="min-w-[180px] px-4 py-4 align-middle text-xs"><span className={`inline-flex whitespace-nowrap rounded-full px-2.5 py-1 font-medium ${reconciliationStatusClass(invoice.reconciliationStatus)}`}>{reconciliationStatusLabel(invoice.reconciliationStatus)}</span></td>
+                   <td className="whitespace-nowrap px-4 py-4 text-right align-middle text-base font-semibold tabular-nums text-gray-900">{number(invoice.invoiceTotal)} €</td>
+                   <td className="px-4 py-4 text-right align-middle"><AccountingInvoiceActions linked={linked} reviewLabel={invoice.documentType === PaymentDocumentType.EXPENSE ? "Revisar" : invoice.documentType === PaymentDocumentType.MERCHANDISE_PURCHASE ? "Vincular albaranes" : "Revisar / vincular"} onReview={() => openReconciliation(invoice.id)} onEdit={() => startEdit(invoice)} onDelete={() => void deleteInvoice(invoice.id)} /></td>
+                 </tr>
+               )
+             })}
+           </tbody>
+         </table>
+       </div>
+     )}
     {totalPages > 1 && <div className="flex items-center justify-between text-sm text-gray-600"><button type="button" disabled={page <= 1} onClick={() => setPage((value) => value - 1)} className="rounded-md border px-3 py-2 disabled:opacity-40">Anterior</button><span>Página {page} de {totalPages}</span><button type="button" disabled={page >= totalPages} onClick={() => setPage((value) => value + 1)} className="rounded-md border px-3 py-2 disabled:opacity-40">Siguiente</button></div>}
   </section>
 }

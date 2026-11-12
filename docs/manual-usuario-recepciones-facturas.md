@@ -206,7 +206,7 @@ albaranes. No hay que crear una factura de mercancía solo para forzar un víncu
 
 ## 11. Desvincular
 
-Solo ADMIN puede desvincular.
+ADMIN y SOCIO pueden desvincular.
 
 1. Abrir la captura vinculada.
 2. Pulsar **Desvincular conservando factura**.
@@ -215,6 +215,10 @@ Solo ADMIN puede desvincular.
 
 Se liberan los albaranes y se elimina el vínculo con la captura, pero la factura
 operativa se conserva para auditoría.
+
+Si la factura operativa queda en **Incidencia**, un ADMIN o SOCIO puede abrirla y
+pulsar **Resolver incidencia** después de revisar las alertas. Debe indicar el
+motivo; la acción no modifica importes ni pagos y queda registrada en auditoría.
 
 ## 12. Exportaciones y pagos
 
