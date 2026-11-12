@@ -559,7 +559,7 @@ describe("payment module rules", () => {
     expect(prisma.currentExpense.update).not.toHaveBeenCalled()
   })
 
-  it("protects current-expense deletion and reports missing shift expenses", async () => {
+  it("protects current-expense deletion and allows standalone expenses", async () => {
     await expect(deleteCurrentExpense({ id: "employee-1", role: "EMPLEADO" }, "gasto-1")).rejects.toMatchObject({
       code: "PAYMENT_FORBIDDEN",
     })
@@ -571,13 +571,16 @@ describe("payment module rules", () => {
 
     vi.mocked(prisma.currentExpense.findUnique).mockResolvedValue({
       id: "gasto-1",
+      entity: "BAKERY",
       shiftId: null,
+      accrualDate: new Date("2026-08-23"),
       status: "PENDING_AUTHORIZATION",
+      amount: 25,
       applications: [],
     } as any)
-    await expect(deleteCurrentExpense({ id: "partner-1", role: "SOCIO" }, "gasto-1")).rejects.toMatchObject({
-      code: "DOCUMENT_NOT_FOUND",
-    })
+    vi.mocked(prisma.currentExpense.update).mockResolvedValue({ id: "gasto-1", status: "VOID" } as any)
+    await expect(deleteCurrentExpense({ id: "partner-1", role: "SOCIO" }, "gasto-1")).resolves.toMatchObject({ status: "VOID" })
+    expect(prisma.shift.update).not.toHaveBeenCalled()
   })
 
   it("includes the requester name in the payment dashboard", async () => {

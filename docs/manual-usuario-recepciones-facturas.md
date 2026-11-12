@@ -194,6 +194,22 @@ se conforma automáticamente.
 La captura queda en gestoría con estado **No aplica** para conciliación de
 albaranes. No hay que crear una factura de mercancía solo para forzar un vínculo.
 
+### Gastos extra sin turno ni factura
+
+Para registrar un gasto que no pertenece a un turno y no tiene factura:
+
+1. Entrar en **Facturas** (`/socio/facturas` o `/admin/facturas`).
+2. En **Seguimiento de gastos corrientes**, pulsar **+ Gasto extra**.
+3. Seleccionar entidad, fecha, categoría y el justificante **Sin factura /
+   justificante** si no existe ningún documento.
+4. Indicar acreedor cuando la categoría lo requiera, además del concepto y el
+   importe.
+5. Pulsar **Guardar gasto extra**.
+
+El gasto se guarda sin turno (`Sin turno`), no crea ni vincula una factura y
+queda **Pendiente de autorización**. Después de autorizarlo puede pagarse desde
+el circuito de pagos como cualquier otro gasto corriente.
+
 ## 10. Estados de vinculación
 
 | Estado | Significado | Acción |
