@@ -13,7 +13,9 @@
     "postinstall": "prisma generate",
     "db:seed": "npx tsx prisma/seed.ts",
     "db:migrate-payments-legacy": "npx tsx scripts/migrate-payments-legacy.ts",
-    "db:seed-payments-demo": "npx tsx scripts/seed-payments-demo.ts"
+    "db:seed-payments-demo": "npx tsx scripts/seed-payments-demo.ts",
+    "db:report-accounting-history": "npx tsx scripts/report-accounting-history.ts",
+    "db:check-accounting-reconciliation": "npx tsx scripts/check-accounting-reconciliation.ts"
   },
   "pnpm": {
     "onlyBuiltDependencies": [

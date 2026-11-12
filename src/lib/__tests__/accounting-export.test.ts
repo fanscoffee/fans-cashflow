@@ -38,7 +38,7 @@ describe("accounting-export", () => {
     })
 
     expect(rows).toHaveLength(3)
-    expect(rows[0]).toMatchObject({ number: 1, invoiceNumber: "F-100", base21: 100, vat21: 21, invoiceTotal: 121, paymentMethod: "BANCO" })
+    expect(rows[0]).toMatchObject({ number: 1, invoiceNumber: "F-100", base21: 100, vat21: 21, invoiceTotal: 121, paymentMethod: "BANCO", origin: "FACTURA OPERATIVA" })
     expect(rows[1]).toMatchObject({ number: 2, concept: "SUMINISTROS", exemptBase: 50, invoiceTotal: 50 })
     expect(rows[2]).toMatchObject({ number: 3, concept: "GASTO TURNO LEGACY", exemptBase: 12.5, paymentMethod: "EFECTIVO" })
   })
@@ -57,7 +57,7 @@ describe("accounting-export", () => {
       "Nº", "Fecha", "Factura Nº", "Proveedor / Acreedor", "NIF", "Concepto",
       "BASE EXENTA", "Base Imponible 21%", "21% IVA", "Base Imponible 10%", "10% IVA",
       "Base Imponible 4%", "4% IVA", "Base Imponible 2%", "2% IVA", "TOTAL BASE IMPONIBLE",
-      "TOTAL CUOTA IVA", "IRPF", "TOTAL FACTURA", "FORMA PAGO",
+      "TOTAL CUOTA IVA", "IRPF", "TOTAL FACTURA", "FORMA PAGO", "ORIGEN",
     ])
     expect(sheet.getRow(3).getCell(1).value).toBe("TOTAL")
     expect(sheet.getRow(3).getCell(8).value).toBe(100)
@@ -86,6 +86,27 @@ describe("accounting-export", () => {
       invoiceTotal: 121,
       paymentMethod: "BANCO",
     }])
-    expect(rows[0]).toMatchObject({ number: 1, invoiceNumber: "CAP-1", supplier: "Proveedor independiente", base21: 100, vat21: 21, invoiceTotal: 121 })
+    expect(rows[0]).toMatchObject({ number: 1, invoiceNumber: "CAP-1", supplier: "Proveedor independiente", base21: 100, vat21: 21, invoiceTotal: 121, origin: "CAPTURA GESTORÍA SIN VÍNCULO" })
+  })
+
+  it("marks an operational row as combined when it has a Gestoría capture", () => {
+    const rows = buildAccountingRows({
+      invoices: [{ ...invoice, accountingInvoice: { id: "capture-1" } }],
+      expenses: [],
+      expensesLegacy: [],
+    })
+
+    expect(rows).toHaveLength(1)
+    expect(rows[0].origin).toBe("FACTURA OPERATIVA + GESTORÍA")
+  })
+
+  it("keeps voided operational invoices out of accounting totals", () => {
+    const rows = buildAccountingRows({
+      invoices: [{ ...invoice, workflowStatus: "VOID" }],
+      expenses: [],
+      expensesLegacy: [],
+    })
+
+    expect(rows[0]).toMatchObject({ voided: true, concept: "ANULADA" })
   })
 })

@@ -9,6 +9,7 @@ vi.mock("@/lib/prisma", () => ({
       count: vi.fn(),
       create: vi.fn(),
     },
+    invoice: { findMany: vi.fn() },
   },
 }))
 
@@ -85,6 +86,7 @@ describe("GET/POST /api/gestoria/facturas", () => {
     vi.mocked(auth).mockResolvedValue({ user: { id: "admin-1", role: "ADMIN" } } as any)
     vi.mocked(prisma.accountingInvoice.findMany).mockResolvedValue([] as any)
     vi.mocked(prisma.accountingInvoice.findFirst).mockResolvedValue(null)
+    vi.mocked(prisma.invoice.findMany).mockResolvedValue([] as any)
     vi.mocked(prisma.accountingInvoice.count).mockResolvedValue(0)
     vi.mocked(prisma.accountingInvoice.create).mockResolvedValue(storedInvoice as any)
   })
@@ -109,8 +111,25 @@ describe("GET/POST /api/gestoria/facturas", () => {
     vi.mocked(prisma.accountingInvoice.findFirst).mockResolvedValue({ id: "other" } as any)
     const response = await POST(request("http://localhost/api/gestoria/facturas", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify(validBody()) }))
     expect(response.status).toBe(201)
-    await expect(response.json()).resolves.toMatchObject({ invoice: { id: "gestoria-1" }, alerts: ["Posible duplicado: ya existe una factura con el mismo NIF y número"] })
+    await expect(response.json()).resolves.toMatchObject({ invoice: { id: "gestoria-1" }, alerts: ["Posible duplicado: ya existe una captura con el mismo NIF y número"] })
     expect(prisma.accountingInvoice.create).toHaveBeenCalledWith(expect.objectContaining({ data: expect.objectContaining({ supplierOrCreditor: "Proveedor independiente", taxId: "B12345678", invoiceTotal: 121, createdById: "admin-1" }) }))
+  })
+
+  it("warns when an operational invoice already has the normalized NIF and number", async () => {
+    vi.mocked(prisma.invoice.findMany).mockResolvedValue([{
+      id: "invoice-1",
+      series: "cap",
+      number: "1",
+      issuerTaxId: "B 12345678",
+      supplier: { taxId: "B12345678" },
+    }] as any)
+
+    const response = await POST(request("http://localhost/api/gestoria/facturas", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify(validBody({ invoiceNumber: "CAP/1" })) }))
+
+    expect(response.status).toBe(201)
+    await expect(response.json()).resolves.toMatchObject({
+      alerts: ["Posible duplicado: ya existe una factura operativa con el mismo NIF y número; revisa si debes vincular la captura existente"],
+    })
   })
 
   it("calculates totals before saving a capture", async () => {

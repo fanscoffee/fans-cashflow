@@ -34,6 +34,13 @@ interface Receipt {
   notes: string | null
   supplier: { id?: string; legalName: string }
   receivedBy: { name: string } | null
+  invoice?: {
+    id: string
+    series: string
+    number: string
+    workflowStatus: string
+    accountingInvoice?: { id: string; invoiceNumber?: string; reconciliationStatus: string } | null
+  } | null
   _count: { lines: number }
   lines?: ReceiptLine[]
 }
@@ -46,6 +53,24 @@ type ReceiptsPanelProps = {
 
 function dateInputValue(value: string) {
   return value.slice(0, 10)
+}
+
+function workflowLabel(value: string) {
+  const labels: Record<string, string> = {
+    DRAFT: "Borrador",
+    IN_REVIEW: "En cotejo",
+    ISSUE: "Incidencia",
+    CONFIRMED: "Conformada",
+    PARTIALLY_CONFIRMED: "Parcialmente conformada",
+    VOID: "Anulada",
+    BORRADOR: "Borrador",
+    EN_COTEJO: "En cotejo",
+    INCIDENCIA: "Incidencia",
+    CONFORMADA: "Conformada",
+    PARCIALMENTE_CONFORMADA: "Parcialmente conformada",
+    ANULADA: "Anulada",
+  }
+  return labels[value] || value
 }
 
 function unitPriceIncludingVat(line: ReceiptLine) {
@@ -308,7 +333,7 @@ export default function ReceiptsPanel({ canDelete = true, canEdit = false, initi
             Albarán: {selectedReceipt.deliveryNoteCode}
           </h2>
           <div className="flex flex-col gap-2 sm:flex-row">
-            {canEdit && (
+            {canEdit && !selectedReceipt.invoice && (
               <button
                 onClick={() => setView("edit")}
                 className="w-full rounded-md bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-700 sm:w-auto"
@@ -347,6 +372,15 @@ export default function ReceiptsPanel({ canDelete = true, canEdit = false, initi
             </div>
           )}
         </div>
+
+        {selectedReceipt.invoice && (
+          <div className="mb-4 rounded-md border border-blue-200 bg-blue-50 p-3 text-sm text-blue-900">
+            <p className="font-semibold">Factura vinculada</p>
+            <p className="mt-1">{selectedReceipt.invoice.series ? `${selectedReceipt.invoice.series}/` : ""}{selectedReceipt.invoice.number} · estado {workflowLabel(selectedReceipt.invoice.workflowStatus)}</p>
+            {selectedReceipt.invoice.accountingInvoice && <a href={`/gestoria?capturaId=${selectedReceipt.invoice.accountingInvoice.id}`} className="mt-1 inline-block font-medium underline">Ver captura de gestoría</a>}
+            <p className="mt-1 text-xs">Este albarán no se puede modificar ni eliminar mientras conserve el vínculo.</p>
+          </div>
+        )}
 
         {detailLoading ? (
           <p className="text-sm text-gray-500">Cargando líneas...</p>
@@ -547,11 +581,11 @@ export default function ReceiptsPanel({ canDelete = true, canEdit = false, initi
                     <td className="px-3 py-2 font-mono text-xs font-medium text-gray-900">
                       {rec.deliveryNoteCode}
                     </td>
-                    <td className="px-3 py-2 text-gray-900">{rec.supplier.legalName}</td>
+                    <td className="px-3 py-2 text-gray-900">{rec.supplier.legalName}{rec.invoice && <span className="mt-1 block text-xs font-medium text-blue-700">Factura vinculada · {rec.invoice.series ? `${rec.invoice.series}/` : ""}{rec.invoice.number}{rec.invoice.accountingInvoice && <a href={`/gestoria?capturaId=${rec.invoice.accountingInvoice.id}`} className="ml-1 underline">Ver captura</a>}</span>}</td>
                     <td className="px-3 py-2 text-center text-gray-600">{rec._count.lines}</td>
                     <td className="px-3 py-2 text-gray-600">{rec.receivedBy?.name || "—"}</td>
                     <td className="px-3 py-2 text-right">
-                      {canEdit && (
+                      {canEdit && !rec.invoice && (
                         <button
                           onClick={() => void handleEdit(rec.id)}
                           className="mr-2 text-xs font-medium text-blue-600 hover:text-blue-800"
@@ -565,7 +599,7 @@ export default function ReceiptsPanel({ canDelete = true, canEdit = false, initi
                       >
                         Ver
                       </button>
-                      {canDelete && (
+                      {canDelete && !rec.invoice && (
                         <button
                           onClick={() => handleDelete(rec.id)}
                           className="text-xs font-medium text-red-600 hover:text-red-800"

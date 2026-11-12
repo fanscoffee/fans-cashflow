@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest"
 import { emptyInvoiceDraft } from "../invoice-ocr"
-import { buildAccountingAmountWarnings, invoiceDraftToAccounting, accountingInvoiceSchema } from "../accounting-invoices"
+import { buildAccountingAmountWarnings, comparableAccountingInvoiceNumber, invoiceDraftToAccounting, accountingInvoiceSchema, normalizeAccountingInvoiceReference } from "../accounting-invoices"
 
 describe("accounting-invoices", () => {
   it("maps parsed invoice taxes to the accounting columns", () => {
@@ -63,5 +63,10 @@ describe("accounting-invoices", () => {
     const missingTotal = accountingInvoiceSchema.safeParse({ date: "2026-02-28", supplierOrCreditor: "Proveedor", invoiceTotal: "" })
     expect(invalidDate.success).toBe(false)
     expect(missingTotal.success).toBe(false)
+  })
+
+  it("normalizes invoice references for cross-module duplicate checks", () => {
+    expect(normalizeAccountingInvoiceReference(" a / 0042 ")).toBe("A0042")
+    expect(comparableAccountingInvoiceNumber("A", "0042")).toBe("A0042")
   })
 })

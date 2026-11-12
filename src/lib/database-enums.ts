@@ -1,5 +1,6 @@
 import { z } from "zod"
 import {
+  AccountingReconciliationStatus,
   AccountingInvoiceOrigin,
   CashCountStatus,
   CashDestination,
@@ -28,6 +29,7 @@ import {
   StatementMovementStatus,
   UserRole,
   type AccountingInvoiceOrigin as AccountingInvoiceOriginType,
+  type AccountingReconciliationStatus as AccountingReconciliationStatusType,
   type CashCountStatus as CashCountStatusType,
   type CashDestination as CashDestinationType,
   type CashReplenishmentStatus as CashReplenishmentStatusType,
@@ -57,6 +59,7 @@ import {
 } from "@/generated/prisma/enums"
 
 export {
+  AccountingReconciliationStatus,
   AccountingInvoiceOrigin,
   CashCountStatus,
   CashDestination,
@@ -89,6 +92,7 @@ export {
 export type DatabaseUserRole = UserRoleType
 export type DatabasePaymentEntity = PaymentEntityType
 export type DatabaseAccountingInvoiceOrigin = AccountingInvoiceOriginType
+export type DatabaseAccountingReconciliationStatus = AccountingReconciliationStatusType
 export type DatabasePaymentMethodType = PaymentMethodTypeType
 export type DatabasePaymentMethodStatus = PaymentMethodStatusType
 export type DatabaseFundsAccountType = FundsAccountTypeType

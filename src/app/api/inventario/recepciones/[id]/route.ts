@@ -6,8 +6,9 @@ import { UserRole } from "@/lib/database-enums"
 import { hasAnyRole } from "@/lib/roles"
 import { receptionSchema } from "@/lib/reception-input"
 
-export const GET = withAuth(async (req, _session, context) => {
+export const GET = withAuth(async (req, session, context) => {
   const { id } = await context.params
+  const canViewInvoiceLink = hasAnyRole(session.user.role, [UserRole.ADMIN, UserRole.PARTNER])
 
   const receipt = await prisma.receipt.findUnique({
     where: { id },
@@ -30,6 +31,17 @@ export const GET = withAuth(async (req, _session, context) => {
         },
         orderBy: { createdAt: "asc" },
       },
+      ...(canViewInvoiceLink ? {
+        invoice: {
+          select: {
+            id: true,
+            series: true,
+            number: true,
+            workflowStatus: true,
+            accountingInvoice: { select: { id: true, invoiceNumber: true, reconciliationStatus: true } },
+          },
+        },
+      } : {}),
     },
   })
 
@@ -52,8 +64,9 @@ export const PATCH = withAuth(async (req, session, context) => {
 
   try {
     const input = receptionSchema.parse(await req.json())
-    const existing = await prisma.receipt.findUnique({ where: { id }, select: { id: true } })
+    const existing = await prisma.receipt.findUnique({ where: { id }, select: { id: true, invoiceId: true } })
     if (!existing) return NextResponse.json({ error: "Recepción no encontrada" }, { status: 404 })
+    if (existing.invoiceId) return NextResponse.json({ error: "No se puede modificar un albarán vinculado a una factura", code: "RECEIPT_ALREADY_LINKED" }, { status: 409 })
 
     const duplicate = await prisma.receipt.findFirst({
       where: {
@@ -139,13 +152,14 @@ export const DELETE = withAuth(async (req, session, context) => {
   const { id } = await context.params
 
   try {
-    const existing = await prisma.receipt.findUnique({ where: { id } })
+    const existing = await prisma.receipt.findUnique({ where: { id }, select: { id: true, invoiceId: true } })
     if (!existing) {
       return NextResponse.json(
         { error: "Recepción no encontrada" },
         { status: 404 }
       )
     }
+    if (existing.invoiceId) return NextResponse.json({ error: "No se puede eliminar un albarán vinculado a una factura", code: "RECEIPT_ALREADY_LINKED" }, { status: 409 })
 
     await prisma.receipt.delete({ where: { id } })
     return NextResponse.json({ ok: true })

@@ -67,6 +67,7 @@ export const GET = withAuth(async (req, session) => {
         supplier: { select: { id: true, legalName: true, taxId: true } },
         confirmedBy: { select: { name: true } },
         _count: { select: { lines: true, deliveryNotes: true } },
+        accountingInvoice: { select: { id: true, invoiceNumber: true, reconciliationStatus: true } },
       },
     }),
     prisma.invoice.count({ where }),
