@@ -55,11 +55,15 @@ describe("DELETE /api/gestoria/facturas/[id]/vinculo", () => {
     expect(auditPaymentEvent).toHaveBeenCalledWith(expect.anything(), expect.objectContaining({ action: "FACTURA_GESTORIA_DESVINCULADA", reason: "Corrección manual de albaranes" }))
   })
 
-  it("only allows ADMIN to unlink", async () => {
+  it("allows PARTNER to unlink and rejects other roles", async () => {
     vi.mocked(auth).mockResolvedValue({ user: { id: "partner-1", role: "SOCIO" } } as any)
 
+    expect((await DELETE(request({ reason: "Corrección de incidencia" }), context)).status).toBe(200)
+    expect(prisma.$transaction).toHaveBeenCalled()
+
+    vi.mocked(auth).mockResolvedValue({ user: { id: "employee-1", role: "EMPLEADO" } } as any)
+
     expect((await DELETE(request({ reason: "No" }), context)).status).toBe(403)
-    expect(prisma.$transaction).not.toHaveBeenCalled()
   })
 
   it("returns a conflict when the capture is already unlinked", async () => {
