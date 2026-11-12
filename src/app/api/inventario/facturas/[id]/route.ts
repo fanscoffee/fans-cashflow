@@ -41,6 +41,17 @@ export const GET = withAuth(async (_req, session, context) => {
       lines: { include: { product: { select: { id: true, code: true, posDescription: true, purchaseUnit: true } } }, orderBy: { createdAt: "asc" } },
       taxes: { orderBy: { createdAt: "asc" } },
       attachments: { select: { id: true, fileName: true, mimeType: true } },
+      accountingInvoice: {
+        select: {
+          id: true,
+          invoiceNumber: true,
+          supplierOrCreditor: true,
+          taxId: true,
+          reconciliationStatus: true,
+          linkedAt: true,
+          linkedBy: { select: { id: true, name: true, email: true } },
+        },
+      },
     },
   })
   if (!invoice) return NextResponse.json({ error: "Factura no encontrada" }, { status: 404 })
@@ -52,8 +63,9 @@ export const PATCH = withAuth(async (req, session, context) => {
   const { id } = await context.params
 
   try {
-    const existing = await prisma.invoice.findUnique({ where: { id }, select: { id: true, workflowStatus: true } })
+    const existing = await prisma.invoice.findUnique({ where: { id }, select: { id: true, workflowStatus: true, accountingInvoice: { select: { id: true } } } })
     if (!existing) return NextResponse.json({ error: "Factura no encontrada" }, { status: 404 })
+    if (existing.accountingInvoice) return NextResponse.json({ error: "Una factura operativa vinculada no se puede editar desde inventario", code: "INVOICE_LINKED_TO_ACCOUNTING" }, { status: 409 })
     const existingWorkflowStatus = parseInvoiceWorkflowStatus(existing.workflowStatus)
     if (existingWorkflowStatus === InvoiceWorkflowStatus.CONFIRMED || existingWorkflowStatus === InvoiceWorkflowStatus.PARTIALLY_CONFIRMED) return NextResponse.json({ error: "Una factura conformada debe corregirse mediante una incidencia o abono" }, { status: 409 })
     const parsed = invoiceSchema.safeParse(await req.json())
@@ -154,9 +166,11 @@ export const DELETE = withAuth(async (_req, session, context) => {
         totalAmount: true,
         attachments: { select: { storageKey: true } },
         _count: { select: { applications: true } },
+        accountingInvoice: { select: { id: true } },
       },
     })
     if (!existing) return NextResponse.json({ error: "Factura no encontrada" }, { status: 404 })
+    if (existing.accountingInvoice) return NextResponse.json({ error: "Una factura operativa vinculada no se puede eliminar", code: "INVOICE_LINKED_TO_ACCOUNTING" }, { status: 409 })
 
     const hasPayments = existing._count.applications > 0 ||
       ["PARCIAL", "PAGADA"].includes(existing.paymentStatus) ||

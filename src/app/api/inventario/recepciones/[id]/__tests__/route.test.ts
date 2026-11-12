@@ -6,6 +6,7 @@ vi.mock("@/lib/prisma", () => ({
     receipt: {
       findUnique: vi.fn(),
       findFirst: vi.fn(),
+      delete: vi.fn(),
     },
     product: {
       findMany: vi.fn(),
@@ -18,7 +19,7 @@ vi.mock("@/lib/auth", () => ({
   auth: vi.fn(),
 }))
 
-import { PATCH } from "../route"
+import { DELETE, PATCH } from "../route"
 import { prisma } from "@/lib/prisma"
 import { auth } from "@/lib/auth"
 
@@ -85,5 +86,35 @@ describe("PATCH /api/inventario/recepciones/[id]", () => {
     expect(response.status).toBe(403)
     expect(prisma.receipt.findUnique).not.toHaveBeenCalled()
     expect(prisma.$transaction).not.toHaveBeenCalled()
+  })
+
+  it("blocks modifications when the reception is linked to an invoice", async () => {
+    vi.mocked(prisma.receipt.findUnique).mockResolvedValue({ id: "receipt-1", invoiceId: "invoice-1" } as any)
+
+    const response = await PATCH(patchRequest(body), context)
+
+    expect(response.status).toBe(409)
+    await expect(response.json()).resolves.toMatchObject({ code: "RECEIPT_ALREADY_LINKED" })
+    expect(prisma.$transaction).not.toHaveBeenCalled()
+  })
+})
+
+describe("DELETE /api/inventario/recepciones/[id]", () => {
+  const deleteRequest = new Request("http://localhost/api/inventario/recepciones/receipt-1", { method: "DELETE" }) as unknown as NextRequest
+
+  beforeEach(() => {
+    vi.clearAllMocks()
+    vi.mocked(auth).mockResolvedValue({ user: { id: "admin-1", role: "ADMIN" } } as any)
+    vi.mocked(prisma.receipt.findUnique).mockResolvedValue({ id: "receipt-1", invoiceId: null } as any)
+  })
+
+  it("blocks deletion when the reception is linked to an invoice", async () => {
+    vi.mocked(prisma.receipt.findUnique).mockResolvedValue({ id: "receipt-1", invoiceId: "invoice-1" } as any)
+
+    const response = await DELETE(deleteRequest, context)
+
+    expect(response.status).toBe(409)
+    await expect(response.json()).resolves.toMatchObject({ code: "RECEIPT_ALREADY_LINKED" })
+    expect(prisma.receipt.delete).not.toHaveBeenCalled()
   })
 })

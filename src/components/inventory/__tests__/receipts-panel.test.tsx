@@ -1,6 +1,6 @@
 import { render, screen } from "@testing-library/react"
 import userEvent from "@testing-library/user-event"
-import { afterEach, describe, expect, it, vi } from "vitest"
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest"
 import ReceiptsPanel from "../receipts-panel"
 
 afterEach(() => vi.unstubAllGlobals())
@@ -34,9 +34,9 @@ describe("ReceiptsPanel", () => {
           json: async () => ({
             id: "receipt-1",
             deliveryNoteCode: "ALB-001",
-              receivedAt: "2026-10-01T00:00:00.000Z",
-              transportCost: 1.5,
-              notes: "Recepción inicial",
+            receivedAt: "2026-10-01T00:00:00.000Z",
+            transportCost: 1.5,
+            notes: "Recepción inicial",
             supplier: { id: "supplier-1", legalName: "Proveedor prueba" },
             receivedBy: { name: "Admin" },
             lines: [{
@@ -81,5 +81,40 @@ describe("ReceiptsPanel", () => {
     expect(await screen.findByRole("heading", { name: "Modificar recepción" })).toBeInTheDocument()
     expect(screen.getByDisplayValue("ALB-001")).toBeInTheDocument()
     expect(screen.getByDisplayValue("Recepción inicial")).toBeInTheDocument()
+  })
+})
+
+describe("ReceiptsPanel linked reception permissions", () => {
+  beforeEach(() => {
+    vi.stubGlobal("fetch", vi.fn().mockImplementation(async (input: RequestInfo | URL) => {
+      const url = String(input)
+      if (url.startsWith("/api/inventario/proveedores")) return { ok: true, json: async () => ({ suppliers: [] }) }
+      return {
+        ok: true,
+        json: async () => ({
+          receipts: [{
+            id: "receipt-1",
+            deliveryNoteCode: "ALB-1",
+            receivedAt: "2026-08-01T00:00:00.000Z",
+            transportCost: 0,
+            notes: null,
+            supplier: { legalName: "Proveedor Uno" },
+            receivedBy: { name: "Empleado" },
+            invoice: { id: "invoice-1", series: "A", number: "42", workflowStatus: "DRAFT", accountingInvoice: { id: "capture-1", reconciliationStatus: "LINKED" } },
+            _count: { lines: 1 },
+          }],
+          total: 1,
+        }),
+      }
+    }))
+  })
+
+  it("hides edit and delete actions for a linked reception", async () => {
+    render(<ReceiptsPanel canEdit canDelete />)
+
+    expect(await screen.findByText("ALB-1")).toBeInTheDocument()
+    expect(screen.getByText(/Factura vinculada/)).toBeInTheDocument()
+    expect(screen.queryByRole("button", { name: "Modificar" })).not.toBeInTheDocument()
+    expect(screen.queryByRole("button", { name: "Eliminar" })).not.toBeInTheDocument()
   })
 })

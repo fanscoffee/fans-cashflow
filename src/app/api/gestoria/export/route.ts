@@ -37,7 +37,7 @@ export const GET = withAuth(async (request, session) => {
 
   try {
     const invoices = await prisma.accountingInvoice.findMany({
-       where: { createdAt: { gte: period.startDate, lt: period.endDate } },
+       where: { createdAt: { gte: period.startDate, lt: period.endDate }, inventoryInvoiceId: null },
       select: {
         date: true,
         invoiceNumber: true,
