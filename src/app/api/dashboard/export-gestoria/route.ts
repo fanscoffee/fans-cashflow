@@ -62,8 +62,9 @@ export const GET = withAuth(async (request, session) => {
           totalVat: true,
           withholdingTotal: true,
           totalAmount: true,
-          supplier: { select: { legalName: true, taxId: true } },
-          creditor: { select: { name: true, taxId: true, type: true } },
+           supplier: { select: { legalName: true, taxId: true } },
+           accountingInvoice: { select: { id: true } },
+           creditor: { select: { name: true, taxId: true, type: true } },
           taxes: { select: { type: true, percentage: true, taxableBase: true, taxAmount: true } },
           applications: {
             where: { payment: { status: { not: PaymentStatus.VOID } } },

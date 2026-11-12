@@ -1,5 +1,5 @@
 import { z } from "zod"
-import { UserRole } from "@/lib/database-enums"
+import { AccountingReconciliationStatus, PaymentDocumentType, UserRole, parsePaymentDocumentType, type DatabasePaymentDocumentType } from "@/lib/database-enums"
 import { hasAnyRole } from "@/lib/roles"
 import { normalizeTaxId } from "@/lib/invoices"
 import { toN } from "@/lib/money"
@@ -42,6 +42,14 @@ export const accountingInvoiceSchema = z.object({
   paymentMethod: z.string().trim().max(80).default(""),
   ocrText: z.string().max(500_000).default(""),
   source: z.enum(["OCR", "MANUAL"]).default("MANUAL"),
+  documentType: z.string().default(PaymentDocumentType.EXPENSE).transform((value, context) => {
+    const parsed = parsePaymentDocumentType(value)
+    if (!parsed) {
+      context.addIssue({ code: "custom", message: "Tipo de documento no válido" })
+      return z.NEVER
+    }
+    return parsed
+  }),
 })
 
 export type AccountingInvoiceInput = z.infer<typeof accountingInvoiceSchema>
@@ -74,6 +82,7 @@ export interface AccountingInvoiceFormData {
   paymentMethod: string
   ocrText: string
   source: "OCR" | "MANUAL"
+  documentType: DatabasePaymentDocumentType
 }
 
 export type AccountingAmountInput = {
@@ -157,6 +166,7 @@ export function emptyAccountingInvoice(): AccountingInvoiceFormData {
     paymentMethod: "",
     ocrText: "",
     source: "MANUAL",
+    documentType: PaymentDocumentType.EXPENSE,
   }
 }
 
@@ -219,6 +229,7 @@ export function invoiceDraftToAccounting(draft: InvoiceDraft, ocrText: string): 
     paymentMethod: draft.paymentMethod,
     ocrText,
     source: "OCR",
+    documentType: draft.lines.some((line) => line.description.trim()) ? PaymentDocumentType.MERCHANDISE_PURCHASE : PaymentDocumentType.EXPENSE,
   }
 }
 
@@ -228,6 +239,17 @@ export function normalizeAccountingTaxId(value: string) {
 
 export function normalizeAccountingInvoiceNumber(value: string) {
   return value.trim().toUpperCase()
+}
+
+export function normalizeAccountingInvoiceReference(value: string) {
+  return normalizeAccountingInvoiceNumber(value)
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .replace(/[^A-Z0-9]/gi, "")
+}
+
+export function comparableAccountingInvoiceNumber(series: string, number: string) {
+  return normalizeAccountingInvoiceReference([series, number].filter(Boolean).join("/"))
 }
 
 export function accountingDbData(input: AccountingInvoiceInput, createdById: string, alerts: string[]) {
@@ -254,6 +276,8 @@ export function accountingDbData(input: AccountingInvoiceInput, createdById: str
     paymentMethod: input.paymentMethod,
     ocrText: input.ocrText || null,
     source: input.source,
+    documentType: input.documentType,
+    reconciliationStatus: input.documentType === PaymentDocumentType.EXPENSE ? AccountingReconciliationStatus.NOT_APPLICABLE : AccountingReconciliationStatus.UNLINKED,
     alerts: alerts.length ? alerts : undefined,
     createdById,
   }

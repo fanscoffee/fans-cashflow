@@ -152,6 +152,15 @@ describe("GET/PATCH /api/inventario/facturas/[id]", () => {
     expect((await PATCH(patchRequest({}), context)).status).toBe(400)
   })
 
+  it("does not allow editing an operational invoice linked to gestoría", async () => {
+    vi.mocked(prisma.invoice.findUnique).mockResolvedValueOnce({ id: "invoice-1", workflowStatus: "BORRADOR", accountingInvoice: { id: "capture-1" } } as any)
+
+    const response = await PATCH(patchRequest(validPatchBody()), context)
+
+    expect(response.status).toBe(409)
+    await expect(response.json()).resolves.toMatchObject({ code: "INVOICE_LINKED_TO_ACCOUNTING" })
+  })
+
   it("rejects a provider mismatch, duplicate invoice or unavailable reception", async () => {
     vi.mocked(prisma.invoice.findUnique).mockResolvedValue({ id: "invoice-1", workflowStatus: "BORRADOR" } as any)
     vi.mocked(prisma.supplier.findUnique).mockResolvedValue({ id: "provider-1", taxId: "B-99999999" } as any)
@@ -236,6 +245,21 @@ describe("DELETE /api/inventario/facturas/[id]", () => {
 
     expect(response.status).toBe(409)
     await expect(response.json()).resolves.toMatchObject({ code: "INVOICE_HAS_PAYMENTS" })
+    expect(prisma.$transaction).not.toHaveBeenCalled()
+  })
+
+  it("does not allow deleting an operational invoice linked to gestoría", async () => {
+    vi.mocked(prisma.invoice.findUnique).mockResolvedValue({
+      id: "invoice-1",
+      accountingInvoice: { id: "capture-1" },
+      attachments: [],
+      _count: { applications: 0 },
+    } as any)
+
+    const response = await DELETE(request, context)
+
+    expect(response.status).toBe(409)
+    await expect(response.json()).resolves.toMatchObject({ code: "INVOICE_LINKED_TO_ACCOUNTING" })
     expect(prisma.$transaction).not.toHaveBeenCalled()
   })
 

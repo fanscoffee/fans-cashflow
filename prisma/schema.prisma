@@ -86,6 +86,14 @@ enum AccountingInvoiceOrigin {
   MANUAL
 }
 
+enum AccountingReconciliationStatus {
+  UNLINKED       @map("SIN_VINCULAR")
+  SUGGESTED      @map("SUGERIDA")
+  LINKED         @map("VINCULADA")
+  ISSUE          @map("CON_INCIDENCIA")
+  NOT_APPLICABLE @map("NO_APLICA")
+}
+
 enum ExpenseReceiptType {
   INVOICE          @map("FACTURA")
   RECEIPT          @map("RECIBO")
@@ -234,7 +242,8 @@ model User {
   authorizedContracts          RecurringContract[]
   requestedAdvances            Advance[]                @relation("AdvanceRequester")
   authorizedAdvances           Advance[]                @relation("AdvanceAuthorizer")
-  accountingInvoices           AccountingInvoice[]
+  accountingInvoices           AccountingInvoice[]      @relation("AccountingInvoiceCreatedBy")
+  linkedAccountingInvoices     AccountingInvoice[]      @relation("AccountingInvoiceLinkedBy")
   inventoryTransactions        InventoryTransaction[]   @relation("InventoryTransactionCreator")
   recipeVersions               RecipeVersion[]          @relation("RecipeVersionCreator")
   productionEntries            ProductionEntry[]        @relation("ProductionCreator")
@@ -450,14 +459,15 @@ model Supplier {
   issues            String?
   notes             String?
 
-  products    SupplierProduct[]
-  receipts    Receipt[]
-  invoices    Invoice[]
-  creditor    Creditor?
-  createdById String?
-  createdBy   User?             @relation(fields: [createdById], references: [id])
-  createdAt   DateTime          @default(now())
-  updatedAt   DateTime          @updatedAt
+  products           SupplierProduct[]
+  receipts           Receipt[]
+  invoices           Invoice[]
+  accountingInvoices AccountingInvoice[]
+  creditor           Creditor?
+  createdById        String?
+  createdBy          User?               @relation(fields: [createdById], references: [id])
+  createdAt          DateTime            @default(now())
+  updatedAt          DateTime            @updatedAt
 
   @@index([status])
 }
@@ -548,14 +558,15 @@ model Invoice {
   createdAt             DateTime              @default(now())
   updatedAt             DateTime              @updatedAt
 
-  supplier      Supplier             @relation(fields: [supplierId], references: [id])
-  creditor      Creditor?            @relation(fields: [creditorId], references: [id])
-  confirmedBy   User                 @relation(fields: [confirmedById], references: [id])
-  deliveryNotes Receipt[]
-  lines         InvoiceLine[]
-  taxes         InvoiceTax[]
-  attachments   PaymentAttachment[]
-  applications  PaymentApplication[]
+  supplier          Supplier             @relation(fields: [supplierId], references: [id])
+  creditor          Creditor?            @relation(fields: [creditorId], references: [id])
+  confirmedBy       User                 @relation(fields: [confirmedById], references: [id])
+  deliveryNotes     Receipt[]
+  lines             InvoiceLine[]
+  taxes             InvoiceTax[]
+  attachments       PaymentAttachment[]
+  applications      PaymentApplication[]
+  accountingInvoice AccountingInvoice?   @relation("InventoryInvoiceAccounting")
 
   @@unique([supplierId, series, number])
   @@unique([creditorId, number])
@@ -615,38 +626,50 @@ model InvoiceTax {
 }
 
 model AccountingInvoice {
-  id                 String                  @id @default(cuid())
-  date               DateTime                @db.Date
-  invoiceNumber      String                  @default("")
-  supplierOrCreditor String
-  taxId              String                  @default("")
-  concept            String                  @default("")
-  exemptBase         Decimal                 @default(0) @db.Decimal(12, 2)
-  base21             Decimal                 @default(0) @db.Decimal(12, 2)
-  vat21              Decimal                 @default(0) @db.Decimal(12, 2)
-  base10             Decimal                 @default(0) @db.Decimal(12, 2)
-  vat10              Decimal                 @default(0) @db.Decimal(12, 2)
-  base4              Decimal                 @default(0) @db.Decimal(12, 2)
-  vat4               Decimal                 @default(0) @db.Decimal(12, 2)
-  base2              Decimal                 @default(0) @db.Decimal(12, 2)
-  vat2               Decimal                 @default(0) @db.Decimal(12, 2)
-  totalBase          Decimal                 @default(0) @db.Decimal(12, 2)
-  totalVat           Decimal                 @default(0) @db.Decimal(12, 2)
-  withholdingTax     Decimal                 @default(0) @db.Decimal(12, 2)
-  invoiceTotal       Decimal                 @db.Decimal(12, 2)
-  paymentMethod      String                  @default("")
-  ocrText            String?
-  source             AccountingInvoiceOrigin @default(MANUAL)
-  alerts             Json?
-  createdById        String
-  createdAt          DateTime                @default(now())
-  updatedAt          DateTime                @updatedAt
+  id                   String                         @id @default(cuid())
+  date                 DateTime                       @db.Date
+  invoiceNumber        String                         @default("")
+  supplierOrCreditor   String
+  taxId                String                         @default("")
+  concept              String                         @default("")
+  exemptBase           Decimal                        @default(0) @db.Decimal(12, 2)
+  base21               Decimal                        @default(0) @db.Decimal(12, 2)
+  vat21                Decimal                        @default(0) @db.Decimal(12, 2)
+  base10               Decimal                        @default(0) @db.Decimal(12, 2)
+  vat10                Decimal                        @default(0) @db.Decimal(12, 2)
+  base4                Decimal                        @default(0) @db.Decimal(12, 2)
+  vat4                 Decimal                        @default(0) @db.Decimal(12, 2)
+  base2                Decimal                        @default(0) @db.Decimal(12, 2)
+  vat2                 Decimal                        @default(0) @db.Decimal(12, 2)
+  totalBase            Decimal                        @default(0) @db.Decimal(12, 2)
+  totalVat             Decimal                        @default(0) @db.Decimal(12, 2)
+  withholdingTax       Decimal                        @default(0) @db.Decimal(12, 2)
+  invoiceTotal         Decimal                        @db.Decimal(12, 2)
+  paymentMethod        String                         @default("")
+  ocrText              String?
+  source               AccountingInvoiceOrigin        @default(MANUAL)
+  documentType         PaymentDocumentType?
+  reconciliationStatus AccountingReconciliationStatus @default(UNLINKED)
+  supplierId           String?
+  inventoryInvoiceId   String?                        @unique
+  linkedAt             DateTime?
+  linkedById           String?
+  alerts               Json?
+  createdById          String
+  createdAt            DateTime                       @default(now())
+  updatedAt            DateTime                       @updatedAt
 
-  createdBy User @relation(fields: [createdById], references: [id])
+  createdBy        User      @relation("AccountingInvoiceCreatedBy", fields: [createdById], references: [id])
+  supplier         Supplier? @relation(fields: [supplierId], references: [id], onDelete: SetNull)
+  inventoryInvoice Invoice?  @relation("InventoryInvoiceAccounting", fields: [inventoryInvoiceId], references: [id], onDelete: SetNull)
+  linkedBy         User?     @relation("AccountingInvoiceLinkedBy", fields: [linkedById], references: [id], onDelete: SetNull)
 
   @@index([date])
   @@index([taxId, invoiceNumber])
   @@index([createdById])
+  @@index([supplierId, reconciliationStatus, date])
+  @@index([reconciliationStatus, createdAt])
+  @@index([linkedById])
 }
 
 model ReceiptLine {

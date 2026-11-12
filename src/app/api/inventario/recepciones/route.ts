@@ -2,11 +2,14 @@ import { NextResponse } from "next/server"
 import { z } from "zod"
 import { prisma } from "@/lib/prisma"
 import { withAuth } from "@/lib/with-auth"
+import { UserRole } from "@/lib/database-enums"
 import { canRegisterInventoryReception } from "@/lib/inventory-permissions"
 import { getFirstSearchParam } from "@/lib/request-params"
 import { receptionSchema } from "@/lib/reception-input"
+import { hasAnyRole } from "@/lib/roles"
 
-export const GET = withAuth(async (req) => {
+export const GET = withAuth(async (req, session) => {
+  const canViewInvoiceLink = hasAnyRole(session.user.role, [UserRole.ADMIN, UserRole.PARTNER])
   const { searchParams } = new URL(req.url)
   const search = searchParams.get("search") || ""
   const supplierId = getFirstSearchParam(searchParams, "supplierId", "proveedorId") || ""
@@ -42,6 +45,17 @@ export const GET = withAuth(async (req) => {
         supplier: { select: { legalName: true } },
         receivedBy: { select: { name: true } },
         _count: { select: { lines: true } },
+        ...(canViewInvoiceLink ? {
+          invoice: {
+            select: {
+              id: true,
+              series: true,
+              number: true,
+              workflowStatus: true,
+              accountingInvoice: { select: { id: true, reconciliationStatus: true } },
+            },
+          },
+        } : {}),
       },
     }),
     prisma.receipt.count({ where }),

@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useState } from "react"
 import { useSession } from "next-auth/react"
-import { PaymentDocumentType, PaymentEntity, UserRole, parsePaymentDocumentType, parsePaymentEntity, type DatabasePaymentDocumentType, type DatabasePaymentEntity } from "@/lib/database-enums"
+import { PaymentDocumentType, PaymentEntity, UserRole, parseInvoiceWorkflowStatus, parsePaymentDocumentType, parsePaymentEntity, type DatabaseInvoiceWorkflowStatus, type DatabasePaymentDocumentType, type DatabasePaymentEntity } from "@/lib/database-enums"
 import { hasAnyRole, isRole } from "@/lib/roles"
 import InvoiceForm, { type InvoiceFormData } from "./invoice-form"
 
@@ -13,7 +13,7 @@ interface InvoiceListItem {
   issueDate: string
   status: string
   paymentStatus: string
-  workflowStatus?: string
+  workflowStatus?: DatabaseInvoiceWorkflowStatus
   entity?: DatabasePaymentEntity
   confirmedAmount?: number | string | null
   withheldAmount?: number | string | null
@@ -21,6 +21,7 @@ interface InvoiceListItem {
   alerts: unknown
   supplier: { id: string; legalName: string; taxId: string }
   confirmedBy: { name: string | null } | null
+  accountingInvoice?: { id: string; invoiceNumber: string; reconciliationStatus: string } | null
   _count: { lines: number; deliveryNotes: number }
 }
 
@@ -46,13 +47,71 @@ interface InvoiceDetail extends InvoiceListItem {
   withholdingTotal: number | string
   notes: string | null
   deliveryNotes: Array<{ id: string; deliveryNoteCode: string; receivedAt: string }>
-  lines: Array<{ id: string; productId: string | null; lineType: string; supplierReference: string | null; itemCode: string | null; description: string; unitOfMeasure: string | null; originalFormat: string | null; quantity: number | string; discountPercentage: number | string | null; discountAmount: number | string; unitPrice: number | string; netUnitPrice: number | string; taxableBase: number | string; vatRate: number | string | null; vatAmount: number | string; lineTotal: number | string; batch: string | null; dueDate: string | null; validationAlert: string | null; product: { id: string; code: string; posDescription: string; purchaseUnit: string | null } | null }>
+  lines: Array<{
+    id: string
+    productId: string | null
+    lineType: string
+    supplierReference: string | null
+    itemCode: string | null
+    description: string
+    unitOfMeasure: string | null
+    originalFormat: string | null
+    quantity: number | string
+    discountPercentage: number | string | null
+    discountAmount: number | string
+    unitPrice: number | string
+    netUnitPrice: number | string
+    taxableBase: number | string
+    vatRate: number | string | null
+    vatAmount: number | string
+    lineTotal: number | string
+    batch: string | null
+    dueDate: string | null
+    validationAlert: string | null
+    product: { id: string; code: string; posDescription: string; purchaseUnit: string | null } | null
+  }>
   taxes: Array<{ type: "IVA" | "RECARGO_EQUIVALENCIA" | "IRPF"; percentage: number | string | null; taxableBase: number | string; taxAmount: number | string }>
   attachments: Array<{ id: string; fileName: string; mimeType: string }>
+  accountingInvoice?: { id: string; invoiceNumber: string; taxId: string; reconciliationStatus: string; linkedAt: string | null; linkedBy: { id: string; name: string | null; email: string } | null } | null
 }
 
 function number(value: unknown) { return Number(value || 0).toFixed(2) }
 function dateInput(value: string | null | undefined) { return value ? new Date(value).toISOString().slice(0, 10) : "" }
+
+function workflowLabel(value: string | undefined) {
+  const parsed = parseInvoiceWorkflowStatus(value)
+  const labels: Record<string, string> = {
+    DRAFT: "Borrador",
+    IN_REVIEW: "En cotejo",
+    ISSUE: "Incidencia",
+    CONFIRMED: "Conformada",
+    PARTIALLY_CONFIRMED: "Parcialmente conformada",
+    VOID: "Anulada",
+    BORRADOR: "Borrador",
+    EN_COTEJO: "En cotejo",
+    INCIDENCIA: "Incidencia",
+    CONFORMADA: "Conformada",
+    PARCIALMENTE_CONFORMADA: "Parcialmente conformada",
+    ANULADA: "Anulada",
+  }
+  return labels[parsed || value || ""] || value || "Sin estado"
+}
+
+function reconciliationLabel(value: string | undefined) {
+  const labels: Record<string, string> = {
+    LINKED: "Vinculada",
+    ISSUE: "Vinculada con incidencia",
+    UNLINKED: "Sin vincular",
+    SUGGESTED: "Sugerencia disponible",
+    NOT_APPLICABLE: "No aplica",
+    VINCULADA: "Vinculada",
+    CON_INCIDENCIA: "Vinculada con incidencia",
+    SIN_VINCULAR: "Sin vincular",
+    SUGERIDA: "Sugerencia disponible",
+    NO_APLICA: "No aplica",
+  }
+  return labels[value || ""] || value || "Sin captura"
+}
 
 function toFormValues(invoice: InvoiceDetail): InvoiceFormData {
   return {
@@ -149,7 +208,7 @@ export default function InvoicesPanel() {
   }, [page, search])
 
   /* eslint-disable react-hooks/set-state-in-effect */
-  useEffect(() => { loadInvoices() }, [loadInvoices])
+  useEffect(() => { void loadInvoices() }, [loadInvoices])
   useEffect(() => { setPage(1) }, [search])
   /* eslint-enable react-hooks/set-state-in-effect */
 
@@ -157,21 +216,21 @@ export default function InvoicesPanel() {
     setSaving(true); setError(""); setSuccess("")
     try {
       const response = await fetch(id ? `/api/inventario/facturas/${id}` : "/api/inventario/facturas", { method: id ? "PATCH" : "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(data) })
-       const result = await response.json()
-       if (!response.ok) throw new Error(result.error || "Error al guardar factura")
-       if (data.invoiceFile && result.invoice?.id) {
-         const form = new FormData()
-         form.set("file", data.invoiceFile)
-         form.set("invoiceId", result.invoice.id)
-         const attachmentResponse = await fetch("/api/pagos/adjuntos", { method: "POST", body: form })
-         const attachmentResult = await attachmentResponse.json()
-         if (!attachmentResponse.ok) throw new Error(attachmentResult.error || "La factura se guardó, pero no se pudo guardar el adjunto")
-       }
-       if (data.confirmConAttachment && result.invoice?.id) {
-         const conformResponse = await fetch(`/api/inventario/facturas/${result.invoice.id}/conformar`, { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ entity: data.entity, confirmedAmount: Number(data.confirmedAmount || data.totalAmount), withheldAmount: Number(data.withheldAmount || 0), withholdingReason: data.withholdingReason, sourceReference: data.sourceReference }) })
-         const conformResult = await conformResponse.json()
-         if (!conformResponse.ok) throw new Error(conformResult.error || "La factura se guardó, pero no pudo conformarse")
-       }
+      const result = await response.json()
+      if (!response.ok) throw new Error(result.error || "Error al guardar factura")
+      if (data.invoiceFile && result.invoice?.id) {
+        const form = new FormData()
+        form.set("file", data.invoiceFile)
+        form.set("invoiceId", result.invoice.id)
+        const attachmentResponse = await fetch("/api/pagos/adjuntos", { method: "POST", body: form })
+        const attachmentResult = await attachmentResponse.json()
+        if (!attachmentResponse.ok) throw new Error(attachmentResult.error || "La factura se guardó, pero no se pudo guardar el adjunto")
+      }
+      if (data.confirmConAttachment && result.invoice?.id) {
+        const conformResponse = await fetch(`/api/inventario/facturas/${result.invoice.id}/conformar`, { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ entity: data.entity, confirmedAmount: Number(data.confirmedAmount || data.totalAmount), withheldAmount: Number(data.withheldAmount || 0), withholdingReason: data.withholdingReason, sourceReference: data.sourceReference }) })
+        const conformResult = await conformResponse.json()
+        if (!conformResponse.ok) throw new Error(conformResult.error || "La factura se guardó, pero no pudo conformarse")
+      }
       setSuccess(result.alerts?.length ? `Factura guardada con ${result.alerts.length} alerta(s)` : "Factura guardada")
       setView("list")
       await loadInvoices()
@@ -192,9 +251,10 @@ export default function InvoicesPanel() {
 
   async function deleteInvoice(id: string) {
     if (!canDelete) return
+    const target = invoices.find((invoice) => invoice.id === id)
+    if (target?.accountingInvoice) { setError("Una factura operativa vinculada no se puede eliminar"); return }
     if (!confirm("¿Eliminar esta factura? Se borrarán sus líneas y adjuntos, y no se podrá deshacer.")) return
-    setError("")
-    setSuccess("")
+    setError(""); setSuccess("")
     const response = await fetch(`/api/inventario/facturas/${id}`, { method: "DELETE" })
     if (!response.ok) { const result = await response.json(); setError(result.error || "No se pudo eliminar la factura"); return }
     setSelected(null)
@@ -203,11 +263,30 @@ export default function InvoicesPanel() {
     await loadInvoices()
   }
 
-  if (view === "create" || (view === "edit" && selected)) return <div className="rounded-lg border bg-white p-6 shadow-sm"><div className="mb-4 flex items-center justify-between"><h2 className="text-lg font-semibold text-gray-900">{view === "edit" ? "Editar factura" : "Nueva factura"}</h2><button type="button" onClick={() => setView("list")} className="rounded-md border px-3 py-2 text-sm text-gray-700">Volver</button></div>{error && <p className="mb-3 rounded-md bg-red-50 p-3 text-sm text-red-700">{error}</p>}<InvoiceForm invoiceId={view === "edit" ? selected?.id : undefined} initialValues={view === "edit" && selected ? toFormValues(selected) : undefined} onCancel={() => setView("list")} onSubmit={(data) => saveInvoice(data, view === "edit" ? selected?.id : undefined)} saving={saving} /></div>
+  if (view === "create" || (view === "edit" && selected)) {
+    return <div className="rounded-lg border bg-white p-6 shadow-sm"><div className="mb-4 flex items-center justify-between"><h2 className="text-lg font-semibold text-gray-900">{view === "edit" ? "Editar factura" : "Nueva factura"}</h2><button type="button" onClick={() => setView("list")} className="rounded-md border px-3 py-2 text-sm text-gray-700">Volver</button></div>{error && <p className="mb-3 rounded-md bg-red-50 p-3 text-sm text-red-700">{error}</p>}<InvoiceForm invoiceId={view === "edit" ? selected?.id : undefined} initialValues={view === "edit" && selected ? toFormValues(selected) : undefined} onCancel={() => setView("list")} onSubmit={(data) => saveInvoice(data, view === "edit" ? selected?.id : undefined)} saving={saving} /></div>
+  }
 
-  if (view === "detail" && selected) return <div className="rounded-lg border bg-white p-6 text-black shadow-sm"><div className="mb-4 flex items-center justify-between"><div><h2 className="text-lg font-semibold text-gray-900">Factura {selected.series ? `${selected.series}/` : ""}{selected.number}</h2><p className="text-sm text-black">{selected.supplier.legalName} · {new Date(selected.issueDate).toLocaleDateString("es-ES")}</p></div><button type="button" onClick={() => { setSelected(null); setView("list") }} className="rounded-md border px-3 py-2 text-sm text-black">Volver</button></div><div className="grid grid-cols-2 gap-3 text-sm sm:grid-cols-5"><div><span className="text-black">Neto</span><p>{number(selected.netTotal)} €</p></div><div><span className="text-black">IVA</span><p>{number(selected.totalVat)} €</p></div><div><span className="text-black">Recargo</span><p>{number(selected.surchargeTotal)} €</p></div><div><span className="text-black">Retenciones</span><p>{number(selected.withholdingTotal)} €</p></div><div><span className="text-black">Total</span><p className="font-semibold">{number(selected.totalAmount)} €</p></div></div><div className="mt-4 rounded-md border p-3 text-sm"><p><strong>Emisor:</strong> {selected.issuerLegalName} · {selected.issuerTaxId}</p><p><strong>Pago:</strong> {selected.paymentStatus} {selected.paymentMethod ? `· ${selected.paymentMethod}` : ""}</p><p><strong>Albaranes:</strong> {selected.deliveryNotes.length ? selected.deliveryNotes.map((deliveryNote) => deliveryNote.deliveryNoteCode).join(", ") : "Sin vínculo"}</p></div>{Array.isArray(selected.alerts) && selected.alerts.length > 0 && <div className="mt-4 rounded-md border border-amber-200 bg-amber-50 p-3 text-sm text-amber-800"><strong>Alertas</strong>{selected.alerts.map((alert, index) => <p key={index}>{String(alert)}</p>)}</div>}<div className="mt-4 overflow-x-auto rounded-md border"><table className="w-full text-left text-sm"><thead className="bg-gray-50 text-xs text-black"><tr><th className="px-3 py-2">Producto</th><th className="px-3 py-2">Cantidad</th><th className="px-3 py-2">Precio neto</th><th className="px-3 py-2">IVA</th><th className="px-3 py-2 text-right">Total</th></tr></thead><tbody className="divide-y">{selected.lines.map((line) => <tr key={line.id}><td className="px-3 py-2">{line.product?.code || "Cargo"} — {line.description}{line.validationAlert && <p className="text-xs text-amber-700">{line.validationAlert}</p>}</td><td className="px-3 py-2">{String(line.quantity)} {line.unitOfMeasure || ""}</td><td className="px-3 py-2">{number(line.netUnitPrice)} €</td><td className="px-3 py-2">{String(line.vatRate || 0)}%</td><td className="px-3 py-2 text-right">{number(line.lineTotal)} €</td></tr>)}</tbody></table></div>{canDelete && <div className="mt-4 flex gap-2">{isAdmin && <button type="button" onClick={() => setView("edit")} className="rounded-md bg-blue-600 px-3 py-2 text-sm text-white">Editar</button>}<button type="button" onClick={() => deleteInvoice(selected.id)} className="rounded-md border border-red-200 px-3 py-2 text-sm text-red-700">Eliminar</button></div>}</div>
+  if (view === "detail" && selected) {
+    const linkedCapture = selected.accountingInvoice
+    return <div className="rounded-lg border bg-white p-6 text-black shadow-sm">
+      <div className="mb-4 flex items-center justify-between gap-3"><div><h2 className="text-lg font-semibold text-gray-900">Factura {selected.series ? `${selected.series}/` : ""}{selected.number}</h2><p className="text-sm text-black">{selected.supplier.legalName} · {new Date(selected.issueDate).toLocaleDateString("es-ES")}</p></div><button type="button" onClick={() => { setSelected(null); setView("list") }} className="rounded-md border px-3 py-2 text-sm text-black">Volver</button></div>
+      <div className="mb-4 flex flex-wrap items-center gap-2 text-xs"><span className="rounded-full bg-gray-100 px-2 py-1">Estado: {workflowLabel(selected.workflowStatus)}</span><span className="rounded-full bg-gray-100 px-2 py-1">Pago: {selected.paymentStatus}</span><span className="rounded-full bg-gray-100 px-2 py-1">Tipo: {selected.documentType === PaymentDocumentType.EXPENSE ? "Gasto / servicio" : "Compra de mercancía"}</span></div>
+      {linkedCapture ? <div className="mb-4 rounded-md border border-green-200 bg-green-50 p-3 text-sm text-green-900"><p className="font-semibold">Captura de gestoría vinculada</p><p className="mt-1">{linkedCapture.invoiceNumber || "Sin número"} · {reconciliationLabel(linkedCapture.reconciliationStatus)}</p><a href={`/gestoria?capturaId=${linkedCapture.id}`} className="mt-1 inline-block font-medium underline">Volver a la captura</a></div> : <div className="mb-4 rounded-md border border-gray-200 bg-gray-50 p-3 text-sm text-gray-700"><p>Esta factura operativa no tiene captura de gestoría vinculada.</p><a href={`/gestoria?facturaId=${selected.id}`} className="mt-1 inline-block font-medium text-blue-700 underline">Vincular una captura existente</a></div>}
+      <div className="grid grid-cols-2 gap-3 text-sm sm:grid-cols-5"><div><span className="text-black">Neto</span><p>{number(selected.netTotal)} €</p></div><div><span className="text-black">IVA</span><p>{number(selected.totalVat)} €</p></div><div><span className="text-black">Recargo</span><p>{number(selected.surchargeTotal)} €</p></div><div><span className="text-black">Retenciones</span><p>{number(selected.withholdingTotal)} €</p></div><div><span className="text-black">Total</span><p className="font-semibold">{number(selected.totalAmount)} €</p></div></div>
+      <div className="mt-4 rounded-md border p-3 text-sm"><p><strong>Emisor:</strong> {selected.issuerLegalName} · {selected.issuerTaxId}</p><p><strong>Pago:</strong> {selected.paymentStatus} {selected.paymentMethod ? `· ${selected.paymentMethod}` : ""}</p><p><strong>Albaranes:</strong> {selected.deliveryNotes.length ? selected.deliveryNotes.map((deliveryNote) => deliveryNote.deliveryNoteCode).join(", ") : "Sin vínculo"}</p></div>
+      {Array.isArray(selected.alerts) && selected.alerts.length > 0 && <div className="mt-4 rounded-md border border-amber-200 bg-amber-50 p-3 text-sm text-amber-800"><strong>Alertas</strong>{selected.alerts.map((alert, index) => <p key={index}>{String(alert)}</p>)}</div>}
+      <div className="mt-4 overflow-x-auto rounded-md border"><table className="w-full text-left text-sm"><thead className="bg-gray-50 text-xs text-black"><tr><th className="px-3 py-2">Descripción</th><th className="px-3 py-2">Tipo</th><th className="px-3 py-2 text-right">Cantidad</th><th className="px-3 py-2 text-right">Base</th><th className="px-3 py-2 text-right">IVA</th><th className="px-3 py-2 text-right">Total</th></tr></thead><tbody className="divide-y">{selected.lines.map((line) => <tr key={line.id}><td className="px-3 py-2">{line.description}</td><td className="px-3 py-2 text-xs">{line.lineType}</td><td className="px-3 py-2 text-right">{line.quantity}</td><td className="px-3 py-2 text-right">{number(line.taxableBase)} €</td><td className="px-3 py-2 text-right">{number(line.vatAmount)} €</td><td className="px-3 py-2 text-right font-medium">{number(line.lineTotal)} €</td></tr>)}</tbody></table></div>
+      <div className="mt-4 flex justify-end gap-2">{!linkedCapture && <button type="button" onClick={() => void showDetail(selected.id, "edit")} className="rounded-md border px-3 py-2 text-sm text-gray-700">Editar</button>}{!linkedCapture && canDelete && <button type="button" onClick={() => void deleteInvoice(selected.id)} className="rounded-md border border-red-200 px-3 py-2 text-sm text-red-700">Eliminar</button>}</div>
+    </div>
+  }
 
-  const totalPages = Math.ceil(total / pageSize)
-  return <div className="space-y-4">{error && <p className="rounded-md bg-red-50 p-3 text-sm text-red-700">{error}</p>}{success && <p className="rounded-md bg-green-50 p-3 text-sm text-green-700">{success}</p>}<div className="flex flex-wrap items-center gap-2"><button type="button" onClick={() => { setError(""); setView("create") }} className="rounded-md bg-blue-600 px-4 py-2 text-sm font-medium text-white">+ Nueva factura</button><input value={search} onChange={(event) => setSearch(event.target.value)} placeholder="Buscar número, serie, NIF..." className="min-w-56 rounded-md border px-3 py-2 text-sm text-gray-900" /><span className="ml-auto text-sm text-gray-500">{total} factura(s)</span></div>{loading ? <p className="text-sm text-gray-500">Cargando...</p> : invoices.length === 0 ? <p className="text-sm text-gray-500">No hay facturas.</p> : <div className="overflow-x-auto rounded-md border bg-white"><table className="w-full text-left text-sm"><thead className="bg-gray-50 text-xs text-gray-500"><tr><th className="px-3 py-2">Factura</th><th className="px-3 py-2">Proveedor</th><th className="px-3 py-2">Fecha</th><th className="px-3 py-2">Albaranes</th><th className="px-3 py-2">Pago</th><th className="px-3 py-2 text-right">Total</th><th className="px-3 py-2 text-right">Acciones</th></tr></thead><tbody className="divide-y">{invoices.map((invoice) => <tr key={invoice.id}><td className="px-3 py-2 font-medium">{invoice.series ? `${invoice.series}/` : ""}{invoice.number}{invoice.status === "ANULADA" && <span className="ml-2 text-xs text-red-600">ANULADA</span>}{Array.isArray(invoice.alerts) && invoice.alerts.length > 0 && <span className="ml-2 text-xs text-amber-600">⚠ {invoice.alerts.length}</span>}</td><td className="px-3 py-2">{invoice.supplier.legalName}</td><td className="px-3 py-2">{new Date(invoice.issueDate).toLocaleDateString("es-ES")}</td><td className="px-3 py-2">{invoice._count.deliveryNotes}</td><td className="px-3 py-2">{invoice.paymentStatus}</td><td className="px-3 py-2 text-right">{number(invoice.totalAmount)} €</td><td className="px-3 py-2 text-right"><button type="button" onClick={() => showDetail(invoice.id)} className="mr-2 text-xs text-blue-700">Ver</button>{canDelete && <button type="button" onClick={() => deleteInvoice(invoice.id)} className="text-xs text-red-700">Eliminar</button>}</td></tr>)}</tbody></table></div>}{totalPages > 1 && <div className="flex justify-center gap-2"><button type="button" disabled={page === 1} onClick={() => setPage((current) => current - 1)} className="rounded-md border px-3 py-1 text-sm disabled:opacity-50">Anterior</button><span className="px-2 py-1 text-sm">Página {page}/{totalPages}</span><button type="button" disabled={page === totalPages} onClick={() => setPage((current) => current + 1)} className="rounded-md border px-3 py-1 text-sm disabled:opacity-50">Siguiente</button></div>}
+  const totalPages = Math.max(1, Math.ceil(total / pageSize))
+  return <div className="space-y-4">
+    {error && <p className="rounded-md bg-red-50 p-3 text-sm text-red-700">{error}</p>}
+    {success && <p className="rounded-md bg-green-50 p-3 text-sm text-green-700">{success}</p>}
+    <div className="flex flex-wrap items-center gap-2"><button type="button" onClick={() => { setError(""); setView("create") }} className="rounded-md bg-blue-600 px-4 py-2 text-sm font-medium text-white">+ Nueva factura</button><input value={search} onChange={(event) => setSearch(event.target.value)} placeholder="Buscar número, serie, NIF..." className="min-w-56 rounded-md border px-3 py-2 text-sm text-gray-900" /><span className="ml-auto text-sm text-gray-500">{total} factura(s)</span></div>
+    {loading ? <p className="text-sm text-gray-500">Cargando...</p> : invoices.length === 0 ? <p className="text-sm text-gray-500">No hay facturas.</p> : <div className="overflow-x-auto rounded-md border bg-white"><table className="w-full min-w-[1100px] text-left text-sm"><thead className="bg-gray-50 text-xs text-gray-500"><tr><th className="px-3 py-2">Factura</th><th className="px-3 py-2">Proveedor</th><th className="px-3 py-2">Fecha</th><th className="px-3 py-2">Estado</th><th className="px-3 py-2">Gestoría</th><th className="px-3 py-2">Albaranes</th><th className="px-3 py-2">Pago</th><th className="px-3 py-2 text-right">Total</th><th className="px-3 py-2 text-right">Acciones</th></tr></thead><tbody className="divide-y">{invoices.map((invoice) => <tr key={invoice.id}><td className="px-3 py-2 font-medium">{invoice.series ? `${invoice.series}/` : ""}{invoice.number}{invoice.status === "ANULADA" && <span className="ml-2 text-xs text-red-600">ANULADA</span>}{Array.isArray(invoice.alerts) && invoice.alerts.length > 0 && <span className="ml-2 text-xs text-amber-600">⚠ {invoice.alerts.length}</span>}</td><td className="px-3 py-2">{invoice.supplier.legalName}</td><td className="px-3 py-2">{new Date(invoice.issueDate).toLocaleDateString("es-ES")}</td><td className="px-3 py-2 text-xs">{workflowLabel(invoice.workflowStatus)}</td><td className="px-3 py-2 text-xs">{invoice.accountingInvoice ? <a href={`/gestoria?capturaId=${invoice.accountingInvoice.id}`} className="font-medium text-green-700 underline">{reconciliationLabel(invoice.accountingInvoice.reconciliationStatus)}</a> : <a href={`/gestoria?facturaId=${invoice.id}`} className="text-blue-700 underline">Vincular captura</a>}</td><td className="px-3 py-2">{invoice._count.deliveryNotes}</td><td className="px-3 py-2">{invoice.paymentStatus}</td><td className="px-3 py-2 text-right font-semibold">{number(invoice.totalAmount)} €</td><td className="px-3 py-2 text-right"><div className="flex justify-end gap-2"><button type="button" onClick={() => void showDetail(invoice.id)} className="rounded-md border px-2 py-1 text-xs text-gray-700">Ver</button>{!invoice.accountingInvoice && isAdmin && <button type="button" onClick={() => void showDetail(invoice.id, "edit")} className="rounded-md border px-2 py-1 text-xs text-gray-700">Editar</button>}{!invoice.accountingInvoice && canDelete && <button type="button" onClick={() => void deleteInvoice(invoice.id)} className="rounded-md border border-red-200 px-2 py-1 text-xs text-red-700">Eliminar</button>}</div></td></tr>)}</tbody></table></div>}
+    {totalPages > 1 && <div className="flex items-center justify-between text-sm text-gray-600"><button type="button" disabled={page <= 1} onClick={() => setPage((value) => value - 1)} className="rounded-md border px-3 py-2 disabled:opacity-40">Anterior</button><span>Página {page} de {totalPages}</span><button type="button" disabled={page >= totalPages} onClick={() => setPage((value) => value + 1)} className="rounded-md border px-3 py-2 disabled:opacity-40">Siguiente</button></div>}
   </div>
 }

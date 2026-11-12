@@ -1,8 +1,13 @@
 "use client"
 
 import { useCallback, useEffect, useState } from "react"
+import { useSession } from "next-auth/react"
 import AccountingInvoiceForm from "./accounting-invoice-form"
+import AccountingCaptureLinkPanel from "./accounting-capture-link-panel"
+import AccountingReconciliationPanel from "./accounting-reconciliation-panel"
 import { withCalculatedAccountingTotals, type AccountingInvoiceFormData } from "@/lib/accounting-invoices"
+import { AccountingReconciliationStatus, PaymentDocumentType, UserRole, type DatabaseAccountingReconciliationStatus, type DatabasePaymentDocumentType } from "@/lib/database-enums"
+import { isRole } from "@/lib/roles"
 
 interface AccountingInvoice {
   id: string
@@ -27,6 +32,9 @@ interface AccountingInvoice {
   paymentMethod: string
   ocrText?: string | null
   source: "OCR" | "MANUAL"
+  documentType?: DatabasePaymentDocumentType | null
+  reconciliationStatus?: DatabaseAccountingReconciliationStatus | null
+  inventoryInvoice?: { id: string } | null
   alerts: unknown
   createdAt: string
   createdBy?: { name: string | null; email: string } | null
@@ -68,7 +76,31 @@ function toFormValues(invoice: AccountingInvoice): AccountingInvoiceFormData {
     paymentMethod: invoice.paymentMethod,
     ocrText: invoice.ocrText || "",
     source: invoice.source,
+    documentType: invoice.documentType || PaymentDocumentType.EXPENSE,
   })
+}
+
+function documentTypeLabel(value: DatabasePaymentDocumentType | null | undefined) {
+  if (value === PaymentDocumentType.MERCHANDISE_PURCHASE) return "Compra de mercancía"
+  if (value === PaymentDocumentType.EXPENSE) return "Gasto / servicio"
+  return "Pendiente de clasificar"
+}
+
+function reconciliationStatusLabel(value: DatabaseAccountingReconciliationStatus | null | undefined) {
+  const labels: Record<string, string> = {
+    [AccountingReconciliationStatus.UNLINKED]: "Sin vincular",
+    [AccountingReconciliationStatus.SUGGESTED]: "Sugerida",
+    [AccountingReconciliationStatus.LINKED]: "Vinculada",
+    [AccountingReconciliationStatus.ISSUE]: "Con incidencia",
+    [AccountingReconciliationStatus.NOT_APPLICABLE]: "No aplica",
+  }
+  return labels[value || AccountingReconciliationStatus.UNLINKED] || "Sin vincular"
+}
+
+function reconciliationStatusClass(value: DatabaseAccountingReconciliationStatus | null | undefined) {
+  if (value === AccountingReconciliationStatus.LINKED) return "bg-green-100 text-green-800"
+  if (value === AccountingReconciliationStatus.ISSUE) return "bg-amber-100 text-amber-800"
+  return "bg-gray-100 text-gray-700"
 }
 
 const currentDate = new Date()
@@ -77,9 +109,12 @@ const currentMonthStartValue = dateValue(currentMonthStart)
 const currentDateValue = dateValue(currentDate)
 
 export default function AccountingPanel() {
-  const [view, setView] = useState<"list" | "form">("list")
+  const { data: session } = useSession()
+  const [view, setView] = useState<"list" | "form" | "reconciliation" | "capture-link">("list")
   const [editing, setEditing] = useState<AccountingInvoiceFormData | undefined>()
   const [editingId, setEditingId] = useState<string | undefined>()
+  const [reconciliationId, setReconciliationId] = useState<string | undefined>()
+  const [captureLinkInvoiceId, setCaptureLinkInvoiceId] = useState<string | undefined>()
   const [invoices, setInvoices] = useState<AccountingInvoice[]>([])
   const [search, setSearch] = useState("")
   const [page, setPage] = useState(1)
@@ -92,6 +127,22 @@ export default function AccountingPanel() {
   const [exportFrom, setExportFrom] = useState(currentMonthStartValue)
   const [exportTo, setExportTo] = useState(currentDateValue)
   const pageSize = 20
+
+  /* eslint-disable react-hooks/set-state-in-effect */
+  useEffect(() => {
+    const captureId = new URLSearchParams(window.location.search).get("capturaId")
+    if (captureId) {
+      setReconciliationId(captureId)
+      setView("reconciliation")
+      return
+    }
+    const invoiceId = new URLSearchParams(window.location.search).get("facturaId")
+    if (invoiceId) {
+      setCaptureLinkInvoiceId(invoiceId)
+      setView("capture-link")
+    }
+  }, [])
+  /* eslint-enable react-hooks/set-state-in-effect */
 
   const loadInvoices = useCallback(async () => {
     setLoading(true)
@@ -120,6 +171,13 @@ export default function AccountingPanel() {
     setError("")
     setSuccess("")
     setView("form")
+  }
+
+  function openReconciliation(id: string) {
+    setError("")
+    setSuccess("")
+    setReconciliationId(id)
+    setView("reconciliation")
   }
 
   function startEdit(invoice: AccountingInvoice) {
@@ -197,6 +255,23 @@ export default function AccountingPanel() {
     }
   }
 
+  if (view === "reconciliation" && reconciliationId) {
+    return <AccountingReconciliationPanel
+      captureId={reconciliationId}
+      canUnlink={isRole(session?.user?.role, UserRole.ADMIN)}
+      onBack={() => { setView("list"); setReconciliationId(undefined) }}
+      onComplete={(message) => { setSuccess(message); setView("list"); setReconciliationId(undefined); void loadInvoices() }}
+    />
+  }
+
+  if (view === "capture-link" && captureLinkInvoiceId) {
+    return <AccountingCaptureLinkPanel
+      invoiceId={captureLinkInvoiceId}
+      onBack={() => { setView("list"); setCaptureLinkInvoiceId(undefined) }}
+      onComplete={(message) => { setSuccess(message); setView("list"); setCaptureLinkInvoiceId(undefined); void loadInvoices() }}
+    />
+  }
+
   if (view === "form") return <section className="rounded-lg border bg-white p-4 shadow-sm sm:p-6"><div className="mb-4 flex items-center justify-between gap-3"><div><h2 className="text-lg font-semibold text-gray-900">{editing ? "Editar factura de gestoría" : "Nueva factura de gestoría"}</h2><p className="text-xs text-gray-500">Sin proveedor ni producto del catálogo.</p></div><button type="button" onClick={() => { setView("list"); setEditing(undefined); setEditingId(undefined) }} className="rounded-md border px-3 py-2 text-sm text-gray-700">Volver</button></div>{error && <p className="mb-3 rounded-md bg-red-50 p-3 text-sm text-red-700">{error}</p>}<AccountingInvoiceForm initialValues={editing} onCancel={() => { setView("list"); setEditing(undefined); setEditingId(undefined) }} onSubmit={saveInvoice} saving={saving} /></section>
 
   const totalPages = Math.max(1, Math.ceil(total / pageSize))
@@ -211,11 +286,12 @@ export default function AccountingPanel() {
          <div className="mt-4 flex flex-col gap-2 border-t pt-4 sm:flex-row sm:items-end">
           <label className="text-xs text-gray-600"><span className="mb-1 block font-medium">Subida desde</span><input type="date" value={exportFrom} max={exportTo || undefined} onChange={(event) => setExportFrom(event.target.value)} className="rounded-md border px-3 py-2 text-sm text-gray-900" /></label>
           <label className="text-xs text-gray-600"><span className="mb-1 block font-medium">Subida hasta</span><input type="date" value={exportTo} min={exportFrom || undefined} onChange={(event) => setExportTo(event.target.value)} className="rounded-md border px-3 py-2 text-sm text-gray-900" /></label>
-         <button type="button" onClick={() => void exportInvoices()} disabled={exporting || !exportFrom || !exportTo || exportFrom > exportTo} className="rounded-md border border-gray-300 px-3 py-2 text-sm font-medium text-gray-700 disabled:opacity-60">{exporting ? "Generando..." : "Exportar Excel"}</button>
-       </div>
-    </div>
+          <button type="button" onClick={() => void exportInvoices()} disabled={exporting || !exportFrom || !exportTo || exportFrom > exportTo} className="rounded-md border border-gray-300 px-3 py-2 text-sm font-medium text-gray-700 disabled:opacity-60">{exporting ? "Generando..." : "Exportar Excel"}</button>
+        </div>
+        <p className="mt-2 text-xs text-gray-500">La exportación de gestoría incluye capturas sin vínculo; las vinculadas aparecen una sola vez en la exportación operativa.</p>
+      </div>
     <div className="flex flex-col gap-2 sm:flex-row sm:items-center"><input value={search} onChange={(event) => { setSearch(event.target.value); setPage(1) }} placeholder="Buscar factura, proveedor, NIF..." className="min-w-0 flex-1 rounded-md border px-3 py-2 text-sm text-gray-900" /><span className="text-sm text-gray-500">{total} registro(s)</span></div>
-     {loading ? <p className="text-sm text-gray-500">Cargando...</p> : invoices.length === 0 ? <div className="rounded-lg border bg-white p-8 text-center text-sm text-gray-500">No hay facturas capturadas.</div> : <div className="overflow-x-auto rounded-lg border bg-white shadow-sm"><table className="w-full min-w-[900px] text-left text-sm text-black"><thead className="bg-gray-50 text-xs text-black"><tr><th className="px-3 py-2">Fecha</th><th className="px-3 py-2">Subida</th><th className="px-3 py-2">Factura Nº</th><th className="px-3 py-2">Proveedor / acreedor</th><th className="px-3 py-2">NIF</th><th className="px-3 py-2">Origen</th><th className="px-3 py-2 text-right">Total</th><th className="px-3 py-2 text-right">Acciones</th></tr></thead><tbody className="divide-y">{invoices.map((invoice) => { const invoiceAlerts = alerts(invoice.alerts); return <tr key={invoice.id}><td className="whitespace-nowrap px-3 py-3">{new Date(invoice.date).toLocaleDateString("es-ES")}</td><td className="whitespace-nowrap px-3 py-3 text-xs text-gray-600">{timestamp(invoice.createdAt)}</td><td className="px-3 py-3 font-medium">{invoice.invoiceNumber || "Sin número"}</td><td className="px-3 py-3">{invoice.supplierOrCreditor}</td><td className="px-3 py-3">{invoice.taxId || "-"}</td><td className="px-3 py-3 text-xs">{invoice.source}{invoiceAlerts.length > 0 && <span className="ml-2 text-amber-700">⚠ {invoiceAlerts.length}</span>}</td><td className="px-3 py-3 text-right font-semibold">{number(invoice.invoiceTotal)} €</td><td className="px-3 py-3 text-right"><div className="flex justify-end gap-2"><button type="button" onClick={() => startEdit(invoice)} className="rounded-md border px-2 py-1 text-xs text-gray-700">Editar</button><button type="button" onClick={() => void deleteInvoice(invoice.id)} className="rounded-md border border-red-200 px-2 py-1 text-xs text-red-700">Eliminar</button></div></td></tr> })}</tbody></table></div>}
+     {loading ? <p className="text-sm text-gray-500">Cargando...</p> : invoices.length === 0 ? <div className="rounded-lg border bg-white p-8 text-center text-sm text-gray-500">No hay facturas capturadas.</div> : <div className="overflow-x-auto rounded-lg border bg-white shadow-sm"><table className="w-full min-w-[1100px] text-left text-sm text-black"><thead className="bg-gray-50 text-xs text-black"><tr><th className="px-3 py-2">Fecha</th><th className="px-3 py-2">Subida</th><th className="px-3 py-2">Factura Nº</th><th className="px-3 py-2">Proveedor / acreedor</th><th className="px-3 py-2">NIF</th><th className="px-3 py-2">Tipo</th><th className="px-3 py-2">Vinculación</th><th className="px-3 py-2">Origen</th><th className="px-3 py-2 text-right">Total</th><th className="px-3 py-2 text-right">Acciones</th></tr></thead><tbody className="divide-y">{invoices.map((invoice) => { const invoiceAlerts = alerts(invoice.alerts); const linked = Boolean(invoice.inventoryInvoice); return <tr key={invoice.id}><td className="whitespace-nowrap px-3 py-3">{new Date(invoice.date).toLocaleDateString("es-ES")}</td><td className="whitespace-nowrap px-3 py-3 text-xs text-gray-600">{timestamp(invoice.createdAt)}</td><td className="px-3 py-3 font-medium">{invoice.invoiceNumber || "Sin número"}</td><td className="px-3 py-3">{invoice.supplierOrCreditor}</td><td className="px-3 py-3">{invoice.taxId || "-"}</td><td className="px-3 py-3 text-xs">{documentTypeLabel(invoice.documentType)}</td><td className="px-3 py-3 text-xs"><span className={`rounded-full px-2 py-1 font-medium ${reconciliationStatusClass(invoice.reconciliationStatus)}`}>{reconciliationStatusLabel(invoice.reconciliationStatus)}</span>{linked && <button type="button" onClick={() => openReconciliation(invoice.id)} className="ml-2 text-blue-700 underline">Ver factura operativa</button>}</td><td className="px-3 py-3 text-xs">{invoice.source}{invoiceAlerts.length > 0 && <span className="ml-2 text-amber-700">⚠ {invoiceAlerts.length}</span>}</td><td className="px-3 py-3 text-right font-semibold">{number(invoice.invoiceTotal)} €</td><td className="px-3 py-3 text-right"><div className="flex justify-end gap-2">{!linked && <button type="button" onClick={() => openReconciliation(invoice.id)} className="rounded-md border border-blue-200 px-2 py-1 text-xs text-blue-700">{invoice.documentType === PaymentDocumentType.EXPENSE ? "Revisar" : invoice.documentType === PaymentDocumentType.MERCHANDISE_PURCHASE ? "Vincular albaranes" : "Revisar / vincular"}</button>}{!linked && <button type="button" onClick={() => startEdit(invoice)} className="rounded-md border px-2 py-1 text-xs text-gray-700">Editar</button>}{linked && <button type="button" onClick={() => openReconciliation(invoice.id)} className="rounded-md border px-2 py-1 text-xs text-gray-700">Ver vínculo</button>}{!linked && <button type="button" onClick={() => void deleteInvoice(invoice.id)} className="rounded-md border border-red-200 px-2 py-1 text-xs text-red-700">Eliminar</button>}</div></td></tr> })}</tbody></table></div>}
     {totalPages > 1 && <div className="flex items-center justify-between text-sm text-gray-600"><button type="button" disabled={page <= 1} onClick={() => setPage((value) => value - 1)} className="rounded-md border px-3 py-2 disabled:opacity-40">Anterior</button><span>Página {page} de {totalPages}</span><button type="button" disabled={page >= totalPages} onClick={() => setPage((value) => value + 1)} className="rounded-md border px-3 py-2 disabled:opacity-40">Siguiente</button></div>}
   </section>
 }

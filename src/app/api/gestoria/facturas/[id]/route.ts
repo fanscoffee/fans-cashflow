@@ -8,7 +8,9 @@ import {
   accountingInvoiceSchema,
   accountingDbData,
   calculateAccountingTotals,
+  comparableAccountingInvoiceNumber,
   normalizeAccountingInvoiceNumber,
+  normalizeAccountingInvoiceReference,
   normalizeAccountingTaxId,
 } from "@/lib/accounting-invoices"
 import { toN } from "@/lib/money"
@@ -34,15 +36,31 @@ async function alertsFor(input: ReturnType<typeof accountingInvoiceSchema.parse>
   const taxId = normalizeAccountingTaxId(input.taxId)
   const invoiceNumber = normalizeAccountingInvoiceNumber(input.invoiceNumber)
   if (taxId && invoiceNumber) {
-    const duplicate = await prisma.accountingInvoice.findFirst({
-      where: {
-        taxId,
-        invoiceNumber,
-        ...(excludeId ? { NOT: { id: excludeId } } : {}),
-      },
-      select: { id: true },
+    const [duplicate, operationalCandidates] = await Promise.all([
+      prisma.accountingInvoice.findFirst({
+        where: {
+          taxId,
+          invoiceNumber,
+          ...(excludeId ? { NOT: { id: excludeId } } : {}),
+        },
+        select: { id: true },
+      }),
+      prisma.invoice.findMany({
+        where: {
+          OR: [
+            { issuerTaxId: { in: [taxId, input.taxId.trim().toUpperCase()] } },
+            { supplier: { taxId } },
+          ],
+        },
+        select: { id: true, series: true, number: true, issuerTaxId: true, supplier: { select: { taxId: true } } },
+      }),
+    ])
+    if (duplicate) alerts.push("Posible duplicado: ya existe una captura con el mismo NIF y número")
+    const operationalDuplicate = operationalCandidates.find((candidate) => {
+      const taxIds = [candidate.issuerTaxId, candidate.supplier.taxId].map(normalizeAccountingTaxId)
+      return taxIds.includes(taxId) && comparableAccountingInvoiceNumber(candidate.series, candidate.number) === normalizeAccountingInvoiceReference(invoiceNumber)
     })
-    if (duplicate) alerts.push("Posible duplicado: ya existe una factura con el mismo NIF y número")
+    if (operationalDuplicate) alerts.push("Posible duplicado: ya existe una factura operativa con el mismo NIF y número; revisa si debes vincular la captura existente")
   }
   return Array.from(new Set(alerts))
 }
@@ -50,7 +68,24 @@ async function alertsFor(input: ReturnType<typeof accountingInvoiceSchema.parse>
 export const GET = withAuth(async (_request, session, context) => {
   if (!canAccessAccounting(session.user.role)) return NextResponse.json({ error: "No autorizado" }, { status: 403 })
   const { id } = await context.params
-  const invoice = await prisma.accountingInvoice.findUnique({ include: { createdBy: { select: { name: true, email: true } } }, where: { id } })
+    const invoice = await prisma.accountingInvoice.findUnique({
+      include: {
+        createdBy: { select: { name: true, email: true } },
+        supplier: { select: { id: true, legalName: true, taxId: true, billingAddress: true } },
+        inventoryInvoice: {
+          select: {
+            id: true,
+            series: true,
+            number: true,
+            workflowStatus: true,
+            totalAmount: true,
+            deliveryNotes: { select: { id: true, deliveryNoteCode: true, receivedAt: true } },
+          },
+        },
+        linkedBy: { select: { id: true, name: true, email: true } },
+      },
+      where: { id },
+    })
   if (!invoice) return NextResponse.json({ error: "Factura de gestoría no encontrada" }, { status: 404 })
   return NextResponse.json(serializeInvoice(invoice as unknown as Record<string, unknown>))
 })
@@ -60,8 +95,9 @@ export const PATCH = withAuth(async (request, session, context) => {
   const { id } = await context.params
 
   try {
-    const existing = await prisma.accountingInvoice.findUnique({ where: { id }, select: { id: true, createdById: true } })
+    const existing = await prisma.accountingInvoice.findUnique({ where: { id }, select: { id: true, createdById: true, inventoryInvoiceId: true } })
     if (!existing) return NextResponse.json({ error: "Factura de gestoría no encontrada" }, { status: 404 })
+    if (existing.inventoryInvoiceId) return NextResponse.json({ error: "Desvincula la captura antes de editarla", code: "CAPTURE_ALREADY_LINKED" }, { status: 409 })
     const parsed = accountingInvoiceSchema.safeParse(await request.json())
     if (!parsed.success) return NextResponse.json({ error: parsed.error.issues[0]?.message || "Datos no válidos" }, { status: 400 })
     const input = parsed.data
@@ -77,6 +113,9 @@ export const DELETE = withAuth(async (_request, session, context) => {
   if (!canAccessAccounting(session.user.role)) return NextResponse.json({ error: "No autorizado" }, { status: 403 })
   const { id } = await context.params
   try {
+    const existing = await prisma.accountingInvoice.findUnique({ where: { id }, select: { id: true, inventoryInvoiceId: true } })
+    if (!existing) return NextResponse.json({ error: "Factura de gestoría no encontrada" }, { status: 404 })
+    if (existing.inventoryInvoiceId) return NextResponse.json({ error: "Desvincula la captura antes de eliminarla", code: "CAPTURE_ALREADY_LINKED" }, { status: 409 })
     const invoice = await prisma.accountingInvoice.delete({ where: { id }, select: { id: true } })
     return NextResponse.json({ ok: true, id: invoice.id })
   } catch {

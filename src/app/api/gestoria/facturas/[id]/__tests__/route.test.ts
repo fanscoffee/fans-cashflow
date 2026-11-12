@@ -9,6 +9,7 @@ vi.mock("@/lib/prisma", () => ({
       update: vi.fn(),
       delete: vi.fn(),
     },
+    invoice: { findMany: vi.fn() },
   },
 }))
 
@@ -61,6 +62,7 @@ describe("/api/gestoria/facturas/[id]", () => {
     vi.mocked(auth).mockResolvedValue({ user: { id: "admin-1", role: "ADMIN" } } as any)
     vi.mocked(prisma.accountingInvoice.findUnique).mockResolvedValue(stored as any)
     vi.mocked(prisma.accountingInvoice.findFirst).mockResolvedValue(null)
+    vi.mocked(prisma.invoice.findMany).mockResolvedValue([] as any)
     vi.mocked(prisma.accountingInvoice.update).mockResolvedValue(stored as any)
     vi.mocked(prisma.accountingInvoice.delete).mockResolvedValue({ id: "gestoria-1" } as any)
   })
@@ -78,5 +80,15 @@ describe("/api/gestoria/facturas/[id]", () => {
     expect((await GET(request(), context)).status).toBe(403)
     expect((await PATCH(request("PATCH", body), context)).status).toBe(403)
     expect((await DELETE(request("DELETE"), context)).status).toBe(403)
+  })
+
+  it("requires unlinking a capture before deleting it", async () => {
+    vi.mocked(prisma.accountingInvoice.findUnique).mockResolvedValue({ id: "gestoria-1", inventoryInvoiceId: "invoice-1" } as any)
+
+    const response = await DELETE(request("DELETE"), context)
+
+    expect(response.status).toBe(409)
+    await expect(response.json()).resolves.toMatchObject({ code: "CAPTURE_ALREADY_LINKED" })
+    expect(prisma.accountingInvoice.delete).not.toHaveBeenCalled()
   })
 })

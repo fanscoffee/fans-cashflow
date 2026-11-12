@@ -24,6 +24,7 @@ export const ACCOUNTING_HEADERS = [
   "IRPF",
   "TOTAL FACTURA",
   "FORMA PAGO",
+  "ORIGEN",
 ] as const
 
 type NumericValue = number | string | { toString(): string } | null | undefined
@@ -64,6 +65,7 @@ export type AccountingInvoiceSource = {
   creditor: CreditorSource | null
   taxes: TaxSource[]
   applications: PaymentSource[]
+  accountingInvoice?: { id: string } | null
 }
 
 export type AccountingExpenseSource = {
@@ -125,6 +127,7 @@ export type AccountingExportRow = {
   withholdingTax: number
   invoiceTotal: number
   paymentMethod: string
+  origin: string
   voided?: boolean
 }
 
@@ -237,7 +240,8 @@ function invoiceRow(invoice: AccountingInvoiceSource): AccountingExportRow {
     withholdingTax: money(invoice.withholdingTotal),
     invoiceTotal: money(invoice.totalAmount),
     paymentMethod: paymentForm(invoice.paymentMethod, invoice.applications),
-    voided: invoice.workflowStatus === "ANULADA",
+    origin: invoice.accountingInvoice ? "FACTURA OPERATIVA + GESTORÍA" : "FACTURA OPERATIVA",
+    voided: invoice.workflowStatus === "VOID" || invoice.workflowStatus === "ANULADA",
   }
 
   for (const tax of invoice.taxes) addTax(row, tax)
@@ -271,6 +275,7 @@ function expenseRow(expense: AccountingExpenseSource): AccountingExportRow {
     withholdingTax: 0,
     invoiceTotal: money(expense.amount),
     paymentMethod: paymentForm(null, expense.applications),
+    origin: "GASTO CORRIENTE",
   }
 }
 
@@ -297,6 +302,7 @@ function legacyExpenseRow(expense: AccountingLegacyExpenseSource): AccountingExp
     withholdingTax: 0,
     invoiceTotal: amount,
     paymentMethod: "EFECTIVO",
+    origin: "GASTO TURNO LEGACY",
   }
 }
 
@@ -322,6 +328,7 @@ function capturedRow(invoice: AccountingCapturedSource): AccountingExportRow {
     withholdingTax: money(invoice.withholdingTax),
     invoiceTotal: money(invoice.invoiceTotal),
     paymentMethod: invoice.paymentMethod,
+    origin: "CAPTURA GESTORÍA SIN VÍNCULO",
   }
 }
 
@@ -364,6 +371,7 @@ function rowValues(row: AccountingExportRow) {
     row.withholdingTax,
     row.invoiceTotal,
     row.paymentMethod,
+    row.origin,
   ]
 }
 
@@ -391,6 +399,7 @@ function totalValues(rows: AccountingExportRow[]) {
     total((row) => row.withholdingTax),
     total((row) => row.invoiceTotal),
     null,
+    null,
   ]
 }
 
@@ -415,6 +424,7 @@ export async function buildAccountingWorkbook(rows: AccountingExportRow[]) {
     { width: 14 },
     { width: 18 },
     { width: 18 },
+    { width: 30 },
   ]
 
   const header = sheet.addRow([...ACCOUNTING_HEADERS])

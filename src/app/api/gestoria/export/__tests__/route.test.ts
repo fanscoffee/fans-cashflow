@@ -37,7 +37,7 @@ describe("GET /api/gestoria/export", () => {
     const workbook = new ExcelJS.Workbook()
     await workbook.xlsx.load(await response.arrayBuffer())
     expect(workbook.getWorksheet("Gastos y Compras Fans")).toBeDefined()
-    expect(prisma.accountingInvoice.findMany).toHaveBeenCalledWith(expect.objectContaining({ where: { createdAt: { gte: new Date("2026-07-15T00:00:00.000Z"), lt: new Date("2026-07-21T00:00:00.000Z") } } }))
+    expect(prisma.accountingInvoice.findMany).toHaveBeenCalledWith(expect.objectContaining({ where: { createdAt: { gte: new Date("2026-07-15T00:00:00.000Z"), lt: new Date("2026-07-21T00:00:00.000Z") }, inventoryInvoiceId: null } }))
   })
 
   it("rejects invalid or reversed date ranges", async () => {

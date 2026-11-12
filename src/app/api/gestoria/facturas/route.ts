@@ -8,7 +8,9 @@ import {
   accountingInvoiceSchema,
   accountingDbData,
   calculateAccountingTotals,
+  comparableAccountingInvoiceNumber,
   normalizeAccountingInvoiceNumber,
+  normalizeAccountingInvoiceReference,
   normalizeAccountingTaxId,
 } from "@/lib/accounting-invoices"
 import { toN } from "@/lib/money"
@@ -34,15 +36,31 @@ async function alertsFor(input: ReturnType<typeof accountingInvoiceSchema.parse>
   const taxId = normalizeAccountingTaxId(input.taxId)
   const invoiceNumber = normalizeAccountingInvoiceNumber(input.invoiceNumber)
   if (taxId && invoiceNumber) {
-    const duplicate = await prisma.accountingInvoice.findFirst({
-      where: {
-        taxId,
-        invoiceNumber,
-        ...(excludeId ? { NOT: { id: excludeId } } : {}),
-      },
-      select: { id: true },
+    const [duplicate, operationalCandidates] = await Promise.all([
+      prisma.accountingInvoice.findFirst({
+        where: {
+          taxId,
+          invoiceNumber,
+          ...(excludeId ? { NOT: { id: excludeId } } : {}),
+        },
+        select: { id: true },
+      }),
+      prisma.invoice.findMany({
+        where: {
+          OR: [
+            { issuerTaxId: { in: [taxId, input.taxId.trim().toUpperCase()] } },
+            { supplier: { taxId } },
+          ],
+        },
+        select: { id: true, series: true, number: true, issuerTaxId: true, supplier: { select: { taxId: true } } },
+      }),
+    ])
+    if (duplicate) alerts.push("Posible duplicado: ya existe una captura con el mismo NIF y número")
+    const operationalDuplicate = operationalCandidates.find((candidate) => {
+      const taxIds = [candidate.issuerTaxId, candidate.supplier.taxId].map(normalizeAccountingTaxId)
+      return taxIds.includes(taxId) && comparableAccountingInvoiceNumber(candidate.series, candidate.number) === normalizeAccountingInvoiceReference(invoiceNumber)
     })
-    if (duplicate) alerts.push("Posible duplicado: ya existe una factura con el mismo NIF y número")
+    if (operationalDuplicate) alerts.push("Posible duplicado: ya existe una factura operativa con el mismo NIF y número; revisa si debes vincular la captura existente")
   }
   return Array.from(new Set(alerts))
 }
@@ -69,7 +87,10 @@ export const GET = withAuth(async (request, session) => {
       skip: (page - 1) * pageSize,
       take: pageSize,
       orderBy: [{ date: "desc" }, { createdAt: "desc" }],
-      include: { createdBy: { select: { name: true, email: true } } },
+      include: {
+        createdBy: { select: { name: true, email: true } },
+        inventoryInvoice: { select: { id: true } },
+      },
     }),
     prisma.accountingInvoice.count({ where }),
   ])
