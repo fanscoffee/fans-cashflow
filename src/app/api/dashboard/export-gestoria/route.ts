@@ -56,6 +56,7 @@ export const GET = withAuth(async (request, session) => {
           documentType: true,
           workflowStatus: true,
           paymentMethod: true,
+          entity: true,
           issuerLegalName: true,
           issuerTaxId: true,
           netTotal: true,
@@ -80,6 +81,7 @@ export const GET = withAuth(async (request, session) => {
         },
         select: {
           accrualDate: true,
+          entity: true,
           concept: true,
           amount: true,
           receipt: true,

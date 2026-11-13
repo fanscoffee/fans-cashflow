@@ -9,6 +9,7 @@ export const ACCOUNTING_HEADERS = [
   "Factura Nº",
   "Proveedor / Acreedor",
   "NIF",
+  "ENTIDAD",
   "Concepto",
   "BASE EXENTA",
   "Base Imponible 21%",
@@ -62,6 +63,7 @@ export type AccountingInvoiceSource = {
   withholdingTotal: NumericValue
   totalAmount: NumericValue
   supplier: { legalName: string; taxId: string }
+  entity?: string | null
   creditor: CreditorSource | null
   taxes: TaxSource[]
   applications: PaymentSource[]
@@ -69,6 +71,7 @@ export type AccountingInvoiceSource = {
 }
 
 export type AccountingExpenseSource = {
+  entity?: string | null
   accrualDate: Date
   concept: string
   amount: NumericValue
@@ -104,6 +107,7 @@ export type AccountingCapturedSource = {
   withholdingTax: NumericValue
   invoiceTotal: NumericValue
   paymentMethod: string
+  entity?: string | null
 }
 
 export type AccountingExportRow = {
@@ -112,6 +116,7 @@ export type AccountingExportRow = {
   invoiceNumber: string
   supplier: string
   taxId: string
+  entity: string | null
   concept: string
   exemptBase: number
   base21: number
@@ -165,6 +170,13 @@ const CREDITOR_CONCEPTS: Record<string, string> = {
   OTROS: "GASTO",
 }
 
+const ENTITY_LABELS: Record<string, string> = {
+  BAKERY: "Obrador",
+  OBRADOR: "Obrador",
+  COFFEE_SHOP: "Cafetería",
+  CAFETERIA: "Cafetería",
+}
+
 function money(value: NumericValue) {
   return Math.round(toN(value) * 100) / 100
 }
@@ -184,6 +196,10 @@ function paymentForm(explicit: string | null, applications: PaymentSource[]) {
   const hasCash = labels.includes("EFECTIVO")
   if (hasBank && hasCash) return "BANCO Y EFECTIVO"
   return labels.join(", ")
+}
+
+function entityLabel(value: string | null | undefined) {
+  return value ? ENTITY_LABELS[value] || value : ""
 }
 
 function conceptForInvoice(invoice: AccountingInvoiceSource) {
@@ -225,6 +241,7 @@ function invoiceRow(invoice: AccountingInvoiceSource): AccountingExportRow {
     invoiceNumber: invoice.series ? `${invoice.series}/${invoice.number}` : invoice.number,
     supplier: invoice.supplier.legalName || invoice.issuerLegalName,
     taxId: invoice.supplier.taxId || invoice.issuerTaxId,
+    entity: invoice.entity || null,
     concept: conceptForInvoice(invoice),
     exemptBase: 0,
     base21: 0,
@@ -260,6 +277,7 @@ function expenseRow(expense: AccountingExpenseSource): AccountingExportRow {
     invoiceNumber: "",
     supplier: provider,
     taxId: expense.creditor?.taxId || "",
+    entity: expense.entity || null,
     concept: expense.category.name.toUpperCase() || expense.concept.toUpperCase(),
     exemptBase: money(expense.amount),
     base21: 0,
@@ -287,6 +305,7 @@ function legacyExpenseRow(expense: AccountingLegacyExpenseSource): AccountingExp
     invoiceNumber: "",
     supplier: expense.supplier,
     taxId: "",
+    entity: null,
     concept: "GASTO TURNO LEGACY",
     exemptBase: amount,
     base21: 0,
@@ -313,6 +332,7 @@ function capturedRow(invoice: AccountingCapturedSource): AccountingExportRow {
     invoiceNumber: invoice.invoiceNumber,
     supplier: invoice.supplierOrCreditor,
     taxId: invoice.taxId,
+    entity: invoice.entity || "BAKERY",
     concept: invoice.concept,
     exemptBase: money(invoice.exemptBase),
     base21: money(invoice.base21),
@@ -356,6 +376,7 @@ function rowValues(row: AccountingExportRow) {
     row.invoiceNumber,
     row.supplier,
     row.taxId,
+    entityLabel(row.entity),
     row.concept,
     row.exemptBase,
     row.base21,
@@ -380,6 +401,7 @@ function totalValues(rows: AccountingExportRow[]) {
   const total = (selector: (row: AccountingExportRow) => number) => money(included.reduce((sum, row) => sum + selector(row), 0))
   return [
     "TOTAL",
+    null,
     null,
     null,
     null,
@@ -417,6 +439,7 @@ export async function buildAccountingWorkbook(rows: AccountingExportRow[]) {
     { width: 18 },
     { width: 36 },
     { width: 16 },
+    { width: 16 },
     { width: 18 },
     ...Array.from({ length: 9 }, () => ({ width: 17 })),
     { width: 20 },
@@ -442,7 +465,7 @@ export async function buildAccountingWorkbook(rows: AccountingExportRow[]) {
     const excelRow = sheet.addRow(rowValues(row))
     excelRow.getCell(2).numFmt = "dd/mm/yyyy"
     excelRow.eachCell((cell, columnNumber) => {
-      cell.alignment = { vertical: "middle", wrapText: columnNumber >= 4 && columnNumber <= 6 }
+      cell.alignment = { vertical: "middle", wrapText: columnNumber >= 4 && columnNumber <= 7 }
       if (index % 2 === 1) cell.fill = { type: "pattern", pattern: "solid", fgColor: { argb: "FFF3F6F9" } }
     })
   }
@@ -452,7 +475,7 @@ export async function buildAccountingWorkbook(rows: AccountingExportRow[]) {
   totalRow.fill = { type: "pattern", pattern: "solid", fgColor: { argb: "FFD9EAF7" } }
   totalRow.border = { top: { style: "medium", color: { argb: "FF1F4E78" } } }
 
-  for (const columnNumber of Array.from({ length: 13 }, (_, index) => index + 7)) {
+  for (const columnNumber of Array.from({ length: 13 }, (_, index) => index + 8)) {
     sheet.getColumn(columnNumber).numFmt = "#,##0.00"
   }
   sheet.getColumn(2).numFmt = "dd/mm/yyyy"

@@ -58,6 +58,7 @@ export const GET = withAuth(async (request, session) => {
         withholdingTax: true,
         invoiceTotal: true,
         paymentMethod: true,
+        entity: true,
       },
       orderBy: [{ date: "asc" }, { createdAt: "asc" }],
     })
