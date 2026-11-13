@@ -7,7 +7,7 @@ import AccountingCaptureLinkPanel from "./accounting-capture-link-panel"
 import AccountingReconciliationPanel from "./accounting-reconciliation-panel"
 import AccountingInvoiceActions from "./accounting-invoice-actions"
 import { withCalculatedAccountingTotals, type AccountingInvoiceFormData } from "@/lib/accounting-invoices"
-import { AccountingReconciliationStatus, PaymentDocumentType, UserRole, type DatabaseAccountingReconciliationStatus, type DatabasePaymentDocumentType } from "@/lib/database-enums"
+import { AccountingReconciliationStatus, PaymentDocumentType, PaymentEntity, UserRole, type DatabaseAccountingReconciliationStatus, type DatabasePaymentDocumentType, type DatabasePaymentEntity } from "@/lib/database-enums"
 import { MONTH_NAMES } from "@/lib/constants"
 import { hasAnyRole } from "@/lib/roles"
 
@@ -34,6 +34,7 @@ interface AccountingInvoice {
   paymentMethod: string
   ocrText?: string | null
   source: "OCR" | "MANUAL"
+  entity?: DatabasePaymentEntity | null
   documentType?: DatabasePaymentDocumentType | null
   reconciliationStatus?: DatabaseAccountingReconciliationStatus | null
   inventoryInvoice?: { id: string } | null
@@ -76,6 +77,7 @@ function toFormValues(invoice: AccountingInvoice): AccountingInvoiceFormData {
     paymentMethod: invoice.paymentMethod,
     ocrText: invoice.ocrText || "",
     source: invoice.source,
+    entity: invoice.entity || PaymentEntity.BAKERY,
     documentType: invoice.documentType || PaymentDocumentType.EXPENSE,
   })
 }
@@ -84,6 +86,10 @@ function documentTypeLabel(value: DatabasePaymentDocumentType | null | undefined
   if (value === PaymentDocumentType.MERCHANDISE_PURCHASE) return "Compra de mercancía"
   if (value === PaymentDocumentType.EXPENSE) return "Gasto / servicio"
   return "Pendiente de clasificar"
+}
+
+function entityLabel(value: DatabasePaymentEntity | null | undefined) {
+  return value === PaymentEntity.COFFEE_SHOP ? "Cafetería" : "Obrador"
 }
 
 function reconciliationStatusLabel(value: DatabaseAccountingReconciliationStatus | null | undefined) {
@@ -327,6 +333,7 @@ export default function AccountingPanel() {
                <th scope="col" className="whitespace-nowrap px-4 py-3">Factura Nº</th>
                <th scope="col" className="px-4 py-3">Proveedor / acreedor</th>
                <th scope="col" className="whitespace-nowrap px-4 py-3">NIF</th>
+               <th scope="col" className="whitespace-nowrap px-4 py-3">Entidad</th>
                <th scope="col" className="whitespace-nowrap px-4 py-3">Tipo</th>
                <th scope="col" className="whitespace-nowrap px-4 py-3">Vinculación</th>
                <th scope="col" className="whitespace-nowrap px-4 py-3 text-right">Total</th>
@@ -343,6 +350,7 @@ export default function AccountingPanel() {
                    <td className="whitespace-nowrap px-4 py-4 align-middle font-semibold text-gray-900">{invoice.invoiceNumber || "Sin número"}</td>
                    <td className="px-4 py-4 align-middle font-medium text-gray-900"><div className="max-w-[230px] break-words">{invoice.supplierOrCreditor || "—"}</div></td>
                    <td className="whitespace-nowrap px-4 py-4 align-middle font-mono text-xs text-gray-700">{invoice.taxId || "-"}</td>
+                   <td className="px-4 py-4 align-middle text-xs"><span className={`inline-flex whitespace-nowrap rounded-full px-2.5 py-1 font-medium ${invoice.entity === PaymentEntity.COFFEE_SHOP ? "bg-purple-100 text-purple-800" : "bg-orange-100 text-orange-800"}`}>{entityLabel(invoice.entity)}</span></td>
                    <td className="px-4 py-4 align-middle text-xs"><span className="inline-flex whitespace-nowrap rounded-full bg-gray-100 px-2.5 py-1 font-medium text-gray-700">{documentTypeLabel(invoice.documentType)}</span></td>
                    <td className="min-w-[180px] px-4 py-4 align-middle text-xs"><span className={`inline-flex whitespace-nowrap rounded-full px-2.5 py-1 font-medium ${reconciliationStatusClass(invoice.reconciliationStatus)}`}>{reconciliationStatusLabel(invoice.reconciliationStatus)}</span></td>
                    <td className="whitespace-nowrap px-4 py-4 text-right align-middle text-base font-semibold tabular-nums text-gray-900">{number(invoice.invoiceTotal)} €</td>

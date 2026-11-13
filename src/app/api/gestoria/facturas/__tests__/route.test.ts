@@ -47,6 +47,7 @@ function validBody(overrides: Record<string, unknown> = {}) {
     paymentMethod: "BANCO",
     ocrText: "texto",
     source: "OCR",
+    entity: "COFFEE_SHOP",
     ...overrides,
   }
 }
@@ -126,6 +127,7 @@ describe("GET/POST /api/gestoria/facturas", () => {
     expect(response.status).toBe(201)
     await expect(response.json()).resolves.toMatchObject({ invoice: { id: "gestoria-1" }, alerts: ["Posible duplicado: ya existe una captura con el mismo NIF y número"] })
     expect(prisma.accountingInvoice.create).toHaveBeenCalledWith(expect.objectContaining({ data: expect.objectContaining({ supplierOrCreditor: "Proveedor independiente", taxId: "B12345678", invoiceTotal: 121, createdById: "admin-1" }) }))
+    expect(prisma.accountingInvoice.create).toHaveBeenCalledWith(expect.objectContaining({ data: expect.objectContaining({ entity: "COFFEE_SHOP" }) }))
   })
 
   it("warns when an operational invoice already has the normalized NIF and number", async () => {

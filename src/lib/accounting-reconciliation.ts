@@ -46,6 +46,7 @@ export type AccountingCaptureForReconciliation = {
   withholdingTax: unknown
   invoiceTotal: unknown
   paymentMethod: string
+  entity?: DatabasePaymentEntity | null
   documentType?: string | null
   reconciliationStatus?: string | null
   supplierId?: string | null
