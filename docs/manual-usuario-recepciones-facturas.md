@@ -49,7 +49,9 @@ vinculadas no se pueden editar ni eliminar hasta desvincularlas.
    - cantidad realmente recibida;
    - coste unitario **sin IVA**;
    - lote y vencimiento, si proceden.
-7. Introducir el **Importe de transporte** del albarán.
+7. Introducir el **Importe de transporte** sin IVA. En albaranes de Mercadona,
+   la importación calcula este importe a partir del PVP bruto y del desglose de
+   IVA del documento.
 8. Revisar el total y pulsar **Registrar recepción**.
 
 ### Perfiles SOCIO y ADMIN
@@ -68,6 +70,26 @@ producto. El coste que se introduce en la recepción es sin IVA.
 - No reutilizar un albarán ya registrado.
 - Usar las notas para faltas, sustituciones o incidencias de entrega.
 - Si no aparecen productos, pedir a un SOCIO o ADMIN que revise el catálogo.
+
+### Registrar una recepción con foto o PDF
+
+En **Nueva recepción**, pulsar **Leer foto / PDF del albarán** y seleccionar una
+foto, imagen o PDF. El OCR local intenta completar automáticamente:
+
+- proveedor y número de pedido/albarán;
+- fecha de recepción;
+- productos y cantidades;
+- PVP de cada línea;
+- coste de preparación/transporte.
+
+La aplicación intenta asociar cada descripción con los productos comprables del
+proveedor. Las líneas que no encuentre quedan pendientes para seleccionarlas
+manualmente. Para cada línea importada muestra el PVP bruto, el IVA del producto
+y el coste unitario sin IVA. También compara las bases y cuotas calculadas con
+el desglose fiscal del albarán; si falta el IVA de un producto o hay diferencias,
+no permite guardar hasta corregirlas. Antes de pulsar **Registrar recepción**,
+hay que revisar proveedor, productos, cantidades, precios y total. El archivo no
+se conserva; solo se guardan los datos confirmados de la recepción.
 
 ## 4. Consultar una recepción
 

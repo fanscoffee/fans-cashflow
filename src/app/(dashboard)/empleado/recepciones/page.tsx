@@ -11,6 +11,7 @@ export default function EmployeeReceiptsPage() {
           <h2 className="font-semibold">Registrar una entrega</h2>
           <p className="mt-1">
             Ten el albarán delante, cuenta los productos que llegan y registra la cantidad realmente recibida.
+            También puedes usar <strong>Leer foto / PDF del albarán</strong> para rellenar el formulario y revisar los datos antes de guardar.
             El registro quedará asociado a tu usuario.
           </p>
         </section>
