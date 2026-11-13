@@ -42,6 +42,7 @@ type ReconciliationData = {
     totalBase: number | string
     totalVat: number | string
     documentType?: string | null
+    entity?: DatabasePaymentEntity | null
   }
   status: string
   supplier: { id: string; legalName: string; taxId: string; billingAddress: string | null } | null
@@ -123,6 +124,7 @@ export default function AccountingReconciliationPanel({ captureId, canUnlink, on
       if (!response.ok) throw new Error(result.error || "No se pudieron cargar las sugerencias")
       setData(result)
       setSupplierId(result.supplier?.id || result.supplierCandidates[0]?.id || "")
+      setEntity(result.capture.entity || PaymentEntity.BAKERY)
       setSelectedReceiptIds(result.linkedInvoice ? [] : result.suggestedReceiptIds || [])
     } catch (reason) {
       setError(reason instanceof Error ? reason.message : "No se pudieron cargar las sugerencias")

@@ -28,6 +28,7 @@ const capture = {
   invoiceTotal: 12.1,
   paymentMethod: "TRANSFERENCIA",
   source: "OCR" as const,
+  entity: "COFFEE_SHOP" as const,
   documentType: "MERCHANDISE_PURCHASE" as const,
   reconciliationStatus: "SUGGESTED" as const,
   alerts: null,
@@ -64,6 +65,7 @@ describe("AccountingPanel reconciliation navigation", () => {
 
     await screen.findByText("A/42")
     expect(screen.getByText("Compra de mercancía")).toBeInTheDocument()
+    expect(screen.getByText("Cafetería")).toBeInTheDocument()
     expect(screen.getByText("Sugerida")).toBeInTheDocument()
 
     fireEvent.click(screen.getByRole("button", { name: "Acciones" }))

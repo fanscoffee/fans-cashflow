@@ -11,7 +11,7 @@ import {
   withCalculatedAccountingTotals,
   type AccountingInvoiceFormData,
 } from "@/lib/accounting-invoices"
-import { PaymentDocumentType } from "@/lib/database-enums"
+import { PaymentDocumentType, PaymentEntity, type DatabasePaymentEntity } from "@/lib/database-enums"
 
 function numberValue(value: string) {
   const parsed = Number(value.replace(",", "."))
@@ -208,6 +208,7 @@ export default function AccountingInvoiceForm({ initialValues, onCancel, onSubmi
         </div>
         <Input label="Concepto" value={data.concept} onChange={(value) => update("concept", value)} />
         <Input label="Forma pago" value={data.paymentMethod} onChange={(value) => update("paymentMethod", value)} />
+        <label className="block text-xs text-gray-600"><span className="mb-1 block font-medium">Entidad *</span><select aria-label="Entidad de la factura" value={data.entity} onChange={(event) => update("entity", event.target.value as DatabasePaymentEntity)} className="w-full rounded-md border border-gray-300 px-2 py-1.5 text-sm text-gray-900 focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"><option value={PaymentEntity.BAKERY}>Obrador</option><option value={PaymentEntity.COFFEE_SHOP}>Cafetería</option></select></label>
         <label className="block text-xs text-gray-600"><span className="mb-1 block font-medium">Tipo de documento</span><select value={data.documentType} onChange={(event) => update("documentType", event.target.value as typeof data.documentType)} className="w-full rounded-md border border-gray-300 px-2 py-1.5 text-sm text-gray-900 focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"><option value={PaymentDocumentType.MERCHANDISE_PURCHASE}>Compra de mercancía</option><option value={PaymentDocumentType.EXPENSE}>Gasto / servicio</option></select><span className="mt-1 block text-[11px] text-gray-500">Solo las compras de mercancía permiten buscar albaranes.</span></label>
       </div>
     </section>

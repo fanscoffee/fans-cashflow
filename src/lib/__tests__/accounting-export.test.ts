@@ -9,6 +9,7 @@ const invoice = {
   documentType: "COMPRA_MERCANCIA",
   workflowStatus: "CONFORMADA",
   paymentMethod: null,
+  entity: "BAKERY",
   issuerLegalName: "Proveedor SA",
   issuerTaxId: "B12345678",
   netTotal: 100,
@@ -54,14 +55,15 @@ describe("accounting-export", () => {
     if (!sheet) throw new Error("No se generó la hoja de gestoría")
     const headerValues = sheet.getRow(1).values as ExcelJS.CellValue[]
     expect(headerValues.slice(1)).toEqual([
-      "Nº", "Fecha", "Factura Nº", "Proveedor / Acreedor", "NIF", "Concepto",
+      "Nº", "Fecha", "Factura Nº", "Proveedor / Acreedor", "NIF", "ENTIDAD", "Concepto",
       "BASE EXENTA", "Base Imponible 21%", "21% IVA", "Base Imponible 10%", "10% IVA",
       "Base Imponible 4%", "4% IVA", "Base Imponible 2%", "2% IVA", "TOTAL BASE IMPONIBLE",
       "TOTAL CUOTA IVA", "IRPF", "TOTAL FACTURA", "FORMA PAGO", "ORIGEN",
     ])
     expect(sheet.getRow(3).getCell(1).value).toBe("TOTAL")
-    expect(sheet.getRow(3).getCell(8).value).toBe(100)
-    expect(sheet.getRow(3).getCell(19).value).toBe(121)
+    expect(sheet.getRow(2).getCell(6).value).toBe("Obrador")
+    expect(sheet.getRow(3).getCell(9).value).toBe(100)
+    expect(sheet.getRow(3).getCell(20).value).toBe(121)
   })
 
   it("maps standalone accounting captures to the same worksheet layout", () => {
@@ -85,8 +87,9 @@ describe("accounting-export", () => {
       withholdingTax: 0,
       invoiceTotal: 121,
       paymentMethod: "BANCO",
+      entity: "COFFEE_SHOP",
     }])
-    expect(rows[0]).toMatchObject({ number: 1, invoiceNumber: "CAP-1", supplier: "Proveedor independiente", base21: 100, vat21: 21, invoiceTotal: 121, origin: "CAPTURA GESTORÍA SIN VÍNCULO" })
+    expect(rows[0]).toMatchObject({ number: 1, invoiceNumber: "CAP-1", supplier: "Proveedor independiente", entity: "COFFEE_SHOP", base21: 100, vat21: 21, invoiceTotal: 121, origin: "CAPTURA GESTORÍA SIN VÍNCULO" })
   })
 
   it("marks an operational row as combined when it has a Gestoría capture", () => {

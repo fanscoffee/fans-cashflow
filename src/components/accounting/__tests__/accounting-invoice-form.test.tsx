@@ -32,6 +32,14 @@ describe("AccountingInvoiceForm", () => {
     expect(screen.getByLabelText("IVA 21%")).toHaveAttribute("readonly")
   })
 
+  it("offers the accounting entity selector and defaults to Obrador", () => {
+    renderForm()
+
+    const entity = screen.getByLabelText("Entidad de la factura")
+    expect(entity).toHaveValue("BAKERY")
+    expect(screen.getByRole("option", { name: "Cafetería" })).toBeInTheDocument()
+  })
+
   it("calculates the accounting totals from the tax breakdown and withholding", async () => {
     const user = userEvent.setup()
     renderForm()

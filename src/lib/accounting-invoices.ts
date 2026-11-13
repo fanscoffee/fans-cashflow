@@ -1,5 +1,5 @@
 import { z } from "zod"
-import { AccountingReconciliationStatus, PaymentDocumentType, UserRole, parsePaymentDocumentType, type DatabasePaymentDocumentType } from "@/lib/database-enums"
+import { AccountingReconciliationStatus, PaymentDocumentType, PaymentEntity, UserRole, parsePaymentDocumentType, parsePaymentEntity, type DatabasePaymentDocumentType, type DatabasePaymentEntity } from "@/lib/database-enums"
 import { hasAnyRole } from "@/lib/roles"
 import { normalizeTaxId } from "@/lib/invoices"
 import { toN } from "@/lib/money"
@@ -42,6 +42,14 @@ export const accountingInvoiceSchema = z.object({
   paymentMethod: z.string().trim().max(80).default(""),
   ocrText: z.string().max(500_000).default(""),
   source: z.enum(["OCR", "MANUAL"]).default("MANUAL"),
+  entity: z.string().default(PaymentEntity.BAKERY).transform((value, context) => {
+    const parsed = parsePaymentEntity(value)
+    if (!parsed) {
+      context.addIssue({ code: "custom", message: "Entidad no válida" })
+      return z.NEVER
+    }
+    return parsed
+  }),
   documentType: z.string().default(PaymentDocumentType.EXPENSE).transform((value, context) => {
     const parsed = parsePaymentDocumentType(value)
     if (!parsed) {
@@ -82,6 +90,7 @@ export interface AccountingInvoiceFormData {
   paymentMethod: string
   ocrText: string
   source: "OCR" | "MANUAL"
+  entity: DatabasePaymentEntity
   documentType: DatabasePaymentDocumentType
 }
 
@@ -166,6 +175,7 @@ export function emptyAccountingInvoice(): AccountingInvoiceFormData {
     paymentMethod: "",
     ocrText: "",
     source: "MANUAL",
+    entity: PaymentEntity.BAKERY,
     documentType: PaymentDocumentType.EXPENSE,
   }
 }
@@ -229,6 +239,7 @@ export function invoiceDraftToAccounting(draft: InvoiceDraft, ocrText: string): 
     paymentMethod: draft.paymentMethod,
     ocrText,
     source: "OCR",
+    entity: form.entity,
     documentType: draft.lines.some((line) => line.description.trim()) ? PaymentDocumentType.MERCHANDISE_PURCHASE : PaymentDocumentType.EXPENSE,
   }
 }
@@ -276,6 +287,7 @@ export function accountingDbData(input: AccountingInvoiceInput, createdById: str
     paymentMethod: input.paymentMethod,
     ocrText: input.ocrText || null,
     source: input.source,
+    entity: input.entity,
     documentType: input.documentType,
     reconciliationStatus: input.documentType === PaymentDocumentType.EXPENSE ? AccountingReconciliationStatus.NOT_APPLICABLE : AccountingReconciliationStatus.UNLINKED,
     alerts: alerts.length ? alerts : undefined,

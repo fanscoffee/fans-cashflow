@@ -648,6 +648,7 @@ model AccountingInvoice {
   paymentMethod        String                         @default("")
   ocrText              String?
   source               AccountingInvoiceOrigin        @default(MANUAL)
+  entity               PaymentEntity                   @default(BAKERY)
   documentType         PaymentDocumentType?
   reconciliationStatus AccountingReconciliationStatus @default(UNLINKED)
   supplierId           String?
@@ -665,6 +666,7 @@ model AccountingInvoice {
   linkedBy         User?     @relation("AccountingInvoiceLinkedBy", fields: [linkedById], references: [id], onDelete: SetNull)
 
   @@index([date])
+  @@index([entity, date])
   @@index([taxId, invoiceNumber])
   @@index([createdById])
   @@index([supplierId, reconciliationStatus, date])
