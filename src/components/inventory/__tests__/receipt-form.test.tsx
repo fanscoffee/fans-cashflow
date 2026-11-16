@@ -41,9 +41,9 @@ describe("ReceiptForm provider products", () => {
     })
 
     await user.click(await screen.findByPlaceholderText("Buscar producto..."))
-    expect(screen.getByRole("button", { name: /P-001 Producto 1/ })).toBeInTheDocument()
-    expect(screen.queryByRole("button", { name: /P-002 Producto 2/ })).not.toBeInTheDocument()
-    await user.click(screen.getByRole("button", { name: /P-001 Producto 1/ }))
+    expect(screen.getByRole("option", { name: /P-001 Producto 1/ })).toBeInTheDocument()
+    expect(screen.queryByRole("option", { name: /P-002 Producto 2/ })).not.toBeInTheDocument()
+    await user.click(screen.getByRole("option", { name: /P-001 Producto 1/ }))
     expect(screen.getByDisplayValue("P-001 - Producto 1")).toBeInTheDocument()
     expect(screen.getByLabelText("Coste unitario sin IVA")).toHaveValue(2)
     expect(screen.getByText("Coste unitario con IVA")).toBeInTheDocument()
@@ -68,8 +68,8 @@ describe("ReceiptForm provider products", () => {
     })
     expect(screen.getByPlaceholderText("Buscar producto...")).toHaveValue("")
     await user.click(screen.getByPlaceholderText("Buscar producto..."))
-    expect(screen.getByRole("button", { name: /P-002 Producto 2/ })).toBeInTheDocument()
-    expect(screen.queryByRole("button", { name: /P-001 Producto 1/ })).not.toBeInTheDocument()
+    expect(screen.getByRole("option", { name: /P-002 Producto 2/ })).toBeInTheDocument()
+    expect(screen.queryByRole("option", { name: /P-001 Producto 1/ })).not.toBeInTheDocument()
   })
 
   it("prefills a Mercadona delivery note from an OCR document and maps catalog products", async () => {
