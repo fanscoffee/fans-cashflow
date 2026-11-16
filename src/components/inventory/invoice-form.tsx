@@ -4,6 +4,7 @@ import { useEffect, useMemo, useRef, useState } from "react"
 import { emptyInvoiceDraft, emptyInvoiceLine, parseInvoiceText, type InvoiceDraft, type InvoiceTaxDraft, type InvoiceLineDraft } from "@/lib/invoice-ocr"
 import { extractDocument } from "@/lib/document-ocr"
 import { PaymentDocumentType, PaymentEntity, type DatabasePaymentDocumentType, type DatabasePaymentEntity } from "@/lib/database-enums"
+import ProductCombobox from "@/components/inventory/product-combobox"
 
 interface Supplier { id: string; legalName: string; taxId: string; billingAddress?: string | null }
 interface Product { id: string; code: string; posDescription: string; purchaseUnit: string | null; baseStockUnit: string }
@@ -83,45 +84,6 @@ function getMissingRequiredFields(data: InvoiceFormData): MissingField[] {
 
 function Input({ id, label, value, onChange, type = "text", required = false, error = false }: { id?: string; label: string; value: string; onChange: (value: string) => void; type?: string; required?: boolean; error?: boolean }) {
   return <label className="block text-xs text-gray-600"><span className="mb-1 block font-medium">{label}{required ? " *" : ""}</span><input id={id} aria-invalid={error || undefined} type={type} step={type === "number" ? "0.0001" : undefined} value={value} onChange={(event) => onChange(event.target.value)} className={`w-full rounded-md border px-2 py-1.5 text-sm text-gray-900 focus:outline-none focus:ring-1 ${error ? "border-red-500 bg-red-50 focus:border-red-500 focus:ring-red-500" : "border-gray-300 focus:border-blue-500 focus:ring-blue-500"}`} /></label>
-}
-
-function ProductCombobox({ id, products, selectedProduct, value, onSelect, error = false }: { id?: string; products: Product[]; selectedProduct?: Product; value: string; onSelect: (productId: string) => void; error?: boolean }) {
-  const [open, setOpen] = useState(false)
-  const [search, setSearch] = useState("")
-  const containerRef = useRef<HTMLDivElement>(null)
-  const selected = products.find((product) => product.id === value) || selectedProduct
-  const options = selected && !products.some((product) => product.id === selected.id) ? [selected, ...products] : products
-  const filtered = options.filter((product) => {
-    const query = search.toLowerCase().trim()
-    return !query || product.code.toLowerCase().includes(query) || product.posDescription.toLowerCase().includes(query)
-  })
-
-  useEffect(() => {
-    function handleClickOutside(event: MouseEvent) {
-      if (containerRef.current && !containerRef.current.contains(event.target as Node)) {
-        setOpen(false)
-        setSearch("")
-      }
-    }
-    document.addEventListener("mousedown", handleClickOutside)
-    return () => document.removeEventListener("mousedown", handleClickOutside)
-  }, [])
-
-  function handleSelect(productId: string) {
-    onSelect(productId)
-    setOpen(false)
-    setSearch("")
-  }
-
-  return <div ref={containerRef} className="relative w-full">
-    <input id={id} type="text" role="combobox" readOnly value={selected ? `${selected.code} - ${selected.posDescription}` : ""} title={selected ? `${selected.code} - ${selected.posDescription}` : undefined} placeholder="Buscar producto..." onFocus={() => setOpen(true)} onClick={() => setOpen(true)} aria-expanded={open} aria-haspopup="listbox" aria-controls={id ? `${id}-options` : undefined} aria-invalid={error || undefined} className={`w-full min-w-0 cursor-pointer overflow-hidden text-ellipsis whitespace-nowrap rounded-md border px-2 py-2 text-xs text-gray-900 focus:outline-none focus:ring-1 ${error ? "border-red-500 bg-red-50 focus:border-red-500 focus:ring-red-500" : "border-gray-300 focus:border-blue-500 focus:ring-blue-500"}`} />
-    {open && <div id={id ? `${id}-options` : undefined} role="listbox" className="absolute z-50 mt-1 max-h-60 w-full overflow-auto rounded-md border border-gray-200 bg-white shadow-lg">
-      <div className="sticky top-0 bg-white p-1">
-        <input type="text" autoFocus value={search} onChange={(event) => setSearch(event.target.value)} onKeyDown={(event) => { if (event.key === "Escape") { setOpen(false); setSearch("") } }} placeholder="Escribir para filtrar..." className="w-full rounded border border-gray-300 px-2 py-1 text-xs text-gray-900 focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500" />
-      </div>
-      {filtered.length === 0 ? <div className="px-2 py-1 text-xs text-gray-500">Sin resultados</div> : filtered.map((product) => <button key={product.id} type="button" role="option" aria-selected={product.id === value} onMouseDown={(event) => event.preventDefault()} onClick={() => handleSelect(product.id)} className={`block w-full px-2 py-1 text-left text-xs hover:bg-blue-50 ${product.id === value ? "bg-blue-100 font-medium" : ""}`}><span className="font-mono">{product.code}</span>{" "}<span className="text-gray-600">{product.posDescription}</span></button>)}
-    </div>}
-  </div>
 }
 
 export default function InvoiceForm({ initialValues, invoiceId, onCancel, onSubmit, saving }: { initialValues?: InvoiceFormData; invoiceId?: string; onCancel: () => void; onSubmit: (data: InvoiceFormData) => Promise<boolean>; saving: boolean }) {
