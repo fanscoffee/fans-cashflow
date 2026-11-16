@@ -3,6 +3,7 @@
 import { useState } from "react"
 import { calculateProductPricing } from "@/lib/product-pricing"
 import { calculateRecipeUnitCost } from "@/lib/recipe-costing"
+import ProductCombobox from "@/components/inventory/product-combobox"
 
 export type RecipeEditorProduct = {
   id: string
@@ -115,6 +116,7 @@ export default function RecipeEditor({
   const salesVatPercentage = optionalNumber(output.salesVatPercentage)
   const salePriceIncludingVat = optionalNumber(output.salePriceIncludingVat)
   const familyOptions = (catalogs.FAMILIA || []).filter((item) => output.itemType !== "SE" || item.codePrefix === "SEM")
+  const componentProducts = products.filter((product) => product.stockControl.toUpperCase() === "SI" && product.id !== source?.product.id)
   const estimatedCostResult = (() => {
     try {
       const costComponents = components.filter((component) => component.componentProductId).map((component) => {
@@ -305,7 +307,14 @@ export default function RecipeEditor({
            {components.map((component, index) => (
              <div key={index} className="rounded-md border border-gray-200 bg-white p-2">
                <div className="grid gap-2 sm:grid-cols-[1fr_9rem_auto]">
-               <select aria-label={`Componente ${index + 1}`} value={component.componentProductId} onChange={(event) => setComponents((current) => current.map((item, itemIndex) => itemIndex === index ? { ...item, componentProductId: event.target.value } : item))} className="rounded-md border border-gray-300 bg-white px-3 py-2 text-sm text-gray-900"><option value="" className="text-gray-900">Seleccionar componente...</option>{products.filter((product) => product.stockControl.toUpperCase() === "SI" && product.id !== source?.product.id).map((product) => <option key={product.id} value={product.id} className="text-gray-900">{product.code} · {product.posDescription} ({product.baseStockUnit})</option>)}</select>
+                <ProductCombobox
+                  id={`recipe-component-${index}`}
+                  ariaLabel={`Componente ${index + 1}`}
+                  products={componentProducts}
+                  value={component.componentProductId}
+                  onSelect={(productId) => setComponents((current) => current.map((item, itemIndex) => itemIndex === index ? { ...item, componentProductId: productId } : item))}
+                  placeholder="Buscar componente..."
+                />
                <input aria-label={`Cantidad componente ${index + 1}`} type="text" inputMode="decimal" placeholder="Cantidad" value={component.quantityPerUnit} onChange={(event) => setComponents((current) => current.map((item, itemIndex) => itemIndex === index ? { ...item, quantityPerUnit: event.target.value } : item))} className="rounded-md border border-gray-300 bg-white px-3 py-2 text-sm text-gray-900" />
                <button type="button" aria-label={`Eliminar componente ${index + 1}`} disabled={components.length === 1} onClick={() => setComponents((current) => current.filter((_, itemIndex) => itemIndex !== index))} className="rounded-md border border-red-200 bg-white px-3 py-2 text-sm text-red-700 disabled:opacity-40">Eliminar</button>
                </div>
