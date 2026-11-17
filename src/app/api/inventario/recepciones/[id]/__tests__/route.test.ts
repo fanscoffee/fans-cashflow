@@ -39,7 +39,7 @@ const body = {
   receivedAt: "2026-10-02",
   notes: "Corregida",
   transportCost: 2.75,
-  lines: [{ productId: "product-1", receivedQuantity: 3, unitPrice: 4.5, batch: "LOT-2", dueDate: "2027-01-01" }],
+  lines: [{ productId: "product-1", receivedQuantity: 3, packageCount: 3, unitPrice: 4.5, batch: "LOT-2", dueDate: "2027-01-01" }],
 }
 
 describe("PATCH /api/inventario/recepciones/[id]", () => {
@@ -66,10 +66,11 @@ describe("PATCH /api/inventario/recepciones/[id]", () => {
         transportCost: 2.75,
         lines: {
           deleteMany: {},
-          create: [{
-            productId: "product-1",
-            receivedQuantity: 3,
-            unitPrice: 4.5,
+            create: [{
+              productId: "product-1",
+              receivedQuantity: 3,
+              packageCount: 3,
+              unitPrice: 4.5,
             batch: "LOT-2",
             dueDate: new Date("2027-01-01"),
           }],

@@ -66,6 +66,7 @@ export type ReconciliationSupplier = {
 export type ReconciliationReceiptLine = {
   productId: string
   receivedQuantity: unknown
+  packageCount?: unknown
   unitPrice: unknown
   batch: string | null
   dueDate: Date | null
@@ -73,6 +74,7 @@ export type ReconciliationReceiptLine = {
     code: string
     posDescription: string
     purchaseUnit: string | null
+    isWeightBased?: boolean
     purchaseVatPercentage?: unknown
   }
 }

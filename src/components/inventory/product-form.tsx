@@ -23,6 +23,7 @@ const productSchema = z.object({
   subfamily: z.string().optional(),
   section: z.string().min(1, "La sección es obligatoria"),
   isPurchasable: z.boolean(),
+  isWeightBased: z.boolean(),
   isPrepared: z.boolean(),
   isSellable: z.boolean(),
   hasRecipe: z.boolean(),
@@ -91,6 +92,7 @@ interface Product {
   subfamily: string | null
   section: string
   isPurchasable: boolean
+  isWeightBased: boolean
   isPrepared: boolean
   isSellable: boolean
   hasRecipe: boolean
@@ -174,6 +176,7 @@ function defaultValues(): ProductFormValues {
     subfamily: "",
     section: "",
     isPurchasable: false,
+    isWeightBased: false,
     isPrepared: false,
     isSellable: false,
     hasRecipe: false,
@@ -721,6 +724,10 @@ export default function ProductForm({
           <CatalogSelect label="UM venta" name="salesUnit" register={register} options={catalogOptions("UNIDAD_MEDIDA")} placeholder="Seleccionar unidad..." error={errors.salesUnit?.message} currentValue={initialValues?.salesUnit} />
           <NumberField label="Factor venta a base" name="salesToBaseFactor" register={register} placeholder="1" error={errors.salesToBaseFactor?.message} />
           <NumberField label="Peso neto ud (g)" name="netWeightPerUnitGrams" register={register} placeholder="250" error={errors.netWeightPerUnitGrams?.message} />
+          <div className="sm:col-span-2">
+            <CheckboxField label="Se recibe por peso (permite registrar bandejas/elementos)" name="isWeightBased" register={register} />
+            <p className="mt-1 text-xs text-gray-500">El peso seguirá siendo la cantidad de stock y el contador solo identificará cuántas bandejas, envases o piezas han llegado.</p>
+          </div>
           <div className="sm:col-span-2">
             <TextField label="Formato presentación" name="presentationFormat" register={register} placeholder="Saco 25 kg" error={errors.presentationFormat?.message} />
           </div>
