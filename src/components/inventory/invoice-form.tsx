@@ -8,7 +8,7 @@ import ProductCombobox from "@/components/inventory/product-combobox"
 
 interface Supplier { id: string; legalName: string; taxId: string; billingAddress?: string | null }
 interface Product { id: string; code: string; posDescription: string; purchaseUnit: string | null; baseStockUnit: string }
-interface DeliveryNote { id: string; deliveryNoteCode: string; receivedAt: string; lines: Array<{ productId: string; receivedQuantity: number | string; unitPrice: number | string; product: { code: string; posDescription: string; purchaseUnit: string | null } }> }
+interface DeliveryNote { id: string; deliveryNoteCode: string; receivedAt: string; lines: Array<{ productId: string; receivedQuantity: number | string; packageCount?: number | string; unitPrice: number | string; product: { code: string; posDescription: string; purchaseUnit: string | null; isWeightBased?: boolean } }> }
 
 export interface InvoiceFormData extends InvoiceDraft {
   supplierId: string

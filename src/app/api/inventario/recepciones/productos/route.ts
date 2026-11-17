@@ -22,6 +22,7 @@ export const GET = withAuth(async (req) => {
       code: true,
       posDescription: true,
       purchaseUnit: true,
+      isWeightBased: true,
       baseUnitCost: true,
       purchaseVatPercentage: true,
       vatPercentage: true,

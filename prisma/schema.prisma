@@ -679,6 +679,7 @@ model ReceiptLine {
   receiptId        String
   productId        String
   receivedQuantity Decimal   @db.Decimal(10, 2)
+  packageCount     Int       @default(1)
   unitPrice        Decimal   @db.Decimal(10, 4)
   batch            String?
   dueDate          DateTime?
@@ -736,6 +737,7 @@ model Product {
   subfamily     String?
   section       String
   isPurchasable Boolean @default(false)
+  isWeightBased Boolean @default(false)
   isPrepared    Boolean @default(false)
   isSellable    Boolean @default(false)
   hasRecipe     Boolean @default(false)

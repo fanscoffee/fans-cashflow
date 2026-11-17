@@ -38,6 +38,7 @@ interface Product {
   subfamily: string | null
   section: string
   isPurchasable: boolean
+  isWeightBased: boolean
   isPrepared: boolean
   isSellable: boolean
   hasRecipe: boolean

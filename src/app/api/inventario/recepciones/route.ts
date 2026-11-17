@@ -114,6 +114,7 @@ export const POST = withAuth(async (req, session) => {
               (l) => ({
                 productId: l.productId,
                 receivedQuantity: l.receivedQuantity,
+                packageCount: l.packageCount,
                 unitPrice: l.unitPrice,
                 batch: l.batch || null,
                 dueDate: l.dueDate
@@ -128,7 +129,7 @@ export const POST = withAuth(async (req, session) => {
           lines: {
             include: {
               product: {
-                select: { code: true, posDescription: true, purchaseUnit: true },
+                select: { code: true, posDescription: true, purchaseUnit: true, isWeightBased: true },
               },
             },
           },
