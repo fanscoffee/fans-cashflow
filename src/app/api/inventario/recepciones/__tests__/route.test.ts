@@ -29,7 +29,7 @@ const requestBody = {
   receivedAt: "2026-09-01",
   notes: "Recepción de prueba",
   transportCost: 4.25,
-  lines: [{ productId: "product-1", receivedQuantity: 2, unitPrice: 3.5 }],
+  lines: [{ productId: "product-1", receivedQuantity: 2, packageCount: 6, unitPrice: 3.5 }],
 }
 
 function postRequest(body: unknown = requestBody) {
@@ -71,6 +71,7 @@ describe("POST /api/inventario/recepciones", () => {
         deliveryNoteCode: "ALB-001",
         receivedById: "employee-1",
         transportCost: 4.25,
+        lines: { create: [{ productId: "product-1", receivedQuantity: 2, packageCount: 6, unitPrice: 3.5, batch: null, dueDate: null }] },
       }),
     }))
   })

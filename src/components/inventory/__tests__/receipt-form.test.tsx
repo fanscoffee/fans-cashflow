@@ -111,4 +111,37 @@ describe("ReceiptForm provider products", () => {
     expect(screen.getByText("Transporte/preparación sin IVA: 6.7769 EUR")).toBeInTheDocument()
     expect(screen.getByText("PVP preparación bruto: 8.20 EUR")).toBeInTheDocument()
   })
+
+  it("shows and submits the package count for weight-based products", async () => {
+    const user = userEvent.setup()
+    const onSubmit = vi.fn().mockResolvedValue(undefined)
+    const fetchMock = vi.fn((url: string) => {
+      if (url.includes("/api/inventario/proveedores")) {
+        return Promise.resolve({ ok: true, json: async () => ({ suppliers: [{ id: "provider-1", legalName: "Proveedor 1" }] }) })
+      }
+      return Promise.resolve({ ok: true, json: async () => ({ products: [{ id: "avocado", code: "AGU-1", posDescription: "Aguacate", purchaseUnit: "KG", isWeightBased: true, baseUnitCost: 4, purchaseVatPercentage: 4, vatPercentage: 4 }] }) })
+    })
+    vi.stubGlobal("fetch", fetchMock)
+
+    render(<ReceiptForm onSubmit={onSubmit} onCancel={vi.fn()} saving={false} />)
+    await screen.findByRole("option", { name: "Proveedor 1" })
+    await user.selectOptions(screen.getByLabelText("Proveedor *"), "provider-1")
+    await user.click(await screen.findByPlaceholderText("Buscar producto..."))
+    await user.click(screen.getByRole("option", { name: /AGU-1 Aguacate/ }))
+
+    expect(screen.getByLabelText("Peso recibido *")).toBeInTheDocument()
+    const weight = screen.getByLabelText("Peso recibido *")
+    await user.clear(weight)
+    await user.type(weight, "3.5")
+    const packageCount = screen.getByLabelText("Bandejas / elementos *")
+    await user.clear(packageCount)
+    await user.type(packageCount, "6")
+    expect(screen.getByText("Bandejas / elementos: 6")).toBeInTheDocument()
+    await user.type(screen.getByPlaceholderText("Ej: ALB-2026-00123"), "ALB-AGU-1")
+    await user.click(screen.getByRole("button", { name: "Registrar recepcion" }))
+
+    await waitFor(() => expect(onSubmit).toHaveBeenCalledWith(expect.objectContaining({
+      lines: [expect.objectContaining({ receivedQuantity: 3.5, packageCount: 6 })],
+    })))
+  })
 })

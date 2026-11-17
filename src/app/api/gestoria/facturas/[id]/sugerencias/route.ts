@@ -35,6 +35,7 @@ function serializeReceipt(receipt: ReceiptWithCapture) {
     lines: receipt.lines.map((line) => ({
       productId: line.productId,
       receivedQuantity: Number(line.receivedQuantity),
+      packageCount: Number(line.packageCount ?? 1),
       unitPrice: Number(line.unitPrice),
       batch: line.batch,
       dueDate: line.dueDate?.toISOString() || null,
@@ -85,7 +86,7 @@ export const GET = withAuth(async (_request, session, context) => {
           include: {
             lines: {
               include: {
-                product: { select: { code: true, posDescription: true, purchaseUnit: true, purchaseVatPercentage: true } },
+                product: { select: { code: true, posDescription: true, purchaseUnit: true, isWeightBased: true, purchaseVatPercentage: true } },
               },
             },
           },

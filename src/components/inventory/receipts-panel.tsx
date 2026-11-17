@@ -12,6 +12,7 @@ interface Supplier {
 interface ReceiptLine {
   id: string
   receivedQuantity: number
+  packageCount?: number
   unitPrice: number
   batch: string | null
   dueDate: string | null
@@ -19,7 +20,8 @@ interface ReceiptLine {
     id: string
     code: string
     posDescription: string
-    purchaseUnit: string
+    purchaseUnit: string | null
+    isWeightBased?: boolean
     itemType: string
     purchaseVatPercentage: number | string | null
     vatPercentage: number | string | null
@@ -121,6 +123,7 @@ function toReceiptFormValues(receipt: Receipt): ReceiptFormValues {
     lines: (receipt.lines || []).map((line) => ({
       productId: line.product.id,
       receivedQuantity: Number(line.receivedQuantity),
+      packageCount: Number(line.packageCount ?? 1),
       unitPrice: Number(line.unitPrice),
       batch: line.batch || "",
       dueDate: line.dueDate ? dateInputValue(line.dueDate) : "",
@@ -324,6 +327,10 @@ export default function ReceiptsPanel({ canDelete = true, canEdit = false, initi
       (sum, l) => sum + Number(l.receivedQuantity) * Number(l.unitPrice),
       0
     )
+    const weightedPackageCount = lines.reduce(
+      (sum, l) => sum + (l.product.isWeightBased ? Number(l.packageCount ?? 1) : 0),
+      0,
+    )
     const transportCost = Number(selectedReceipt.transportCost || 0)
     const totalReceipt = totalLines + transportCost
     return (
@@ -394,6 +401,7 @@ export default function ReceiptsPanel({ canDelete = true, canEdit = false, initi
                   <th className="px-3 py-2">Tipo</th>
                   <th className="px-3 py-2 text-right">Cantidad</th>
                   <th className="px-3 py-2">UoM</th>
+                  <th className="px-3 py-2 text-right">Bandejas / elementos</th>
                   <th className="px-3 py-2 text-center">IVA</th>
                   <th className="px-3 py-2 text-right" title="IVA incluido según producto">Coste Unit. con IVA</th>
                   <th className="px-3 py-2 text-right">Subtotal con IVA</th>
@@ -410,6 +418,7 @@ export default function ReceiptsPanel({ canDelete = true, canEdit = false, initi
                     <td className="px-3 py-2 text-xs text-gray-600">{l.product.itemType}</td>
                     <td className="px-3 py-2 text-right text-gray-900">{Number(l.receivedQuantity)}</td>
                     <td className="px-3 py-2 text-xs text-gray-600">{l.product.purchaseUnit}</td>
+                    <td className="px-3 py-2 text-right text-gray-900">{l.product.isWeightBased ? Number(l.packageCount ?? 1) : "—"}</td>
                     <td className="px-3 py-2 text-center">
                       <span className={`inline-flex whitespace-nowrap rounded-full px-2 py-0.5 text-xs font-medium ${lineVatPercentage(l) === 0 ? "bg-gray-100 text-gray-600" : "bg-blue-50 text-blue-700"}`}>
                         {vatLabel(lineVatPercentage(l))}
@@ -435,7 +444,7 @@ export default function ReceiptsPanel({ canDelete = true, canEdit = false, initi
               </tbody>
               <tfoot>
                 <tr className="border-t bg-gray-50">
-                  <td colSpan={7} className="px-3 py-2 text-right text-sm font-semibold text-gray-900">
+                  <td colSpan={8} className="px-3 py-2 text-right text-sm font-semibold text-gray-900">
                     Productos con IVA:
                   </td>
                   <td className="px-3 py-2 text-right text-sm font-bold text-gray-900">
@@ -445,7 +454,7 @@ export default function ReceiptsPanel({ canDelete = true, canEdit = false, initi
                   <td colSpan={2}></td>
                 </tr>
                 <tr>
-                  <td colSpan={7} className="px-3 py-2 text-right text-sm font-semibold text-gray-900">
+                  <td colSpan={8} className="px-3 py-2 text-right text-sm font-semibold text-gray-900">
                     Productos sin IVA:
                   </td>
                   <td></td>
@@ -455,7 +464,7 @@ export default function ReceiptsPanel({ canDelete = true, canEdit = false, initi
                   <td colSpan={2}></td>
                 </tr>
                 <tr className="border-t bg-white">
-                  <td colSpan={11} className="px-3 py-3">
+                  <td colSpan={12} className="px-3 py-3">
                     <div className="space-y-2">
                       <p className="text-right text-sm font-semibold text-gray-900">Desglose por IVA</p>
                       <div className="grid grid-cols-1 gap-2 text-left min-[640px]:grid-cols-2 min-[1024px]:grid-cols-3">
@@ -474,7 +483,7 @@ export default function ReceiptsPanel({ canDelete = true, canEdit = false, initi
                   </td>
                 </tr>
                 <tr>
-                  <td colSpan={7} className="px-3 py-2 text-right text-sm font-semibold text-gray-900">
+                  <td colSpan={8} className="px-3 py-2 text-right text-sm font-semibold text-gray-900">
                     Transporte:
                   </td>
                   <td className="px-3 py-2 text-right text-sm font-bold text-gray-900">
@@ -484,7 +493,7 @@ export default function ReceiptsPanel({ canDelete = true, canEdit = false, initi
                   <td colSpan={2}></td>
                 </tr>
                 <tr className="border-t bg-gray-50">
-                  <td colSpan={7} className="px-3 py-2 text-right text-sm font-semibold text-gray-900">
+                  <td colSpan={8} className="px-3 py-2 text-right text-sm font-semibold text-gray-900">
                     Total albarán:
                   </td>
                   <td className="px-3 py-2 text-right text-sm font-bold text-gray-900">
@@ -493,6 +502,13 @@ export default function ReceiptsPanel({ canDelete = true, canEdit = false, initi
                   <td></td>
                   <td colSpan={2}></td>
                 </tr>
+                {weightedPackageCount > 0 && (
+                  <tr>
+                    <td colSpan={12} className="px-3 py-2 text-right text-xs text-gray-600">
+                      Bandejas / elementos: {weightedPackageCount}
+                    </td>
+                  </tr>
+                )}
               </tfoot>
             </table>
           </div>

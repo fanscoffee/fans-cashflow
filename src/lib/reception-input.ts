@@ -14,6 +14,7 @@ export const receptionSchema = z.object({
   lines: z.array(z.object({
     productId: z.string().min(1),
     receivedQuantity: z.coerce.number().finite().positive().max(1_000_000),
+    packageCount: z.coerce.number().int().positive().max(1_000_000).default(1),
     unitPrice: z.coerce.number().finite().nonnegative().max(1_000_000_000),
     batch: z.string().trim().max(120).nullable().optional(),
     dueDate: optionalDate,

@@ -20,9 +20,10 @@ function renderEdit() {
         pricingMethod: "FIJO",
         targetMarginPercentage: 70,
         baseUnitCost: 10,
-        baseStockUnit: "kg",
-        purchaseUnit: "caja",
-        purchaseToBaseFactor: 20,
+      baseStockUnit: "kg",
+      purchaseUnit: "caja",
+      isWeightBased: true,
+      purchaseToBaseFactor: 20,
         salesUnit: "caja",
         vatPercentage: 10,
         purchaseVatPercentage: 21,
@@ -123,6 +124,24 @@ describe("ProductForm pricing calculations", () => {
       expect(screen.getByLabelText("Tipo de artículo *")).toHaveValue("MP")
       expect(screen.getByLabelText("Familia *")).toHaveValue("Harinas y sémolas")
     })
+  })
+
+  it("allows marking a product as received by weight", async () => {
+    const user = userEvent.setup()
+    const onSubmit = vi.fn(async (data: Record<string, unknown>) => {
+      void data
+      return true
+    })
+    renderClassificationEdit(onSubmit)
+
+    await user.click(screen.getByRole("button", { name: "Unidades de medida" }))
+    const checkbox = screen.getByLabelText("Se recibe por peso (permite registrar bandejas/elementos)")
+    expect(checkbox).not.toBeChecked()
+    await user.click(checkbox)
+    await user.click(screen.getByRole("button", { name: "Actualizar" }))
+
+    await waitFor(() => expect(onSubmit).toHaveBeenCalled())
+    expect(onSubmit.mock.calls[0]?.[0]).toMatchObject({ isWeightBased: true })
   })
 
   it("submits changed subfamily and section values", async () => {

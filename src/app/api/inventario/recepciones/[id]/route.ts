@@ -23,6 +23,7 @@ export const GET = withAuth(async (req, session, context) => {
               code: true,
               posDescription: true,
               purchaseUnit: true,
+              isWeightBased: true,
               itemType: true,
               purchaseVatPercentage: true,
               vatPercentage: true,
@@ -108,6 +109,7 @@ export const PATCH = withAuth(async (req, session, context) => {
           create: input.lines.map((line) => ({
             productId: line.productId,
             receivedQuantity: line.receivedQuantity,
+            packageCount: line.packageCount,
             unitPrice: line.unitPrice,
             batch: line.batch || null,
             dueDate: line.dueDate ? new Date(line.dueDate) : null,
@@ -125,6 +127,7 @@ export const PATCH = withAuth(async (req, session, context) => {
                 code: true,
                 posDescription: true,
                 purchaseUnit: true,
+                isWeightBased: true,
                 itemType: true,
                 purchaseVatPercentage: true,
                 vatPercentage: true,

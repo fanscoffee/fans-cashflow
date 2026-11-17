@@ -29,6 +29,7 @@ interface Product {
   code: string
   posDescription: string
   purchaseUnit: string
+  isWeightBased?: boolean
   baseUnitCost: number | string | null
   purchaseVatPercentage: number | string | null
   vatPercentage: number | string | null
@@ -37,6 +38,7 @@ interface Product {
 const lineSchema = z.object({
   productId: z.string().min(1, "Selecciona un producto"),
   receivedQuantity: z.coerce.number().positive("La cantidad debe ser mayor a 0"),
+  packageCount: z.coerce.number().int("La cantidad de elementos debe ser un número entero").positive("La cantidad de elementos debe ser mayor a 0"),
   unitPrice: z.coerce.number().min(0, "El precio no puede ser negativo"),
   batch: z.string().optional(),
   dueDate: z.string().optional(),
@@ -66,7 +68,7 @@ function defaultReceiptValues(): ReceiptFormValues {
     receivedAt: todayString(),
     notes: "",
     transportCost: 0,
-    lines: [{ productId: "", receivedQuantity: 1, unitPrice: 0, batch: "", dueDate: "" }],
+    lines: [{ productId: "", receivedQuantity: 1, packageCount: 1, unitPrice: 0, batch: "", dueDate: "" }],
   }
 }
 
@@ -153,6 +155,7 @@ export default function ReceiptForm({
       getValues("lines").forEach((_, index) => {
         setValue(`lines.${index}.productId`, "")
         setValue(`lines.${index}.unitPrice`, 0)
+        setValue(`lines.${index}.packageCount`, 1)
         setValue(`lines.${index}.batch`, "")
         setValue(`lines.${index}.dueDate`, "")
       })
@@ -202,6 +205,7 @@ export default function ReceiptForm({
       return {
         productId: product?.id || "",
         receivedQuantity: quantity > 0 ? quantity : 1,
+        packageCount: 1,
         unitPrice: product
           ? grossLineTotalToNetUnitPrice(grossTotal, quantity, product.purchaseVatPercentage ?? product.vatPercentage)
           : quantity > 0 ? Number((grossTotal / quantity).toFixed(4)) : 0,
@@ -218,12 +222,13 @@ export default function ReceiptForm({
   }, [pendingOcrLines, products, productsSupplierId, replace, supplierId])
 
   const handleAddLine = () => {
-    append({ productId: "", receivedQuantity: 1, unitPrice: 0, batch: "", dueDate: "" })
+    append({ productId: "", receivedQuantity: 1, packageCount: 1, unitPrice: 0, batch: "", dueDate: "" })
     setOcrGrossTotals((current) => [...current, null])
   }
 
   const handleProductChange = (index: number, productId: string) => {
     setValue(`lines.${index}.productId`, productId)
+    setValue(`lines.${index}.packageCount`, 1)
     const prod = products.find((p) => p.id === productId)
     const extractedTotal = ocrGrossTotals[index]
     const quantity = Number(getValues(`lines.${index}.receivedQuantity`))
@@ -297,6 +302,7 @@ export default function ReceiptForm({
         replace(draft.lines.map((line) => ({
           productId: "",
           receivedQuantity: Number(line.quantity) || 1,
+          packageCount: 1,
           unitPrice: Number(line.lineTotal) / (Number(line.quantity) || 1),
           batch: "",
           dueDate: "",
@@ -351,6 +357,10 @@ export default function ReceiptForm({
   const productsTotal = (lines || []).reduce((sum, l) => {
     const product = getProductInfo(l.productId || "")
     return sum + Number(l.receivedQuantity || 0) * getUnitPriceIncludingVat(l.unitPrice, product)
+  }, 0)
+  const weightedPackageCount = (lines || []).reduce((sum, line) => {
+    const product = getProductInfo(line.productId || "")
+    return sum + (product?.isWeightBased ? Number(line.packageCount || 0) : 0)
   }, 0)
   const transportCost = Number(watch("transportCost") || 0)
   const ocrFiscalValidation = useMemo(() => {
@@ -515,6 +525,7 @@ export default function ReceiptForm({
             const subtotalWithoutVat = quantity * unitPriceWithoutVat
             const subtotal = quantity * unitPriceIncludingVat
             const vatPercentage = prod?.purchaseVatPercentage ?? prod?.vatPercentage
+            const isWeightBased = Boolean(prod?.isWeightBased)
             const grossLineTotal = ocrGrossTotals[index]
             const grossUnitPrice = grossLineTotal !== null && grossLineTotal !== undefined && quantity > 0
               ? grossLineTotal / quantity
@@ -556,7 +567,7 @@ export default function ReceiptForm({
                     />
                   </div>
 
-                  <div className="grid grid-cols-2 gap-3">
+                  <div className={`grid gap-3 ${isWeightBased ? "grid-cols-1 min-[420px]:grid-cols-3" : "grid-cols-2"}`}>
                     <div>
                       <span className="mb-1 block text-xs font-medium text-gray-600">UoM</span>
                       <div className="flex min-h-11 items-center rounded-md border border-gray-200 bg-white px-3 py-2 text-sm text-gray-700">
@@ -565,7 +576,7 @@ export default function ReceiptForm({
                     </div>
                     <div>
                       <label htmlFor={quantityId} className="mb-1 block text-xs font-medium text-gray-600">
-                        Cantidad recibida *
+                        {isWeightBased ? "Peso recibido *" : "Cantidad recibida *"}
                       </label>
                       <input
                         id={quantityId}
@@ -575,6 +586,22 @@ export default function ReceiptForm({
                         className="min-h-11 w-full rounded-md border border-gray-300 px-3 py-2 text-sm text-gray-900 focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
                       />
                     </div>
+                    {isWeightBased && (
+                      <div>
+                        <label htmlFor={`recepcion-elementos-${field.id}`} className="mb-1 block text-xs font-medium text-gray-600">
+                          Bandejas / elementos *
+                        </label>
+                        <input
+                          id={`recepcion-elementos-${field.id}`}
+                          type="number"
+                          min="1"
+                          step="1"
+                          {...register(`lines.${index}.packageCount`)}
+                          className="min-h-11 w-full rounded-md border border-gray-300 px-3 py-2 text-sm text-gray-900 focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
+                        />
+                        {errors.lines?.[index]?.packageCount && <p className="mt-1 text-xs text-red-600">{errors.lines[index]?.packageCount?.message}</p>}
+                      </div>
+                    )}
                   </div>
 
                   <div className="grid grid-cols-2 gap-3">
@@ -676,6 +703,7 @@ export default function ReceiptForm({
           <div className="space-y-1 text-right text-sm text-gray-900">
             <p>Productos con IVA: {productsTotal.toFixed(2)} EUR</p>
             <p>Transporte/preparación sin IVA: {transportCost.toFixed(4)} EUR</p>
+            {weightedPackageCount > 0 && <p>Bandejas / elementos: {weightedPackageCount}</p>}
             {ocrPreparationGross !== null && <p className="text-xs text-gray-500">PVP preparación bruto: {ocrPreparationGross.toFixed(2)} EUR</p>}
             <p className="font-semibold">Total albarán: {totalReceipt.toFixed(2)} EUR</p>
           </div>

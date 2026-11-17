@@ -42,10 +42,11 @@ describe("ReceiptsPanel", () => {
             lines: [{
               id: "line-1",
               receivedQuantity: 4,
+              packageCount: 6,
               unitPrice: 2.5,
               batch: "LOT-1",
               dueDate: null,
-              product: { id: "product-1", code: "MP-001", posDescription: "Harina", purchaseUnit: "SACO", itemType: "MP", purchaseVatPercentage: 10, vatPercentage: null },
+              product: { id: "product-1", code: "MP-001", posDescription: "Harina", purchaseUnit: "SACO", isWeightBased: true, itemType: "MP", purchaseVatPercentage: 10, vatPercentage: null },
             }],
           }),
         }
@@ -65,6 +66,8 @@ describe("ReceiptsPanel", () => {
     expect(screen.getByText("Desglose por IVA")).toBeInTheDocument()
     expect(screen.getByText("Cuota")).toBeInTheDocument()
     expect(screen.getByText("Subtotal sin IVA")).toBeInTheDocument()
+    expect(screen.getByText("Bandejas / elementos")).toBeInTheDocument()
+    expect(screen.getByText("Bandejas / elementos: 6")).toBeInTheDocument()
     expect(screen.queryByText("Precio Unit.")).not.toBeInTheDocument()
     expect(screen.getAllByText("11.00 €")).toHaveLength(3)
     expect(screen.getAllByText("10.00 €")).toHaveLength(3)

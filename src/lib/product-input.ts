@@ -7,6 +7,7 @@ const productInputFields = [
   "subfamily",
   "section",
   "isPurchasable",
+  "isWeightBased",
   "isPrepared",
   "isSellable",
   "hasRecipe",
@@ -92,6 +93,8 @@ export function pickProductFields(body: Record<string, unknown>) {
 }
 
 export function validateProductInput(body: Record<string, unknown>) {
+  if (body.isWeightBased !== undefined && typeof body.isWeightBased !== "boolean") return "isWeightBased no válido"
+
   for (const [field, limit] of Object.entries(stringLimits)) {
     const value = body[field]
     if (value !== undefined && value !== null && typeof value !== "string") return `${field} no válido`

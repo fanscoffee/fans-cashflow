@@ -46,6 +46,7 @@ describe("GET /api/inventario/recepciones/productos", () => {
         code: true,
         posDescription: true,
         purchaseUnit: true,
+        isWeightBased: true,
         baseUnitCost: true,
         purchaseVatPercentage: true,
         vatPercentage: true,

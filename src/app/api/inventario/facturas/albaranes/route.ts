@@ -29,8 +29,9 @@ export const GET = withAuth(async (req, session) => {
         select: {
           productId: true,
           receivedQuantity: true,
+          packageCount: true,
           unitPrice: true,
-          product: { select: { code: true, posDescription: true, purchaseUnit: true } },
+          product: { select: { code: true, posDescription: true, purchaseUnit: true, isWeightBased: true } },
         },
       },
     },

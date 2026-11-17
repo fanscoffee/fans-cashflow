@@ -27,8 +27,9 @@ type DeliveryNote = {
   lines: Array<{
     productId: string
     receivedQuantity: number
+    packageCount?: number
     unitPrice: number
-    product: { code: string; posDescription: string; purchaseUnit: string | null }
+    product: { code: string; posDescription: string; purchaseUnit: string | null; isWeightBased?: boolean }
   }>
 }
 
