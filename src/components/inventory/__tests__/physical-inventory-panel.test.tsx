@@ -1,4 +1,4 @@
-import { render, screen, waitFor } from "@testing-library/react"
+import { render, screen, waitFor, within } from "@testing-library/react"
 import userEvent from "@testing-library/user-event"
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest"
 import PhysicalInventoryPanel from "../physical-inventory-panel"
@@ -20,6 +20,34 @@ afterEach(() => vi.unstubAllGlobals())
 describe("PhysicalInventoryPanel", () => {
   beforeEach(() => {
     vi.mocked(useSession).mockReturnValue({ data: { user: { role: "ADMIN" } } } as any)
+  })
+
+  it("shows the provider column and the supplier names for each product after clicking Ver", async () => {
+    const user = userEvent.setup()
+    const inventory = { id: "inventory-1", countedAt: "2026-10-01T00:00:00.000Z", notes: null }
+    const supplierNamesByProduct = [["Molinos del Norte"], [], ["Azúcares Sur", "Dulces Centro"]]
+    const comparison = products.map((product, index) => ({
+      product: { ...product, supplierNames: supplierNamesByProduct[index] },
+      actual: 5,
+      variance: 0,
+    }))
+    vi.stubGlobal("fetch", vi.fn(async (input: RequestInfo | URL) => {
+      if (String(input).endsWith("/inventory-1/comparacion")) {
+        return Response.json({ inventory, previousInventory: null, comparison })
+      }
+      return Response.json({
+        inventories: [{ ...inventory, createdBy: { name: "Admin" }, _count: { lines: 3 } }],
+        total: 1,
+      })
+    }))
+
+    render(<PhysicalInventoryPanel />)
+    await user.click(await screen.findByRole("button", { name: "Ver" }))
+
+    expect(await screen.findByRole("columnheader", { name: "Proveedor" })).toBeInTheDocument()
+    expect(within(screen.getByRole("row", { name: /MP-HAR-001/ })).getByRole("cell", { name: "Molinos del Norte" })).toBeInTheDocument()
+    expect(within(screen.getByRole("row", { name: /MP-LAC-001/ })).getByRole("cell", { name: "—" })).toBeInTheDocument()
+    expect(within(screen.getByRole("row", { name: /MP-AZU-001/ })).getByRole("cell", { name: "Azúcares Sur, Dulces Centro" })).toBeInTheDocument()
   })
 
   it("allows editing a saved inventory and filtering products by name", async () => {

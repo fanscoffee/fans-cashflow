@@ -23,6 +23,14 @@ export const GET = withAuth(async (req, session, context) => {
               purchaseUnit: true,
               baseStockUnit: true,
               purchaseToBaseFactor: true,
+              suppliers: {
+                where: { active: true },
+                orderBy: { supplier: { legalName: "asc" } },
+                select: {
+                  isPrimary: true,
+                  supplier: { select: { legalName: true } },
+                },
+              },
             },
           },
         },
@@ -89,16 +97,21 @@ export const GET = withAuth(async (req, session, context) => {
   }
 
   const comparison = inventoryActual.lines.map((line) => {
-    const previous = previousByProduct[line.product.id] || 0
-    const received = receivedMap[line.product.id] || 0
+    const { suppliers, ...product } = line.product
+    const primarySupplier = suppliers.find(({ isPrimary }) => isPrimary)
+    const supplierNames = primarySupplier
+      ? [primarySupplier.supplier.legalName]
+      : suppliers.map(({ supplier }) => supplier.legalName)
+    const previous = previousByProduct[product.id] || 0
+    const received = receivedMap[product.id] || 0
     const actual = Number(line.quantityUnit2)
     const variance = previous + received - actual
 
     return {
-      product: line.product,
+      product: { ...product, supplierNames },
       quantityUnit1: Number(line.quantityUnit1),
       quantityUnit2: Number(line.quantityUnit2),
-      baseUnit: line.product.baseStockUnit,
+      baseUnit: product.baseStockUnit,
       previous,
       received,
       actual,
