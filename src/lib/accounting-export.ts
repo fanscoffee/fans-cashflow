@@ -1,4 +1,5 @@
-import ExcelJS from "exceljs"
+import writeXlsxFile, { type CellObject, type SheetData } from "write-excel-file/node"
+import { getCellAddress, getOrderOfSiblings, getSelfClosingTagMarkup, insertElementMarkupAccordingToOrderOfSiblings } from "write-excel-file/utility"
 import { toN } from "@/lib/money"
 
 export const ACCOUNTING_SHEET_NAME = "Gastos y Compras Fans"
@@ -426,65 +427,70 @@ function totalValues(rows: AccountingExportRow[]) {
 }
 
 export async function buildAccountingWorkbook(rows: AccountingExportRow[]) {
-  const workbook = new ExcelJS.Workbook()
-  workbook.creator = "Fans Cashflow"
-  workbook.modified = new Date()
+  const widths = [8, 13, 18, 36, 16, 16, 18, ...Array.from({ length: 9 }, () => 17), 20, 19, 14, 18, 18, 30]
+  const columns = widths.map((width) => ({ width }))
+  const moneyFormat = "#,##0.00"
+  const header = ACCOUNTING_HEADERS.map((value): CellObject => ({
+    value,
+    height: 34,
+    fontWeight: "bold",
+    textColor: "#FFFFFF",
+    backgroundColor: "#1F4E78",
+    align: "center",
+    alignVertical: "center",
+    wrap: true,
+    bottomBorderStyle: "thin",
+    bottomBorderColor: "#163A5C",
+  }))
+  const entries = rows.map((row, index) => rowValues(row).map((value, column): CellObject => ({
+    value,
+    alignVertical: "center",
+    wrap: column >= 3 && column <= 6,
+    backgroundColor: index % 2 === 1 ? "#F3F6F9" : undefined,
+    format: column >= 7 && column <= 19 ? moneyFormat : undefined,
+  })))
+  const totals = totalValues(rows).map((value): CellObject => ({
+    value: value ?? undefined,
+    fontWeight: "bold",
+    backgroundColor: "#D9EAF7",
+    topBorderStyle: "medium",
+    topBorderColor: "#1F4E78",
+    format: typeof value === "number" ? moneyFormat : undefined,
+  }))
+  const data: SheetData = [header, ...entries, totals]
 
-  const sheet = workbook.addWorksheet(ACCOUNTING_SHEET_NAME, {
-    views: [{ state: "frozen", ySplit: 1 }],
-  })
-  sheet.columns = [
-    { width: 8 },
-    { width: 13 },
-    { width: 18 },
-    { width: 36 },
-    { width: 16 },
-    { width: 16 },
-    { width: 18 },
-    ...Array.from({ length: 9 }, () => ({ width: 17 })),
-    { width: 20 },
-    { width: 19 },
-    { width: 14 },
-    { width: 18 },
-    { width: 18 },
-    { width: 30 },
-  ]
-
-  const header = sheet.addRow([...ACCOUNTING_HEADERS])
-  header.height = 34
-  header.eachCell((cell) => {
-    cell.font = { bold: true, color: { argb: "FFFFFFFF" } }
-    cell.fill = { type: "pattern", pattern: "solid", fgColor: { argb: "FF1F4E78" } }
-    cell.alignment = { horizontal: "center", vertical: "middle", wrapText: true }
-    cell.border = {
-      bottom: { style: "thin", color: { argb: "FF163A5C" } },
-    }
-  })
-
-  for (const [index, row] of rows.entries()) {
-    const excelRow = sheet.addRow(rowValues(row))
-    excelRow.getCell(2).numFmt = "dd/mm/yyyy"
-    excelRow.eachCell((cell, columnNumber) => {
-      cell.alignment = { vertical: "middle", wrapText: columnNumber >= 4 && columnNumber <= 7 }
-      if (index % 2 === 1) cell.fill = { type: "pattern", pattern: "solid", fgColor: { argb: "FFF3F6F9" } }
-    })
-  }
-
-  const totalRow = sheet.addRow(totalValues(rows))
-  totalRow.font = { bold: true }
-  totalRow.fill = { type: "pattern", pattern: "solid", fgColor: { argb: "FFD9EAF7" } }
-  totalRow.border = { top: { style: "medium", color: { argb: "FF1F4E78" } } }
-
-  for (const columnNumber of Array.from({ length: 13 }, (_, index) => index + 8)) {
-    sheet.getColumn(columnNumber).numFmt = "#,##0.00"
-  }
-  sheet.getColumn(2).numFmt = "dd/mm/yyyy"
-  sheet.autoFilter = {
-    from: { row: 1, column: 1 },
-    to: { row: Math.max(1, rows.length + 1), column: ACCOUNTING_HEADERS.length },
-  }
-  sheet.pageSetup = { orientation: "landscape", fitToPage: true, fitToWidth: 1, fitToHeight: 0 }
-  sheet.properties.defaultRowHeight = 20
-
-  return workbook.xlsx.writeBuffer()
+  const sheetFile = "xl/worksheets/sheet{id}.xml"
+  const worksheetOrder = getOrderOfSiblings(sheetFile, "worksheet") ?? []
+  // Preserve the filter (excluding totals) and the one-page-wide print layout.
+  const filterRange = `A1:${getCellAddress(rows.length, ACCOUNTING_HEADERS.length - 1)}`
+  const buffer = await writeXlsxFile(data, {
+    sheet: ACCOUNTING_SHEET_NAME,
+    columns,
+    stickyRowsCount: 1,
+    dateFormat: "dd/mm/yyyy",
+    orientation: "landscape",
+  }, {
+    features: [{
+      files: {
+        transform: {
+          [sheetFile]: {
+            transformElementAttributes(tag, attributes) {
+              return tag === "pageSetup" ? { ...attributes, fitToWidth: 1, fitToHeight: 0 } : attributes
+            },
+            transform(xml) {
+              for (const element of [
+                '<sheetPr><pageSetUpPr fitToPage="1"/></sheetPr>',
+                getSelfClosingTagMarkup("sheetFormatPr", { defaultRowHeight: 20 }),
+                getSelfClosingTagMarkup("autoFilter", { ref: filterRange }),
+              ]) {
+                xml = insertElementMarkupAccordingToOrderOfSiblings(xml, element, worksheetOrder, "worksheet")
+              }
+              return xml
+            },
+          },
+        },
+      },
+    }],
+  }).toBuffer()
+  return new Uint8Array(buffer)
 }

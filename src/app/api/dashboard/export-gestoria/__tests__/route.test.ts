@@ -1,5 +1,5 @@
 import { describe, expect, it, vi, beforeEach } from "vitest"
-import ExcelJS from "exceljs"
+import { readSheet } from "read-excel-file/node"
 import type { NextRequest } from "next/server"
 
 vi.mock("@/lib/prisma", () => ({
@@ -53,9 +53,9 @@ describe("Dashboard API /api/dashboard/export-gestoria", () => {
     expect(response.headers.get("content-type")).toContain("spreadsheetml.sheet")
     expect(response.headers.get("content-disposition")).toContain("fans-cashflow-gestoria-2026-07.xlsx")
 
-    const workbook = new ExcelJS.Workbook()
-    await workbook.xlsx.load(await response.arrayBuffer())
-    expect(workbook.getWorksheet("Gastos y Compras Fans")).toBeDefined()
+    const [header, totals] = await readSheet(await response.arrayBuffer(), "Gastos y Compras Fans")
+    expect(header.slice(0, 3)).toEqual(["Nº", "Fecha", "Factura Nº"])
+    expect(totals[0]).toBe("TOTAL")
     expect(prisma.invoice.findMany).toHaveBeenCalledWith(expect.objectContaining({
       where: expect.objectContaining({
         issueDate: {

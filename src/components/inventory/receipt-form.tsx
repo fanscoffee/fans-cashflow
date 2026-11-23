@@ -1,7 +1,7 @@
 "use client"
 
-import { useState, useEffect, useMemo, useRef } from "react"
-import { useForm, useFieldArray } from "react-hook-form"
+import { useState, useEffect, useCallback, useMemo, useRef } from "react"
+import { useForm, useFieldArray, useWatch } from "react-hook-form"
 import type { Resolver } from "react-hook-form"
 import { zodResolver } from "@hookform/resolvers/zod"
 import { z } from "zod"
@@ -36,6 +36,9 @@ interface Product {
   vatPercentage: number | string | null
 }
 
+type SupplierCatalog = { supplierId: string; products: Product[] }
+
+const EMPTY_PRODUCTS: Product[] = []
 const genericProductOption = { id: "__generic_receipt_product__", code: "", posDescription: GENERIC_RECEIPT_PRODUCT_LABEL }
 
 const receiptSchema = z.object({
@@ -93,15 +96,15 @@ export default function ReceiptForm({
   initialValues?: ReceiptFormValues
 }) {
   const [suppliers, setSuppliers] = useState<Supplier[]>([])
-  const [products, setProducts] = useState<Product[]>([])
-  const [productsSupplierId, setProductsSupplierId] = useState("")
+  const [catalog, setCatalog] = useState<SupplierCatalog | null>(null)
+  const catalogRef = useRef<SupplierCatalog | null>(null)
   const [ocrStatus, setOcrStatus] = useState("")
   const [ocrError, setOcrError] = useState("")
   const [ocrWarnings, setOcrWarnings] = useState<string[]>([])
   const [ocrUnmatched, setOcrUnmatched] = useState<number | null>(null)
   const [documentRead, setDocumentRead] = useState(false)
   const [ocrReviewed, setOcrReviewed] = useState(false)
-  const [pendingOcrLines, setPendingOcrLines] = useState<DeliveryNoteLineDraft[] | null>(null)
+  const [hasPendingOcrLines, setHasPendingOcrLines] = useState(false)
   const pendingOcrLinesRef = useRef<DeliveryNoteLineDraft[] | null>(null)
   const [ocrLineDetails, setOcrLineDetails] = useState<Array<{ description: string; grossTotal: number } | null>>([])
   const [ocrTaxes, setOcrTaxes] = useState<DeliveryNoteTaxDraft[]>([])
@@ -114,10 +117,8 @@ export default function ReceiptForm({
     handleSubmit,
     control,
     getValues,
-    watch,
     setValue,
     clearErrors,
-    reset,
     formState: { errors },
   } = useForm<ReceiptFormValues>({
     resolver: zodResolver(receiptSchema) as Resolver<ReceiptFormValues>,
@@ -129,27 +130,12 @@ export default function ReceiptForm({
     name: "lines",
   })
 
-  const supplierId = watch("supplierId")
-  const lines = watch("lines")
-  const [productsLoading, setProductsLoading] = useState(false)
-  const previousSupplierId = useRef("")
+  const supplierId = useWatch({ control, name: "supplierId" })
+  const lines = useWatch({ control, name: "lines" })
+  const transportCost = Number(useWatch({ control, name: "transportCost" }) || 0)
+  const supplierField = register("supplierId")
+  const products = catalog?.supplierId === supplierId ? catalog.products : EMPTY_PRODUCTS
   const productOptions = useMemo(() => [genericProductOption, ...products], [products])
-
-  useEffect(() => {
-    if (initialValues) reset(initialValues)
-    pendingOcrLinesRef.current = null
-    setPendingOcrLines(null)
-    setOcrWarnings([])
-    setOcrUnmatched(null)
-    setOcrLineDetails([])
-    setOcrTaxes([])
-    setOcrPreparationGross(null)
-    setOcrTotalGross(null)
-    setOcrReviewed(false)
-    setOcrStatus("")
-    setOcrError("")
-    setDocumentRead(false)
-  }, [initialValues, reset])
 
   useEffect(() => {
     fetch("/api/inventario/proveedores?pageSize=200")
@@ -158,60 +144,9 @@ export default function ReceiptForm({
       .catch(() => {})
   }, [])
 
-  useEffect(() => {
-    const previousId = previousSupplierId.current
-    previousSupplierId.current = supplierId
-
-    if (previousId && previousId !== supplierId && !pendingOcrLinesRef.current) {
-      getValues("lines").forEach((line, index) => {
-        if (line.productId === null) return
-        setValue(`lines.${index}.productId`, "")
-        setValue(`lines.${index}.unitPrice`, 0)
-        setValue(`lines.${index}.packageCount`, 1)
-        setValue(`lines.${index}.batch`, "")
-        setValue(`lines.${index}.dueDate`, "")
-      })
-    }
-
-    if (!supplierId) {
-      setProducts([])
-      setProductsSupplierId("")
-      setProductsLoading(false)
-      return
-    }
-
-    const controller = new AbortController()
-    const params = new URLSearchParams({ supplierId })
-    setProducts([])
-    setProductsSupplierId("")
-    setProductsLoading(true)
-
-    fetch(`/api/inventario/recepciones/productos?${params}`, { signal: controller.signal })
-      .then(async (response) => {
-        if (!response.ok) throw new Error("Error al cargar productos")
-        return response.json()
-      })
-      .then((data) => {
-        if (!controller.signal.aborted) {
-          setProducts(data.products || [])
-          setProductsSupplierId(supplierId)
-        }
-      })
-      .catch((error) => {
-        if (error instanceof Error && error.name === "AbortError") return
-        if (!controller.signal.aborted) setProductsSupplierId(supplierId)
-      })
-      .finally(() => {
-        if (!controller.signal.aborted) setProductsLoading(false)
-      })
-
-    return () => controller.abort()
-  }, [getValues, supplierId, setValue])
-
-  useEffect(() => {
-    if (!pendingOcrLines || !supplierId || productsSupplierId !== supplierId) return
-    const mappedLines = pendingOcrLines.map((line) => {
-      const product = matchDeliveryProduct(line.description, products)
+  const applyOcrLines = useCallback((draft: DeliveryNoteLineDraft[], catalogProducts: Product[]) => {
+    const mappedLines = draft.map((line) => {
+      const product = matchDeliveryProduct(line.description, catalogProducts)
       const quantity = Number(line.quantity)
       const grossTotal = Number(line.lineTotal)
       return {
@@ -229,8 +164,46 @@ export default function ReceiptForm({
     replace(mappedLines)
     setOcrUnmatched(unmatched)
     pendingOcrLinesRef.current = null
-    setPendingOcrLines(null)
-  }, [pendingOcrLines, products, productsSupplierId, replace, supplierId])
+    setHasPendingOcrLines(false)
+  }, [replace])
+
+  useEffect(() => {
+    if (!supplierId) return
+
+    const controller = new AbortController()
+    const params = new URLSearchParams({ supplierId })
+    fetch(`/api/inventario/recepciones/productos?${params}`, { signal: controller.signal })
+      .then(async (response): Promise<Product[]> => {
+        if (!response.ok) return []
+        const data = await response.json() as { products?: Product[] }
+        return data.products || []
+      })
+      .catch(() => [])
+      .then((loadedProducts) => {
+        if (controller.signal.aborted || getValues("supplierId") !== supplierId) return
+        const loadedCatalog = { supplierId, products: loadedProducts }
+        catalogRef.current = loadedCatalog
+        setCatalog(loadedCatalog)
+        if (pendingOcrLinesRef.current) applyOcrLines(pendingOcrLinesRef.current, loadedProducts)
+      })
+
+    return () => controller.abort()
+  }, [applyOcrLines, getValues, supplierId])
+
+  function changeSupplier(clearProductLines: boolean) {
+    catalogRef.current = null
+    setCatalog(null)
+    if (!clearProductLines || pendingOcrLinesRef.current) return
+
+    getValues("lines").forEach((line, index) => {
+      if (line.productId === null) return
+      setValue(`lines.${index}.productId`, "")
+      setValue(`lines.${index}.unitPrice`, 0)
+      setValue(`lines.${index}.packageCount`, 1)
+      setValue(`lines.${index}.batch`, "")
+      setValue(`lines.${index}.dueDate`, "")
+    })
+  }
 
   const handleAddLine = () => {
     append({ productId: "", receivedQuantity: 1, packageCount: 1, unitPrice: 0, batch: "", dueDate: "" })
@@ -273,7 +246,7 @@ export default function ReceiptForm({
     setOcrReviewed(false)
     setDocumentRead(false)
     pendingOcrLinesRef.current = null
-    setPendingOcrLines(null)
+    setHasPendingOcrLines(false)
     setOcrLineDetails([])
     setOcrTaxes([])
     setOcrPreparationGross(null)
@@ -311,7 +284,12 @@ export default function ReceiptForm({
         }
       }
 
-      setValue("supplierId", supplier?.id || "")
+      const nextSupplierId = supplier?.id || ""
+      const currentSupplierId = getValues("supplierId")
+      if (nextSupplierId !== currentSupplierId) {
+        changeSupplier(Boolean(currentSupplierId) && draft.lines.length === 0)
+        setValue("supplierId", nextSupplierId)
+      }
       setValue("deliveryNoteCode", draft.deliveryNoteCode)
       setValue("receivedAt", draft.receivedAt)
       const preparationGross = Number(draft.preparationGross)
@@ -326,20 +304,22 @@ export default function ReceiptForm({
       if (!getValues("notes")) setValue("notes", `Importado por OCR · ${draft.supplierName || "proveedor no identificado"}`)
 
       if (draft.lines.length > 0) {
-        replace(draft.lines.map((line) => ({
-          productId: "",
-          receivedQuantity: Number(line.quantity) || 1,
-          packageCount: 1,
-          unitPrice: Number(line.lineTotal) / (Number(line.quantity) || 1),
-          batch: "",
-          dueDate: "",
-        })))
         setOcrLineDetails(draft.lines.map((line) => ({ description: line.description, grossTotal: Number(line.lineTotal) })))
-        pendingOcrLinesRef.current = draft.lines
-        setPendingOcrLines(draft.lines)
-      } else {
-        pendingOcrLinesRef.current = null
-        setPendingOcrLines(null)
+        const loadedCatalog = catalogRef.current
+        if (loadedCatalog?.supplierId === nextSupplierId) {
+          applyOcrLines(draft.lines, loadedCatalog.products)
+        } else {
+          replace(draft.lines.map((line) => ({
+            productId: "",
+            receivedQuantity: Number(line.quantity) || 1,
+            packageCount: 1,
+            unitPrice: Number(line.lineTotal) / (Number(line.quantity) || 1),
+            batch: "",
+            dueDate: "",
+          })))
+          pendingOcrLinesRef.current = draft.lines
+          setHasPendingOcrLines(true)
+        }
       }
 
       const warnings = [...draft.warnings]
@@ -382,7 +362,6 @@ export default function ReceiptForm({
     const product = getProductInfo(line.productId)
     return sum + (product?.isWeightBased ? Number(line.packageCount || 0) : 0)
   }, 0)
-  const transportCost = Number(watch("transportCost") || 0)
   const ocrFiscalValidation = documentRead
     ? validateDeliveryNoteFiscalBreakdown({
         lines: (lines || []).map((line, index) => ({
@@ -399,10 +378,10 @@ export default function ReceiptForm({
     : null
   const transportGross = ocrPreparationGross ?? transportCost
   const totalReceipt = productsTotal + transportGross
-  const unassignedOcrLines = pendingOcrLines
+  const unassignedOcrLines = hasPendingOcrLines
     ? 0
     : (lines || []).filter((line, index) => ocrLineDetails[index] && line.productId === "").length
-  const productOptionsLoading = productsLoading || productsSupplierId !== supplierId || pendingOcrLines !== null
+  const productOptionsLoading = catalog?.supplierId !== supplierId || hasPendingOcrLines
   const productPlaceholder = !supplierId
     ? "Selecciona primero un proveedor..."
     : productOptionsLoading
@@ -453,7 +432,11 @@ export default function ReceiptForm({
           </label>
           <select
             id="recepcion-proveedor"
-            {...register("supplierId")}
+            {...supplierField}
+            onChange={(event) => {
+              if (event.currentTarget.value !== supplierId) changeSupplier(Boolean(supplierId))
+              void supplierField.onChange(event)
+            }}
             className="w-full rounded-md border border-gray-300 px-3 py-2 text-sm text-gray-900 shadow-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
           >
             <option value="">Seleccionar proveedor...</option>

@@ -1,8 +1,8 @@
 import { NextResponse } from "next/server"
 import { verifyAuthenticationResponse } from "@simplewebauthn/server"
-import { isoBase64URL } from "@simplewebauthn/server/helpers"
 import { prisma } from "@/lib/prisma"
 import { checkRateLimit, requestAddress } from "@/lib/rate-limit"
+import { isUserAccessRevoked } from "@/lib/user-access"
 import {
   AUTHENTICATION_CHALLENGE,
   ORIGINS,
@@ -34,10 +34,10 @@ export async function POST(request: Request) {
 
     const passkey = await prisma.passkey.findUnique({
       where: { credentialId: credential.id },
-      include: { user: true },
+      include: { user: { select: { id: true, email: true, name: true, role: true, authVersion: true } } },
     })
 
-    if (!passkey) {
+    if (!passkey || isUserAccessRevoked(passkey.user.authVersion)) {
       return NextResponse.json({ error: "Passkey no encontrada" }, { status: 404 })
     }
 
@@ -63,9 +63,10 @@ export async function POST(request: Request) {
       expectedChallenge: challenge,
       expectedOrigin,
       expectedRPID: RP_ID,
-      authenticator: {
-        credentialID: isoBase64URL.toBuffer(passkey.credentialId),
-        credentialPublicKey: new Uint8Array(passkey.publicKey),
+      requireUserVerification: true,
+      credential: {
+        id: passkey.credentialId,
+        publicKey: new Uint8Array(passkey.publicKey),
         counter: Number(passkey.counter),
         transports: transportsFromJSON(passkey.transports),
       },

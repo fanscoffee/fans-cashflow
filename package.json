@@ -2,6 +2,7 @@
   "name": "fans-cashflow",
   "version": "0.1.0",
   "private": true,
+  "packageManager": "pnpm@10.34.9",
   "scripts": {
     "dev": "next dev",
     "build": "prisma generate && NODE_ENV=production next build",
@@ -24,6 +25,8 @@
       "msw"
     ],
     "overrides": {
+      "@auth/core@0.41.3>@simplewebauthn/browser": "-",
+      "@auth/core@0.41.3>@simplewebauthn/server": "-",
       "@hono/node-server": "1.19.15",
       "brace-expansion@^1.1.7": "1.1.18",
       "fast-uri": "3.1.5",
@@ -33,10 +36,15 @@
       "hono": "4.12.34",
       "js-yaml": "4.3.1",
       "mysql2": "3.22.0",
+      "next-auth@5.0.0-beta.32>@simplewebauthn/browser": "-",
+      "next-auth@5.0.0-beta.32>@simplewebauthn/server": "-",
       "postcss": "8.5.26",
       "undici": "7.29.0",
       "uuid": "11.1.1",
       "valibot": "1.4.2"
+    },
+    "patchedDependencies": {
+      "node-fetch@2.7.0": "patches/node-fetch@2.7.0.patch"
     }
   },
   "dependencies": {
@@ -45,14 +53,13 @@
     "@hookform/resolvers": "^5.4.0",
     "@prisma/adapter-pg": "^7.10.0",
     "@prisma/client": "^7.10.0",
-    "@simplewebauthn/browser": "9.0.1",
-    "@simplewebauthn/server": "9.0.2",
+    "@simplewebauthn/browser": "14.0.0",
+    "@simplewebauthn/server": "14.1.0",
     "@supabase/ssr": "^0.12.1",
     "@supabase/supabase-js": "^2.110.3",
     "bcryptjs": "^3.0.3",
     "date-fns": "^4.4.0",
     "dotenv": "^17.4.2",
-    "exceljs": "4.4.0",
     "next": "16.3.4",
     "next-auth": "5.0.0-beta.32",
     "pdfjs-dist": "^6.2.108",
@@ -63,6 +70,7 @@
     "react-hook-form": "^7.81.0",
     "recharts": "^3.9.2",
     "tesseract.js": "^7.0.0",
+    "write-excel-file": "4.1.1",
     "zod": "^4.4.3"
   },
   "devDependencies": {
@@ -70,7 +78,6 @@
     "@testing-library/jest-dom": "^7.0.0",
     "@testing-library/react": "^16.3.2",
     "@testing-library/user-event": "^14.6.1",
-    "@types/bcryptjs": "^3.0.0",
     "@types/node": "^20",
     "@types/pg": "^8.20.0",
     "@types/react": "^19",
@@ -79,8 +86,10 @@
     "@vitest/ui": "^4.1.10",
     "eslint": "^9",
     "eslint-config-next": "16.3.4",
+    "fflate": "^0.8.3",
     "jsdom": "^29.1.1",
     "msw": "^2.15.0",
+    "read-excel-file": "9.3.20",
     "tailwindcss": "^4",
     "typescript": "^5",
     "vitest": "^4.1.10"
