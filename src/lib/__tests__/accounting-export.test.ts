@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest"
-import ExcelJS from "exceljs"
+import { unzipSync, strFromU8 } from "fflate"
+import { readSheet } from "read-excel-file/node"
 import { buildCapturedAccountingRows, buildAccountingRows, buildAccountingWorkbook } from "../accounting-export"
 
 const invoice = {
@@ -46,24 +47,33 @@ describe("accounting-export", () => {
 
   it("creates the expected worksheet, headers and totals", async () => {
     const rows = buildAccountingRows({ invoices: [invoice], expenses: [], expensesLegacy: [] })
-    const buffer = await buildAccountingWorkbook(rows)
-    const workbook = new ExcelJS.Workbook()
-    await workbook.xlsx.load(buffer)
+    rows[0].invoiceNumber = "000123"
+    rows[0].supplier = "A&B <Proveedor>"
+    rows[0].concept = "=1+1"
+    const buffer = await buildAccountingWorkbook([...rows, { ...rows[0], number: 2, voided: true }])
+    const [header, first, , totals] = await readSheet(buffer, "Gastos y Compras Fans")
 
-    const sheet = workbook.getWorksheet("Gastos y Compras Fans")
-    expect(sheet).toBeDefined()
-    if (!sheet) throw new Error("No se generó la hoja de gestoría")
-    const headerValues = sheet.getRow(1).values as ExcelJS.CellValue[]
-    expect(headerValues.slice(1)).toEqual([
+    expect(header).toEqual([
       "Nº", "Fecha", "Factura Nº", "Proveedor / Acreedor", "NIF", "ENTIDAD", "Concepto",
       "BASE EXENTA", "Base Imponible 21%", "21% IVA", "Base Imponible 10%", "10% IVA",
       "Base Imponible 4%", "4% IVA", "Base Imponible 2%", "2% IVA", "TOTAL BASE IMPONIBLE",
       "TOTAL CUOTA IVA", "IRPF", "TOTAL FACTURA", "FORMA PAGO", "ORIGEN",
     ])
-    expect(sheet.getRow(3).getCell(1).value).toBe("TOTAL")
-    expect(sheet.getRow(2).getCell(6).value).toBe("Obrador")
-    expect(sheet.getRow(3).getCell(9).value).toBe(100)
-    expect(sheet.getRow(3).getCell(20).value).toBe(121)
+    expect(first.slice(0, 7)).toEqual([1, invoice.issueDate, "000123", "A&B <Proveedor>", "B12345678", "Obrador", "=1+1"])
+    expect(totals[0]).toBe("TOTAL")
+    expect(totals[8]).toBe(100)
+    expect(totals[19]).toBe(121)
+
+    const files = unzipSync(buffer)
+    const sheet = strFromU8(files["xl/worksheets/sheet1.xml"])
+    const styles = strFromU8(files["xl/styles.xml"])
+    expect(sheet).toMatch(/<pane\b[^>]*\bySplit="1"[^>]*\bstate="frozen"/)
+    expect(sheet).toContain('<autoFilter ref="A1:V3"/>')
+    expect(sheet).toContain('fitToPage="1"')
+    expect(sheet).toMatch(/<pageSetup\b[^>]*\borientation="landscape"[^>]*\bfitToWidth="1"/)
+    expect(sheet).not.toContain("<f>")
+    expect(styles).toContain('formatCode="dd/mm/yyyy"')
+    expect(styles).toContain('formatCode="#,##0.00"')
   })
 
   it("maps standalone accounting captures to the same worksheet layout", () => {

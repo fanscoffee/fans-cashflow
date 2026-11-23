@@ -1,12 +1,13 @@
 import { NextResponse } from "next/server"
 import { generateAuthenticationOptions } from "@simplewebauthn/server"
-import { isoBase64URL } from "@simplewebauthn/server/helpers"
 import { prisma } from "@/lib/prisma"
 import { checkRateLimit, requestAddress } from "@/lib/rate-limit"
+import { FIRST_ACTIVE_AUTH_VERSION } from "@/lib/user-access"
 import {
   AUTHENTICATION_CHALLENGE,
   challengeExpiresAt,
   RP_ID,
+  transportsFromJSON,
 } from "@/lib/webauthn"
 
 type PasskeyRow = { id: string; credentialId: string; transports: string | null }
@@ -25,7 +26,7 @@ export async function POST(request: Request) {
 
     if (email) {
       const user = await prisma.user.findUnique({
-        where: { email },
+        where: { email, authVersion: { gte: FIRST_ACTIVE_AUTH_VERSION } },
         select: { id: true, passkeys: { select: { id: true, credentialId: true, transports: true } } },
       })
       if (user) {
@@ -33,7 +34,10 @@ export async function POST(request: Request) {
         passkeys = user.passkeys
       }
     } else {
-      const allPasskeys = await prisma.passkey.findMany()
+      const allPasskeys = await prisma.passkey.findMany({
+        where: { user: { authVersion: { gte: FIRST_ACTIVE_AUTH_VERSION } } },
+        select: { id: true, credentialId: true, transports: true },
+      })
       passkeys = allPasskeys
     }
 
@@ -47,9 +51,8 @@ export async function POST(request: Request) {
     const options = await generateAuthenticationOptions({
       rpID: RP_ID,
       allowCredentials: passkeys.map((pk) => ({
-        id: isoBase64URL.toBuffer(pk.credentialId),
-        type: "public-key" as const,
-        transports: pk.transports ? JSON.parse(pk.transports) : undefined,
+        id: pk.credentialId,
+        transports: transportsFromJSON(pk.transports),
       })),
       userVerification: "required",
     })

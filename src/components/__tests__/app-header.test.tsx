@@ -48,6 +48,7 @@ describe("AppHeader", () => {
     expect(logo).toHaveClass("object-contain")
     expect(logo).toHaveAttribute("width", "160")
     expect(logo).toHaveAttribute("height", "84")
+    expect(logo).toHaveAttribute("loading", "eager")
   })
 
   it("renders grouped nav links for ADMIN role", () => {

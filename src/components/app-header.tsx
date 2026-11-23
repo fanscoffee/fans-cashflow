@@ -167,6 +167,7 @@ export default function AppHeader({
             alt="Fans"
             width={160}
             height={84}
+            loading="eager"
             className="h-auto w-14 shrink-0 rounded object-contain sm:w-20"
           />
           <div className="min-w-0">

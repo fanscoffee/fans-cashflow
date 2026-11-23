@@ -114,9 +114,17 @@ The manual share flow does not require a Vercel cron, Meta API token, or WhatsAp
 
 ## Development
 
+Use Node.js and pnpm as pinned in `mise.toml`. The pnpm patch for `node-fetch` keeps the native Node `URL` implementation and removes an unused fallback that loads deprecated `punycode`.
+
+The app handles passkeys in its own WebAuthn routes and uses Auth.js only for credentials and sessions. The version-scoped pnpm overrides remove the optional WebAuthn 9 peers for the unused Auth.js passkey provider; the app's routes use SimpleWebAuthn directly.
+
+ESLint 9 remains in use while the React, JSX accessibility, and import plugins in `eslint-config-next` do not support ESLint 10. Resolving dependencies may still show the upstream deprecation notice.
+
+Stop `pnpm dev` before reinstalling or updating dependencies. If Next.js still references an old `node_modules/.pnpm` path after a restart, stop the server, move `.next/dev` aside, and start it again. This regenerates the development cache without touching the production build or browser data.
+
 ```bash
 # Install dependencies
-npm install
+pnpm install
 
 # Generate the Prisma client
 npx prisma generate

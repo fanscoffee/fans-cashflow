@@ -101,6 +101,10 @@ describe("PasskeyManager", () => {
     await waitFor(() => {
       expect(screen.getByText("Face ID registrado correctamente")).toBeInTheDocument()
     })
+    const { startRegistration } = await import("@simplewebauthn/browser")
+    expect(startRegistration).toHaveBeenCalledWith({
+      optionsJSON: expect.objectContaining({ challenge: "ch123" }),
+    })
   })
 
   it("shows error when register options fetch fails", async () => {

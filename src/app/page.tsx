@@ -5,6 +5,7 @@ import { useForm } from "react-hook-form"
 import { zodResolver } from "@hookform/resolvers/zod"
 import { z } from "zod"
 import { signIn } from "next-auth/react"
+import { navigateWithReload } from "@/lib/browser-navigation"
 import { normalizeRole, ROLE_REDIRECT } from "@/lib/roles"
 
 const loginSchema = z.object({
@@ -48,7 +49,7 @@ export default function LoginPage() {
         const session = await res.json()
         if (session?.user?.role) {
           const role = normalizeRole(session.user.role)
-          window.location.href = (role && ROLE_REDIRECT[role]) ?? "/empleado" // eslint-disable-line react-hooks/immutability
+          navigateWithReload(ROLE_REDIRECT[role ?? ""] ?? "/empleado")
           return
         }
         await new Promise((r) => setTimeout(r, 200))
