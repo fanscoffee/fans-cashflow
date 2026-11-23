@@ -1,7 +1,7 @@
 "use client"
 
 import { useState, useEffect } from "react"
-import { useForm, type UseFormRegister } from "react-hook-form"
+import { useForm, useWatch, type UseFormRegister } from "react-hook-form"
 import { zodResolver } from "@hookform/resolvers/zod"
 import type { Resolver } from "react-hook-form"
 import { z } from "zod"
@@ -267,18 +267,21 @@ export default function SupplierForm({
     register,
     handleSubmit,
     reset,
-    watch,
+    control,
     formState: { errors },
   } = useForm<SupplierFormValues>({
     resolver: zodResolver(supplierSchema) as Resolver<SupplierFormValues>,
     defaultValues: initialValues ? toFormValues(initialValues) : defaultValues(),
   })
 
+  const [reliabilityRating, qualityRating, priceRating] = useWatch({
+    control,
+    name: ["reliabilityRating", "qualityRating", "priceRating"],
+  })
+
   useEffect(() => {
     reset(initialValues ? toFormValues(initialValues) : defaultValues())
   }, [initialValues, reset])
-
-  const watchedValues = watch()
 
   async function handleFormSubmit(data: SupplierFormValues) {
     const ok = await onSubmit(data)
@@ -335,9 +338,9 @@ export default function SupplierForm({
             </select>
             {errors.status && <p className="mt-1 text-xs text-red-500">{errors.status.message}</p>}
           </div>
-          <RatingField label="Fiabilidad (1-5)" name="reliabilityRating" register={register} value={watchedValues.reliabilityRating} />
-          <RatingField label="Calidad (1-5)" name="qualityRating" register={register} value={watchedValues.qualityRating} />
-          <RatingField label="Precio (1-5)" name="priceRating" register={register} value={watchedValues.priceRating} />
+          <RatingField label="Fiabilidad (1-5)" name="reliabilityRating" register={register} value={reliabilityRating} />
+          <RatingField label="Calidad (1-5)" name="qualityRating" register={register} value={qualityRating} />
+          <RatingField label="Precio (1-5)" name="priceRating" register={register} value={priceRating} />
           <div className="sm:col-span-2">
             <TextareaField label="Incidencias" name="issues" register={register} placeholder="Retraso 15/03, Rotura stock harina..." error={errors.issues?.message} />
           </div>

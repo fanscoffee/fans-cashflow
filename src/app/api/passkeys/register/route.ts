@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server"
 import { generateRegistrationOptions, verifyRegistrationResponse } from "@simplewebauthn/server"
-import { isoBase64URL } from "@simplewebauthn/server/helpers"
+import { COSEALG } from "@simplewebauthn/server/helpers"
 import { prisma } from "@/lib/prisma"
 import { withAuth } from "@/lib/with-auth"
 import {
@@ -10,6 +10,9 @@ import {
   RP_ID,
   RP_NAME,
 } from "@/lib/webauthn"
+
+// Keep the v9 registration algorithms so credentials also work on older runtimes.
+const registrationAlgorithms = [COSEALG.EdDSA, COSEALG.ES256, COSEALG.RS256]
 
 export const GET = withAuth(async (req, session) => {
   try {
@@ -25,14 +28,13 @@ export const GET = withAuth(async (req, session) => {
     const options = await generateRegistrationOptions({
       rpName: RP_NAME,
       rpID: RP_ID,
-      userID: user.id,
+      // Preserve the user handle bytes that the v9 browser sent to authenticators.
+      userID: new TextEncoder().encode(user.id),
       userName: user.email,
       userDisplayName: user.name || user.email,
       attestationType: "none",
-      excludeCredentials: user.passkeys.map((pk) => ({
-        id: isoBase64URL.toBuffer(pk.credentialId),
-        type: "public-key" as const,
-      })),
+      supportedAlgorithmIDs: registrationAlgorithms,
+      excludeCredentials: user.passkeys.map((pk) => ({ id: pk.credentialId })),
       authenticatorSelection: {
         residentKey: "preferred",
         userVerification: "required",
@@ -98,13 +100,15 @@ export const POST = withAuth(async (req, session) => {
       expectedChallenge: challenge,
       expectedOrigin,
       expectedRPID: RP_ID,
+      requireUserVerification: true,
+      supportedAlgorithmIDs: registrationAlgorithms,
     })
 
-    if (!verification.verified || !verification.registrationInfo) {
+    if (!verification.verified) {
       return NextResponse.json({ error: "Verificación fallida" }, { status: 400 })
     }
 
-    const regInfo = verification.registrationInfo
+    const { credential: registeredCredential } = verification.registrationInfo
 
     await prisma.$transaction(async (tx) => {
       const challengeUpdated = await tx.webAuthnChallenge.updateMany({
@@ -121,10 +125,10 @@ export const POST = withAuth(async (req, session) => {
 
       await tx.passkey.create({
         data: {
-          credentialId: isoBase64URL.fromBuffer(regInfo.credentialID),
+          credentialId: registeredCredential.id,
           userId: session.user.id,
-          publicKey: new Uint8Array(regInfo.credentialPublicKey),
-          counter: BigInt(regInfo.counter),
+          publicKey: new Uint8Array(registeredCredential.publicKey),
+          counter: BigInt(registeredCredential.counter),
           transports: null,
         },
       })

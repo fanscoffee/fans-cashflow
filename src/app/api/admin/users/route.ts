@@ -5,6 +5,7 @@ import { prisma } from "@/lib/prisma"
 import { withAuth } from "@/lib/with-auth"
 import { UserRole, userRoleSchema } from "@/lib/database-enums"
 import { isRole } from "@/lib/roles"
+import { isUserAccessRevoked } from "@/lib/user-access"
 
 const createUserSchema = z.object({
   name: z.string().min(2, "El nombre debe tener al menos 2 caracteres"),
@@ -24,11 +25,15 @@ export const GET = withAuth(async (req, session) => {
       name: true,
       email: true,
       role: true,
+      authVersion: true,
     },
     orderBy: { email: "asc" },
   })
 
-  return NextResponse.json(users)
+  return NextResponse.json(users.map(({ authVersion, ...user }) => ({
+    ...user,
+    accessRevoked: isUserAccessRevoked(authVersion),
+  })))
 })
 
 export const POST = withAuth(async (req, session) => {

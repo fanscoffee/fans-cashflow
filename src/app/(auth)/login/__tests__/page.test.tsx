@@ -22,6 +22,10 @@ vi.mock("@simplewebauthn/browser", () => ({
   browserSupportsWebAuthn: vi.fn(() => false),
 }))
 
+vi.mock("@/lib/browser-navigation", () => ({
+  navigateWithReload: vi.fn(),
+}))
+
 vi.mock("@/lib/roles", () => ({
   ROLE_REDIRECT: { ADMIN: "/admin", PARTNER: "/socio", EMPLOYEE: "/empleado" },
   normalizeRole: (role: string | undefined) => role === "SOCIO" ? "PARTNER" : role,
@@ -30,6 +34,7 @@ vi.mock("@/lib/roles", () => ({
 import { signIn } from "next-auth/react"
 import { useRouter } from "next/navigation"
 import { startAuthentication, browserSupportsWebAuthn } from "@simplewebauthn/browser"
+import { navigateWithReload } from "@/lib/browser-navigation"
 
 describe("LoginPage", () => {
   const mockPush = vi.fn()
@@ -46,6 +51,10 @@ describe("LoginPage", () => {
   it("renders login form", () => {
     render(<LoginPage />)
     expect(screen.getByText("Fans Cashflow")).toBeInTheDocument()
+    const logo = screen.getByRole("img", { name: "Fans" })
+    expect(logo).toHaveAttribute("loading", "eager")
+    expect(logo).toHaveAttribute("width", "96")
+    expect(logo).toHaveAttribute("height", "50")
     expect(screen.getByText("Inicia sesión en tu cuenta")).toBeInTheDocument()
     expect(screen.getByPlaceholderText("tu@email.com")).toBeInTheDocument()
     expect(screen.getByPlaceholderText("••••••")).toBeInTheDocument()
@@ -152,7 +161,10 @@ describe("LoginPage", () => {
     fireEvent.click(screen.getByText(/Face ID.*Biometría/))
 
     await waitFor(() => {
-      expect(startAuthentication).toHaveBeenCalled()
+      expect(navigateWithReload).toHaveBeenCalledWith("/socio")
+    })
+    expect(startAuthentication).toHaveBeenCalledWith({
+      optionsJSON: expect.objectContaining({ challenge: "ch123" }),
     })
   })
 

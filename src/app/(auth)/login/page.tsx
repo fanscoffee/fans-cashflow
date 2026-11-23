@@ -11,6 +11,7 @@ import {
   startAuthentication,
   browserSupportsWebAuthn,
 } from "@simplewebauthn/browser"
+import { navigateWithReload } from "@/lib/browser-navigation"
 import { normalizeRole, ROLE_REDIRECT } from "@/lib/roles"
 
 const loginSchema = z.object({
@@ -88,7 +89,7 @@ export default function LoginPage() {
 
       const options = await optionsRes.json()
 
-      const credential = await startAuthentication(options)
+      const credential = await startAuthentication({ optionsJSON: options })
 
       const verifyRes = await fetch("/api/passkeys/verify", {
         method: "POST",
@@ -101,10 +102,10 @@ export default function LoginPage() {
         return
       }
 
-       const signinRes = await fetch("/api/auth/passkey-signin", {
+      const signinRes = await fetch("/api/auth/passkey-signin", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-         body: JSON.stringify({ challenge: options.challenge }),
+        body: JSON.stringify({ challenge: options.challenge }),
       })
 
       if (!signinRes.ok) {
@@ -112,9 +113,10 @@ export default function LoginPage() {
         return
       }
 
-       const sessionRes = await fetch("/api/auth/session")
-       const session = await sessionRes.json()
-       window.location.href = ROLE_REDIRECT[normalizeRole(session?.user?.role) || ""] ?? "/empleado"
+      const sessionRes = await fetch("/api/auth/session")
+      const session = await sessionRes.json()
+      // The server set the session cookie; remount SessionProvider to read it.
+      navigateWithReload(ROLE_REDIRECT[normalizeRole(session?.user?.role) || ""] ?? "/empleado")
     } catch {
       setPasskeyError("Error con Face ID / biometría")
     } finally {
@@ -125,7 +127,7 @@ export default function LoginPage() {
   return (
     <div className="rounded-lg border bg-white p-6 shadow-sm sm:p-8">
       <div className="mb-6 flex flex-col items-center">
-        <Image src="/fans-logo-oscuro.png" alt="Fans" width={96} height={96} className="mb-3 rounded-lg" />
+        <Image src="/fans-logo-oscuro.png" alt="Fans" width={96} height={50} loading="eager" className="mb-3 h-auto rounded-lg" />
         <h1 className="text-2xl font-bold text-gray-900">Fans Cashflow</h1>
         <p className="mt-1 text-sm text-gray-500">Inicia sesión en tu cuenta</p>
       </div>

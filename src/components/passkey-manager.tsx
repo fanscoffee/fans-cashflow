@@ -57,7 +57,7 @@ export default function PasskeyManager() {
 
       const options = await optionsRes.json()
 
-      const credential = await startRegistration(options)
+      const credential = await startRegistration({ optionsJSON: options })
 
       const verifyRes = await fetch("/api/passkeys/register", {
         method: "POST",

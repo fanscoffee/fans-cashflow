@@ -4,6 +4,7 @@ import { PrismaAdapter } from "@auth/prisma-adapter"
 import bcrypt from "bcryptjs"
 import { prisma } from "./prisma"
 import { checkRateLimit, requestAddress } from "./rate-limit"
+import { FIRST_REACTIVATED_AUTH_VERSION, isUserAccessRevoked } from "./user-access"
 
 const authSecret = process.env.AUTH_SECRET || process.env.NEXTAUTH_SECRET
 
@@ -29,7 +30,7 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
         if (!addressLimit.allowed || !accountLimit.allowed) return null
 
         const user = await prisma.user.findUnique({ where: { email } })
-        if (!user) return null
+        if (!user || isUserAccessRevoked(user.authVersion)) return null
 
         const isValid = await bcrypt.compare(password, user.password)
         if (!isValid) return null
@@ -67,6 +68,11 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
         })
         if (!grant?.verifiedUserId) return null
 
+        const user = await prisma.user.findUnique({ where: { id: grant.verifiedUserId } })
+        if (!user || isUserAccessRevoked(user.authVersion)) return null
+
+        // Consume only after reading the user's version. A concurrent access change
+        // removes the grant, or the JWT check rejects the version read before it.
         const consumed = await prisma.webAuthnChallenge.updateMany({
           where: {
             id: grant.id,
@@ -77,9 +83,6 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
           data: { consumedAt: now },
         })
         if (consumed.count !== 1) return null
-
-        const user = await prisma.user.findUnique({ where: { id: grant.verifiedUserId } })
-        if (!user) return null
 
         return {
           id: user.id,
@@ -94,34 +97,30 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
   callbacks: {
     async jwt({ token, user }) {
       if (user) {
+        const authVersion = (user as typeof user & { authVersion?: number }).authVersion
         token.role = user.role
         token.id = user.id
-        token.authVersion = (user as typeof user & { authVersion?: number }).authVersion
+        token.authVersion = authVersion
+        token.reactivatedAccess = typeof authVersion === "number" && authVersion >= FIRST_REACTIVATED_AUTH_VERSION
       }
 
-      if (typeof token.id === "string") {
-        const currentUser = await prisma.user.findUnique({
-          where: { id: token.id },
-          select: { id: true, email: true, name: true, role: true, authVersion: true },
-        })
-        if (!currentUser) {
-          token.id = undefined
-          token.role = undefined
-          token.sub = undefined
-          return token
-        }
-        if (typeof token.authVersion === "number" && token.authVersion !== currentUser.authVersion) {
-          token.id = undefined
-          token.role = undefined
-          token.sub = undefined
-          token.authVersion = undefined
-          return token
-        }
-        token.role = currentUser.role
-        token.email = currentUser.email
-        token.name = currentUser.name
-        token.authVersion = currentUser.authVersion
+      if (typeof token.id !== "string") return null
+
+      const currentUser = await prisma.user.findUnique({
+        where: { id: token.id },
+        select: { id: true, email: true, name: true, role: true, authVersion: true },
+      })
+      if (!currentUser || isUserAccessRevoked(currentUser.authVersion)) return null
+      if (currentUser.authVersion >= FIRST_REACTIVATED_AUTH_VERSION) {
+        if (token.reactivatedAccess !== true || token.authVersion !== currentUser.authVersion) return null
+      } else if (typeof token.authVersion === "number" && token.authVersion !== currentUser.authVersion) {
+        return null
       }
+
+      token.role = currentUser.role
+      token.email = currentUser.email
+      token.name = currentUser.name
+      token.authVersion = currentUser.authVersion
       return token
     },
     async session({ session, token }) {

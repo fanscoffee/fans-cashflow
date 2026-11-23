@@ -320,6 +320,7 @@ export default function ReceiptsPanel({ canDelete = true, canEdit = false, initi
           <div className="mb-4 rounded-md bg-red-50 p-3 text-sm text-red-600">{error}</div>
         )}
         <ReceiptForm
+          key={view === "edit" ? `edit-${selectedReceipt?.id}` : "create"}
           initialValues={view === "edit" ? editValues : undefined}
           onSubmit={view === "edit" ? handleUpdate : handleCreate}
           onCancel={() => setView(view === "edit" ? "detail" : "list")}

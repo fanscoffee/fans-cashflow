@@ -72,7 +72,10 @@ describe("ReceiptForm provider products", () => {
     expect(screen.queryByRole("option", { name: /P-001 Producto 1/ })).not.toBeInTheDocument()
   })
 
-  it("prefills a Mercadona delivery note from an OCR document and maps catalog products", async () => {
+  it.each([
+    { catalog: "fetched after OCR", preselected: false },
+    { catalog: "already loaded", preselected: true },
+  ])("matches products from an OCR delivery note when the catalog is $catalog", async ({ preselected }) => {
     const user = userEvent.setup()
     vi.mocked(extractDocument).mockResolvedValue(`
       Pedido Nº 33532404
@@ -98,6 +101,11 @@ describe("ReceiptForm provider products", () => {
     vi.stubGlobal("fetch", fetchMock)
 
     render(<ReceiptForm onSubmit={vi.fn().mockResolvedValue(undefined)} onCancel={vi.fn()} saving={false} />)
+    if (preselected) {
+      await screen.findByRole("option", { name: "MERCADONA S.A." })
+      await user.selectOptions(screen.getByLabelText("Proveedor *"), "mercadona")
+      await screen.findByPlaceholderText("Buscar producto...")
+    }
     const input = document.querySelector('input[type="file"]') as HTMLInputElement
     await user.upload(input, new File(["albarán"], "albaran.jpg", { type: "image/jpeg" }))
 
