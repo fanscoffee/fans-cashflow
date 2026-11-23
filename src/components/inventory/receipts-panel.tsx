@@ -1,8 +1,9 @@
 "use client"
 
-import { useState, useEffect, useCallback } from "react"
+import { useState, useEffect, useCallback, useMemo } from "react"
 import ReceiptForm, { type ReceiptFormValues } from "./receipt-form"
 import { calculateVatInclusiveAmount } from "@/lib/product-pricing"
+import { GENERIC_RECEIPT_PRODUCT_LABEL, GENERIC_RECEIPT_UNIT } from "@/lib/reception-input"
 
 interface Supplier {
   id: string
@@ -16,6 +17,8 @@ interface ReceiptLine {
   unitPrice: number
   batch: string | null
   dueDate: string | null
+  genericDescription?: string | null
+  genericVatPercentage?: number | string | null
   product: {
     id: string
     code: string
@@ -25,7 +28,7 @@ interface ReceiptLine {
     itemType: string
     purchaseVatPercentage: number | string | null
     vatPercentage: number | string | null
-  }
+  } | null
 }
 
 interface Receipt {
@@ -75,16 +78,21 @@ function workflowLabel(value: string) {
   return labels[value] || value
 }
 
+function receiptLineVat(line: ReceiptLine) {
+  return line.product
+    ? line.product.purchaseVatPercentage ?? line.product.vatPercentage
+    : line.genericVatPercentage
+}
+
 function unitPriceIncludingVat(line: ReceiptLine) {
   return calculateVatInclusiveAmount({
     amount: line.unitPrice,
-    vatPercentage: line.product.purchaseVatPercentage ?? line.product.vatPercentage,
+    vatPercentage: receiptLineVat(line),
   }) ?? Number(line.unitPrice)
 }
 
 function lineVatPercentage(line: ReceiptLine) {
-  const rawValue = line.product.purchaseVatPercentage ?? line.product.vatPercentage
-  const percentage = Number(rawValue)
+  const percentage = Number(receiptLineVat(line))
   return Number.isFinite(percentage) ? percentage : 0
 }
 
@@ -121,7 +129,11 @@ function toReceiptFormValues(receipt: Receipt): ReceiptFormValues {
     transportCost: Number(receipt.transportCost || 0),
     notes: receipt.notes || "",
     lines: (receipt.lines || []).map((line) => ({
-      productId: line.product.id,
+      productId: line.product?.id ?? null,
+      ...(!line.product ? {
+        genericDescription: line.genericDescription ?? "",
+        genericVatPercentage: line.genericVatPercentage == null ? null : Number(line.genericVatPercentage),
+      } : {}),
       receivedQuantity: Number(line.receivedQuantity),
       packageCount: Number(line.packageCount ?? 1),
       unitPrice: Number(line.unitPrice),
@@ -149,6 +161,7 @@ export default function ReceiptsPanel({ canDelete = true, canEdit = false, initi
 
   const [selectedReceipt, setSelectedReceipt] = useState<Receipt | null>(null)
   const [detailLoading, setDetailLoading] = useState(false)
+  const editValues = useMemo(() => selectedReceipt ? toReceiptFormValues(selectedReceipt) : undefined, [selectedReceipt])
 
   const pageSize = 20
 
@@ -307,7 +320,7 @@ export default function ReceiptsPanel({ canDelete = true, canEdit = false, initi
           <div className="mb-4 rounded-md bg-red-50 p-3 text-sm text-red-600">{error}</div>
         )}
         <ReceiptForm
-          initialValues={view === "edit" && selectedReceipt ? toReceiptFormValues(selectedReceipt) : undefined}
+          initialValues={view === "edit" ? editValues : undefined}
           onSubmit={view === "edit" ? handleUpdate : handleCreate}
           onCancel={() => setView(view === "edit" ? "detail" : "list")}
           saving={saving}
@@ -328,7 +341,7 @@ export default function ReceiptsPanel({ canDelete = true, canEdit = false, initi
       0
     )
     const weightedPackageCount = lines.reduce(
-      (sum, l) => sum + (l.product.isWeightBased ? Number(l.packageCount ?? 1) : 0),
+      (sum, l) => sum + (l.product?.isWeightBased ? Number(l.packageCount ?? 1) : 0),
       0,
     )
     const transportCost = Number(selectedReceipt.transportCost || 0)
@@ -403,7 +416,7 @@ export default function ReceiptsPanel({ canDelete = true, canEdit = false, initi
                   <th className="px-3 py-2">UoM</th>
                   <th className="px-3 py-2 text-right">Bandejas / elementos</th>
                   <th className="px-3 py-2 text-center">IVA</th>
-                  <th className="px-3 py-2 text-right" title="IVA incluido según producto">Coste Unit. con IVA</th>
+                  <th className="px-3 py-2 text-right" title="IVA incluido según la línea">Coste Unit. con IVA</th>
                   <th className="px-3 py-2 text-right">Subtotal con IVA</th>
                   <th className="px-3 py-2 text-right">Subtotal sin IVA</th>
                   <th className="px-3 py-2">Lote</th>
@@ -413,12 +426,12 @@ export default function ReceiptsPanel({ canDelete = true, canEdit = false, initi
               <tbody className="divide-y">
                 {lines.map((l) => (
                   <tr key={l.id} className="hover:bg-gray-50">
-                    <td className="px-3 py-2 font-mono text-xs text-gray-900">{l.product.code}</td>
-                    <td className="px-3 py-2 text-gray-900">{l.product.posDescription}</td>
-                    <td className="px-3 py-2 text-xs text-gray-600">{l.product.itemType}</td>
+                    <td className="px-3 py-2 font-mono text-xs text-gray-900">{l.product?.code ?? "—"}</td>
+                    <td className="px-3 py-2 text-gray-900">{l.product?.posDescription ?? l.genericDescription}</td>
+                    <td className="px-3 py-2 text-xs text-gray-600">{l.product?.itemType ?? GENERIC_RECEIPT_PRODUCT_LABEL}</td>
                     <td className="px-3 py-2 text-right text-gray-900">{Number(l.receivedQuantity)}</td>
-                    <td className="px-3 py-2 text-xs text-gray-600">{l.product.purchaseUnit}</td>
-                    <td className="px-3 py-2 text-right text-gray-900">{l.product.isWeightBased ? Number(l.packageCount ?? 1) : "—"}</td>
+                    <td className="px-3 py-2 text-xs text-gray-600">{l.product ? l.product.purchaseUnit : GENERIC_RECEIPT_UNIT}</td>
+                    <td className="px-3 py-2 text-right text-gray-900">{l.product?.isWeightBased ? Number(l.packageCount ?? 1) : "—"}</td>
                     <td className="px-3 py-2 text-center">
                       <span className={`inline-flex whitespace-nowrap rounded-full px-2 py-0.5 text-xs font-medium ${lineVatPercentage(l) === 0 ? "bg-gray-100 text-gray-600" : "bg-blue-50 text-blue-700"}`}>
                         {vatLabel(lineVatPercentage(l))}

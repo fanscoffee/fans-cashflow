@@ -5,6 +5,7 @@ import { withAuth } from "@/lib/with-auth"
 import { UserRole } from "@/lib/database-enums"
 import { hasAnyRole } from "@/lib/roles"
 import { receptionSchema } from "@/lib/reception-input"
+import { receptionLineData, validateReceptionProducts } from "@/lib/receptions"
 
 export const GET = withAuth(async (req, session, context) => {
   const { id } = await context.params
@@ -81,20 +82,8 @@ export const PATCH = withAuth(async (req, session, context) => {
       return NextResponse.json({ error: "Ya existe una recepción con este código de albarán para este proveedor" }, { status: 400 })
     }
 
-    const productIds = input.lines.map((line) => line.productId)
-    const products = await prisma.product.findMany({
-      where: {
-        id: { in: productIds },
-        isPurchasable: true,
-        suppliers: { some: { supplierId: input.supplierId } },
-      },
-      select: { id: true },
-    })
-    const validIds = new Set(products.map((product) => product.id))
-    const invalidIds = productIds.filter((productId) => !validIds.has(productId))
-    if (invalidIds.length > 0) {
-      return NextResponse.json({ error: `Productos no válidos, no comprables o no asociados al proveedor: ${invalidIds.join(", ")}` }, { status: 400 })
-    }
+    const productError = await validateReceptionProducts(input.supplierId, input.lines)
+    if (productError) return NextResponse.json({ error: productError }, { status: 400 })
 
     const receipt = await prisma.$transaction((tx) => tx.receipt.update({
       where: { id },
@@ -106,14 +95,7 @@ export const PATCH = withAuth(async (req, session, context) => {
         transportCost: input.transportCost,
         lines: {
           deleteMany: {},
-          create: input.lines.map((line) => ({
-            productId: line.productId,
-            receivedQuantity: line.receivedQuantity,
-            packageCount: line.packageCount,
-            unitPrice: line.unitPrice,
-            batch: line.batch || null,
-            dueDate: line.dueDate ? new Date(line.dueDate) : null,
-          })),
+          create: input.lines.map(receptionLineData),
         },
       },
       include: {

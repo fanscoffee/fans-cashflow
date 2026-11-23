@@ -104,7 +104,7 @@ export const POST = withAuth(async (req, session) => {
     const deliveryNotes = receiptIds.length
       ? await prisma.receipt.findMany({
           where: { id: { in: receiptIds }, supplierId: data.supplierId, invoiceId: null },
-          include: { lines: { include: { product: { select: { code: true, posDescription: true } } } } },
+          include: { lines: { select: { productId: true, genericDescription: true, receivedQuantity: true, unitPrice: true } } },
         })
       : []
     if (deliveryNotes.length !== receiptIds.length) {

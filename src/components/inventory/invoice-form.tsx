@@ -8,7 +8,7 @@ import ProductCombobox from "@/components/inventory/product-combobox"
 
 interface Supplier { id: string; legalName: string; taxId: string; billingAddress?: string | null }
 interface Product { id: string; code: string; posDescription: string; purchaseUnit: string | null; baseStockUnit: string }
-interface DeliveryNote { id: string; deliveryNoteCode: string; receivedAt: string; lines: Array<{ productId: string; receivedQuantity: number | string; packageCount?: number | string; unitPrice: number | string; product: { code: string; posDescription: string; purchaseUnit: string | null; isWeightBased?: boolean } }> }
+interface DeliveryNote { id: string; deliveryNoteCode: string; receivedAt: string; lines: Array<{ productId: string | null }> }
 
 export interface InvoiceFormData extends InvoiceDraft {
   supplierId: string
@@ -242,8 +242,22 @@ export default function InvoiceForm({ initialValues, invoiceId, onCancel, onSubm
         <div className="space-y-3">
           {data.lines.map((line, index) => <div key={`${index}-${line.supplierReference}`} className="rounded-md border p-3">
             <div className="grid grid-cols-1 gap-3 sm:grid-cols-4">
-              <label className="block text-xs text-gray-600"><span className="mb-1 block font-medium">Tipo</span><select value={line.lineType} onChange={(event) => updateLine(index, { lineType: event.target.value as "PRODUCTO" | "CARGO" })} className="w-full rounded-md border px-2 py-1.5 text-sm text-gray-900"><option value="PRODUCTO">Producto</option><option value="CARGO">Cargo</option></select></label>
-              {line.lineType === "PRODUCTO" ? <label className="block text-xs text-gray-600 sm:col-span-2"><span className="mb-1 block font-medium">Producto *</span><ProductCombobox id={`factura-linea-${index}-producto`} products={availableProducts} selectedProduct={products.find((product) => product.id === line.productId)} value={line.productId} onSelect={(productId) => { const product = products.find((item) => item.id === productId); updateLine(index, { productId, description: product?.posDescription || line.description, unitOfMeasure: product?.purchaseUnit || line.unitOfMeasure }) }} error={missingFieldIds.has(`factura-linea-${index}-producto`)} /></label> : <Input label="Descripción cargo" value={line.description} onChange={(value) => updateLine(index, { description: value })} required error={missingFieldIds.has(`factura-linea-${index}-descripcion`)} />}
+              <label className="block text-xs text-gray-600">
+                <span className="mb-1 block font-medium">Tipo</span>
+                <select
+                  value={line.lineType}
+                  onChange={(event) => {
+                    const lineType = event.target.value as InvoiceLineDraft["lineType"]
+                    updateLine(index, { lineType, ...(lineType === "PRODUCTO_GENERICO" ? { productId: "" } : {}) })
+                  }}
+                  className="w-full rounded-md border px-2 py-1.5 text-sm text-gray-900"
+                >
+                  <option value="PRODUCTO">Producto</option>
+                  <option value="PRODUCTO_GENERICO">Producto genérico</option>
+                  <option value="CARGO">Cargo</option>
+                </select>
+              </label>
+              {line.lineType === "PRODUCTO" ? <label className="block text-xs text-gray-600 sm:col-span-2"><span className="mb-1 block font-medium">Producto *</span><ProductCombobox id={`factura-linea-${index}-producto`} products={availableProducts} selectedProduct={products.find((product) => product.id === line.productId)} value={line.productId} onSelect={(productId) => { const product = products.find((item) => item.id === productId); updateLine(index, { productId, description: product?.posDescription || line.description, unitOfMeasure: product?.purchaseUnit || line.unitOfMeasure }) }} error={missingFieldIds.has(`factura-linea-${index}-producto`)} /></label> : line.lineType === "CARGO" && <Input label="Descripción cargo" value={line.description} onChange={(value) => updateLine(index, { description: value })} required error={missingFieldIds.has(`factura-linea-${index}-descripcion`)} />}
                <Input label="Ref. proveedor" value={line.supplierReference} onChange={(value) => updateLine(index, { supplierReference: value })} />
                <Input label="Código artículo" value={line.itemCode} onChange={(value) => updateLine(index, { itemCode: value })} />
                <Input id={`factura-linea-${index}-descripcion`} label="Descripción" value={line.description} onChange={(value) => updateLine(index, { description: value })} required error={missingFieldIds.has(`factura-linea-${index}-descripcion`)} />

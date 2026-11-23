@@ -11,6 +11,7 @@ vi.mock("@/lib/prisma", () => ({
     product: {
       findMany: vi.fn(),
     },
+    supplier: { findUnique: vi.fn() },
     $transaction: vi.fn(),
   },
 }))
@@ -87,6 +88,23 @@ describe("PATCH /api/inventario/recepciones/[id]", () => {
     expect(response.status).toBe(403)
     expect(prisma.receipt.findUnique).not.toHaveBeenCalled()
     expect(prisma.$transaction).not.toHaveBeenCalled()
+  })
+
+  it("allows a partner to save changes to a generic line without a catalog product", async () => {
+    vi.mocked(prisma.supplier.findUnique).mockResolvedValue({ id: "provider-1" } as any)
+    const update = vi.fn().mockResolvedValue({ id: "receipt-1" })
+    vi.mocked(prisma.$transaction).mockImplementation(async (callback: any) => callback({ receipt: { update } }))
+
+    const line = { productId: null, genericDescription: "Telarañas decorativas", genericVatPercentage: 21, receivedQuantity: 3, unitPrice: 2 }
+    const response = await PATCH(patchRequest({ ...body, lines: [line] }), context)
+
+    expect(response.status).toBe(200)
+    expect(prisma.product.findMany).not.toHaveBeenCalled()
+    expect(update).toHaveBeenCalledWith(expect.objectContaining({
+      data: expect.objectContaining({
+        lines: { deleteMany: {}, create: [{ ...line, packageCount: 1, batch: null, dueDate: null }] },
+      }),
+    }))
   })
 
   it("blocks modifications when the reception is linked to an invoice", async () => {

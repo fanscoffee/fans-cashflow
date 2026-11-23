@@ -178,6 +178,7 @@ export const GET = withAuth(async (req, session) => {
   const receivedByProduct = new Map<string, number>()
   const receiptConversionMissing = new Set<string>()
   for (const receipt of receipts) {
+    if (!receipt.productId || !receipt.product) continue
     const sameUnit = receipt.product.purchaseUnit === receipt.product.baseStockUnit
     const factor = toN(receipt.product.purchaseToBaseFactor) || (sameUnit ? 1 : 0)
     if (factor <= 0) {

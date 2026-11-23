@@ -25,11 +25,13 @@ type DeliveryNote = {
   score: number
   reasons: string[]
   lines: Array<{
-    productId: string
+    productId: string | null
     receivedQuantity: number
     packageCount?: number
     unitPrice: number
-    product: { code: string; posDescription: string; purchaseUnit: string | null; isWeightBased?: boolean }
+    genericDescription?: string | null
+    genericVatPercentage?: number | null
+    product: { code: string; posDescription: string; purchaseUnit: string | null; isWeightBased?: boolean } | null
   }>
 }
 
