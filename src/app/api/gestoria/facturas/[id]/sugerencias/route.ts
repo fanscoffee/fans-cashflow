@@ -39,6 +39,8 @@ function serializeReceipt(receipt: ReceiptWithCapture) {
       unitPrice: Number(line.unitPrice),
       batch: line.batch,
       dueDate: line.dueDate?.toISOString() || null,
+      genericDescription: line.genericDescription,
+      genericVatPercentage: line.genericVatPercentage == null ? null : Number(line.genericVatPercentage),
       product: line.product,
     })),
   }

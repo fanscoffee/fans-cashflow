@@ -114,6 +114,18 @@ describe("invoices", () => {
     expect(priceResult.alerts).toEqual(["Diferencia con albarán: precio neto factura 7.0000 vs albarán 5.0000"])
   })
 
+  it("matches generic items by description without treating them as catalog products", () => {
+    const invoice = makeInvoice({
+      lines: [makeLine({ productId: null, lineType: "PRODUCTO_GENERICO", description: "DECORACIÓN HALLOWEEN" })],
+    })
+    expect(buildInvoiceAlerts(invoice, [{
+      productId: null, genericDescription: "Decoracion   Halloween", receivedQuantity: 2, unitPrice: 5,
+    }]).alerts).toEqual([])
+    expect(buildInvoiceAlerts(invoice, [{
+      productId: "catalog-product", receivedQuantity: 2, unitPrice: 5,
+    }]).alerts).toHaveLength(2)
+  })
+
   it("reports both differences and handles zero quantities without false price alerts", () => {
     const invoice = makeInvoice({
       lines: [

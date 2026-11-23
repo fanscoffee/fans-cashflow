@@ -11,7 +11,7 @@ const money = z.coerce.number().finite().nonnegative()
 
 export const invoiceLineSchema = z.object({
   productId: z.string().nullable().optional(),
-  lineType: z.enum(["PRODUCTO", "CARGO"]),
+  lineType: z.enum(["PRODUCTO", "PRODUCTO_GENERICO", "CARGO"]),
   supplierReference: z.string().optional().default(""),
   itemCode: z.string().optional().default(""),
    description: z.string().trim().min(1, "La descripción es obligatoria").max(500),
@@ -31,6 +31,9 @@ export const invoiceLineSchema = z.object({
  }).superRefine((line, context) => {
    if (line.lineType === "PRODUCTO" && !line.productId) {
      context.addIssue({ code: "custom", path: ["productId"], message: "La línea de producto debe usar un producto del catálogo" })
+   }
+   if (line.lineType === "PRODUCTO_GENERICO" && line.productId) {
+     context.addIssue({ code: "custom", path: ["productId"], message: "Una línea genérica no puede usar un producto del catálogo" })
    }
  })
 
@@ -112,10 +115,14 @@ export function normalizeTaxId(value: string) {
 }
 
 interface DeliveryNoteLineForValidation {
-  productId: string
+  productId: string | null
+  genericDescription?: string | null
   receivedQuantity: unknown
   unitPrice: unknown
-  product: { code: string; posDescription: string }
+}
+
+function genericItemKey(description: string) {
+  return `generic:${description.normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLocaleLowerCase("es-ES").trim().replace(/\s+/g, " ")}`
 }
 
 interface InvoiceAlertResult {
@@ -133,24 +140,31 @@ export function buildInvoiceAlerts(
 
   const receivedItems = new Map<string, { quantity: number; amount: number }>()
   for (const line of deliveryNoteLines) {
-    const current = receivedItems.get(line.productId) || { quantity: 0, amount: 0 }
+    const key = line.productId
+      ? `catalog:${line.productId}`
+      : line.genericDescription ? genericItemKey(line.genericDescription) : null
+    if (!key) continue
+    const current = receivedItems.get(key) || { quantity: 0, amount: 0 }
     current.quantity += toN(line.receivedQuantity)
     current.amount += toN(line.receivedQuantity) * toN(line.unitPrice)
-    receivedItems.set(line.productId, current)
+    receivedItems.set(key, current)
   }
 
   const invoicedItems = new Map<string, { quantity: number; amount: number; indexes: number[] }>()
   invoice.lines.forEach((line, index) => {
-    if (line.lineType !== "PRODUCTO" || !line.productId) return
-    const current = invoicedItems.get(line.productId) || { quantity: 0, amount: 0, indexes: [] }
+    const key = line.lineType === "PRODUCTO_GENERICO"
+      ? genericItemKey(line.description)
+      : line.lineType === "PRODUCTO" && line.productId ? `catalog:${line.productId}` : null
+    if (!key) return
+    const current = invoicedItems.get(key) || { quantity: 0, amount: 0, indexes: [] }
     current.quantity += line.quantity
     current.amount += line.quantity * line.netUnitPrice
     current.indexes.push(index)
-    invoicedItems.set(line.productId, current)
+    invoicedItems.set(key, current)
   })
 
-  for (const [productId, invoiceLine] of invoicedItems) {
-    const deliveryNoteLine = receivedItems.get(productId)
+  for (const [key, invoiceLine] of invoicedItems) {
+    const deliveryNoteLine = receivedItems.get(key)
     if (!deliveryNoteLine) {
       const message = "Producto facturado no aparece en los albaranes vinculados"
       alerts.push(message)
@@ -173,8 +187,8 @@ export function buildInvoiceAlerts(
     }
   }
 
-  for (const productId of receivedItems.keys()) {
-    if (!invoicedItems.has(productId)) {
+  for (const key of receivedItems.keys()) {
+    if (!invoicedItems.has(key)) {
       alerts.push("Producto recibido en albarán no aparece en la factura")
     }
   }

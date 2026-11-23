@@ -91,6 +91,7 @@ export const GET = withAuth(async (req, session, context) => {
 
   const receivedMap: Record<string, number> = {}
   for (const r of receipts) {
+    if (!r.productId || !r.product) continue
     const sameUnit = r.product.purchaseUnit === r.product.baseStockUnit
     const factor = Number(r.product.purchaseToBaseFactor) || (sameUnit ? 1 : 0)
     receivedMap[r.productId] = (receivedMap[r.productId] || 0) + Number(r.receivedQuantity) * factor

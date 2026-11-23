@@ -45,7 +45,7 @@ vinculadas no se pueden editar ni eliminar hasta desvincularlas.
 4. Introducir el **Código de albarán** exactamente como aparece.
 5. Indicar la **Fecha de recepción**.
 6. Añadir una línea por cada producto recibido:
-   - producto del catálogo;
+   - producto del catálogo o **PRODUCTO GENÉRICO** para una compra puntual;
    - cantidad realmente recibida;
    - coste unitario **sin IVA**;
    - lote y vencimiento, si proceden.
@@ -63,13 +63,18 @@ El proveedor debe seleccionarse antes del producto. La aplicación carga los
 productos comprables asociados y calcula el coste con IVA según la ficha del
 producto. El coste que se introduce en la recepción es sin IVA.
 
+Para un artículo no inventariable (por ejemplo, decoración de Halloween),
+seleccionar **PRODUCTO GENÉRICO** y escribir su descripción, cantidad, coste
+unitario sin IVA y porcentaje de IVA. La línea se guarda en el albarán y cuenta
+en sus totales, sin crear una ficha en el catálogo ni modificar el stock.
+
 ### Buenas prácticas
 
 - Registrar la cantidad recibida, no la cantidad pedida.
 - Comprobar el código del albarán antes de guardar.
 - No reutilizar un albarán ya registrado.
 - Usar las notas para faltas, sustituciones o incidencias de entrega.
-- Si no aparecen productos, pedir a un SOCIO o ADMIN que revise el catálogo.
+- Si no aparece un producto habitual, pedir a un SOCIO o ADMIN que revise el catálogo.
 
 ### Registrar una recepción con foto o PDF
 
@@ -83,10 +88,11 @@ foto, imagen o PDF. El OCR local intenta completar automáticamente:
 - coste de preparación/transporte.
 
 La aplicación intenta asociar cada descripción con los productos comprables del
-proveedor. Las líneas que no encuentre quedan pendientes para seleccionarlas
-manualmente. Para cada línea importada muestra el PVP bruto, el IVA del producto
-y el coste unitario sin IVA. También compara las bases y cuotas calculadas con
-el desglose fiscal del albarán; si falta el IVA de un producto o hay diferencias,
+proveedor. Las líneas que no encuentre quedan pendientes: selecciona un producto
+del catálogo o **PRODUCTO GENÉRICO** y confirma su IVA. Para cada línea importada
+muestra el PVP bruto, el IVA del producto y el coste unitario sin IVA. También
+compara las bases y cuotas calculadas con el desglose fiscal del albarán; si falta
+el IVA de un producto o hay diferencias,
 no permite guardar hasta corregirlas. Antes de pulsar **Registrar recepción**,
 hay que revisar proveedor, productos, cantidades, precios y total. El archivo no
 se conserva; solo se guardan los datos confirmados de la recepción.
