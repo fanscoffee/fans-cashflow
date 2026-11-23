@@ -129,6 +129,7 @@ const DEFAULT_VISIBLE_COLUMNS: ColumnKey[] = [
 
 const COLUMNS_STORAGE_KEY = "inventory-table-visible-columns"
 const COLUMN_KEYS = new Set(COLUMN_OPTIONS.map((column) => column.key))
+const PRODUCT_SEARCH_DELAY_MS = 200
 const CURRENCY_FORMATTER = new Intl.NumberFormat("es-ES", {
   style: "currency",
   currency: "EUR",
@@ -186,37 +187,63 @@ export default function InventoryPage({ canDeleteProductsAndSuppliers = false }:
   const closeColumnModalButtonRef = useRef<HTMLButtonElement>(null)
 
   const [search, setSearch] = useState("")
+  const [debouncedSearch, setDebouncedSearch] = useState("")
   const [typeFilter, setTypeFilter] = useState("")
   const [sectionFilter, setSectionFilter] = useState("")
   const [statusFilter, setStatusFilter] = useState("")
   const [supplierFilter, setSupplierFilter] = useState("")
   const [page, setPage] = useState(1)
+  const [productsRevision, setProductsRevision] = useState(0)
   const pageSize = 50
+  const searchQuery = search.trim()
+  const isSearchPending = searchQuery !== debouncedSearch
 
-  const loadProducts = useCallback(async () => {
-    setLoading(true)
-    try {
-      const params = new URLSearchParams()
-      if (search) params.set("search", search)
-      if (typeFilter) params.set("itemType", typeFilter)
-      if (sectionFilter) params.set("section", sectionFilter)
-      if (statusFilter) params.set("status", statusFilter)
-      if (supplierFilter) params.set("supplierId", supplierFilter)
-      params.set("page", String(page))
-      params.set("pageSize", String(pageSize))
+  useEffect(() => {
+    if (!isSearchPending) return
 
-      const res = await fetch(`/api/inventario/productos?${params}`)
-      const data = await res.json()
-      if (!res.ok) throw new Error(data.error || "Error al cargar los productos")
-      setProducts(data.products)
-      setTotal(data.total)
-      setError(null)
-    } catch {
-      setError("Error al cargar los productos")
-    } finally {
-      setLoading(false)
+    const timeout = window.setTimeout(() => {
+      setLoading(true)
+      setDebouncedSearch(searchQuery)
+      setPage(1)
+    }, PRODUCT_SEARCH_DELAY_MS)
+    return () => window.clearTimeout(timeout)
+  }, [isSearchPending, searchQuery])
+
+  useEffect(() => {
+    if (isSearchPending) return
+
+    const controller = new AbortController()
+    const { signal } = controller
+
+    async function loadProducts() {
+      setLoading(true)
+      try {
+        const params = new URLSearchParams()
+        if (debouncedSearch) params.set("search", debouncedSearch)
+        if (typeFilter) params.set("itemType", typeFilter)
+        if (sectionFilter) params.set("section", sectionFilter)
+        if (statusFilter) params.set("status", statusFilter)
+        if (supplierFilter) params.set("supplierId", supplierFilter)
+        params.set("page", String(page))
+        params.set("pageSize", String(pageSize))
+
+        const res = await fetch(`/api/inventario/productos?${params}`, { signal })
+        const data = await res.json()
+        if (signal.aborted) return
+        if (!res.ok) throw new Error(data.error || "Error al cargar los productos")
+        setProducts(data.products)
+        setTotal(data.total)
+        setError(null)
+      } catch {
+        if (!signal.aborted) setError("Error al cargar los productos")
+      } finally {
+        if (!signal.aborted) setLoading(false)
+      }
     }
-  }, [search, typeFilter, sectionFilter, statusFilter, supplierFilter, page])
+
+    void loadProducts()
+    return () => controller.abort()
+  }, [isSearchPending, debouncedSearch, typeFilter, sectionFilter, statusFilter, supplierFilter, page, productsRevision])
 
   const loadSupplierOptions = useCallback(async () => {
     try {
@@ -231,16 +258,8 @@ export default function InventoryPage({ canDeleteProductsAndSuppliers = false }:
 
   /* eslint-disable react-hooks/set-state-in-effect */
   useEffect(() => {
-    loadProducts()
-  }, [loadProducts])
-
-  useEffect(() => {
     loadSupplierOptions()
   }, [loadSupplierOptions])
-
-  useEffect(() => {
-    setPage(1)
-  }, [search, typeFilter, sectionFilter, statusFilter, supplierFilter])
 
   useEffect(() => {
     try {
@@ -302,6 +321,10 @@ export default function InventoryPage({ canDeleteProductsAndSuppliers = false }:
     closeColumnModal()
   }
 
+  function refreshProducts() {
+    setProductsRevision((revision) => revision + 1)
+  }
+
   async function handleCreate(data: Record<string, unknown>) {
     setSaving(true)
     setError(null)
@@ -319,7 +342,7 @@ export default function InventoryPage({ canDeleteProductsAndSuppliers = false }:
       }
       setSuccess("Producto creado correctamente")
       setView("list")
-      loadProducts()
+      refreshProducts()
       return true
     } catch {
       setError("Error al conectar con el servidor")
@@ -350,7 +373,7 @@ export default function InventoryPage({ canDeleteProductsAndSuppliers = false }:
       setSuccess("Producto actualizado correctamente")
       setView("list")
       setEditing(null)
-      loadProducts()
+      refreshProducts()
       return true
     } catch {
       setError("Error al conectar con el servidor")
@@ -373,7 +396,7 @@ export default function InventoryPage({ canDeleteProductsAndSuppliers = false }:
         return
       }
       setSuccess("Producto eliminado")
-      loadProducts()
+      refreshProducts()
     } catch {
       setError("Error al conectar con el servidor")
     }
@@ -445,10 +468,15 @@ export default function InventoryPage({ canDeleteProductsAndSuppliers = false }:
               type="text"
               value={search}
               onChange={(e) => setSearch(e.target.value)}
+              data-preserve-input="true"
               placeholder="Buscar por código o descripción..."
               className="w-full min-w-0 rounded-md border border-gray-300 px-3 py-2 text-sm text-gray-900 shadow-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500 sm:min-w-[200px] sm:flex-1 lg:col-span-2"
             />
-            <select value={typeFilter} onChange={(e) => setTypeFilter(e.target.value)} className="w-full rounded-md border border-gray-300 px-3 py-2 text-sm text-gray-900 sm:w-auto">
+            <select
+              value={typeFilter}
+              onChange={(e) => { setTypeFilter(e.target.value); setPage(1) }}
+              className="w-full rounded-md border border-gray-300 px-3 py-2 text-sm text-gray-900 sm:w-auto"
+            >
               <option value="">Todos los tipos</option>
               <option value="MP">MP - Materia prima</option>
               <option value="IN">IN - Insumo</option>
@@ -456,7 +484,11 @@ export default function InventoryPage({ canDeleteProductsAndSuppliers = false }:
               <option value="PT">PT - Producto terminado</option>
               <option value="RV">RV - Reventa</option>
             </select>
-            <select value={sectionFilter} onChange={(e) => setSectionFilter(e.target.value)} className="w-full rounded-md border border-gray-300 px-3 py-2 text-sm text-gray-900 sm:w-auto">
+            <select
+              value={sectionFilter}
+              onChange={(e) => { setSectionFilter(e.target.value); setPage(1) }}
+              className="w-full rounded-md border border-gray-300 px-3 py-2 text-sm text-gray-900 sm:w-auto"
+            >
               <option value="">Todas las secciones</option>
               <option value="Panadería">Panadería</option>
               <option value="Pastelería/Obrador">Pastelería/Obrador</option>
@@ -465,7 +497,11 @@ export default function InventoryPage({ canDeleteProductsAndSuppliers = false }:
               <option value="Reventa">Reventa</option>
               <option value="General">General</option>
             </select>
-            <select value={statusFilter} onChange={(e) => setStatusFilter(e.target.value)} className="w-full rounded-md border border-gray-300 px-3 py-2 text-sm text-gray-900 sm:w-auto">
+            <select
+              value={statusFilter}
+              onChange={(e) => { setStatusFilter(e.target.value); setPage(1) }}
+              className="w-full rounded-md border border-gray-300 px-3 py-2 text-sm text-gray-900 sm:w-auto"
+            >
               <option value="">Todos los estados</option>
               <option value="Activo">Activo</option>
               <option value="Inactivo">Inactivo</option>
@@ -474,7 +510,7 @@ export default function InventoryPage({ canDeleteProductsAndSuppliers = false }:
             <select
               aria-label="Filtrar por proveedor"
               value={supplierFilter}
-              onChange={(e) => setSupplierFilter(e.target.value)}
+              onChange={(e) => { setSupplierFilter(e.target.value); setPage(1) }}
               className="w-full rounded-md border border-gray-300 px-3 py-2 text-sm text-gray-900 sm:w-auto"
             >
               <option value="">Todos los proveedores</option>
@@ -495,7 +531,7 @@ export default function InventoryPage({ canDeleteProductsAndSuppliers = false }:
             </button>
           </div>
 
-          {loading ? (
+          {loading || isSearchPending ? (
             <p className="text-sm text-gray-500">Cargando productos...</p>
           ) : products.length === 0 ? (
             <p className="text-sm text-gray-500">No se encontraron productos.</p>
@@ -708,7 +744,7 @@ export default function InventoryPage({ canDeleteProductsAndSuppliers = false }:
           <SupplierProductPanel
             productId={selectedForSuppliers.id}
             productCode={selectedForSuppliers.code}
-            onClose={() => { setView("list"); setSelectedForSuppliers(null); loadProducts() }}
+            onClose={() => { setView("list"); setSelectedForSuppliers(null); refreshProducts() }}
           />
         </div>
       )}
