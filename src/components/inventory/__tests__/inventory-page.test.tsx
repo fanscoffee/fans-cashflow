@@ -1,6 +1,7 @@
-import { fireEvent, render, screen, waitFor, within } from "@testing-library/react"
+import { act, fireEvent, render, screen, waitFor, within } from "@testing-library/react"
 import userEvent from "@testing-library/user-event"
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest"
+import Providers from "@/app/providers"
 import InventoryPage from "../inventory-page"
 
 const product = {
@@ -30,6 +31,7 @@ const product = {
 function mockProductsRequest(productTotal = 1) {
   vi.stubGlobal("fetch", vi.fn().mockImplementation(async (input: RequestInfo | URL) => {
     const url = String(input)
+    if (url === "/api/auth/session") return Response.json(null)
     if (url.startsWith("/api/inventario/proveedores")) {
       return {
         ok: true,
@@ -47,7 +49,11 @@ function mockProductsRequest(productTotal = 1) {
 }
 
 async function renderInventory() {
-  render(<InventoryPage />)
+  render(
+    <Providers>
+      <InventoryPage />
+    </Providers>,
+  )
   await screen.findByText("Producto prueba")
 }
 
@@ -57,7 +63,14 @@ function tableHeaders() {
     .map((header) => header.textContent)
 }
 
-describe("InventoryPage column visibility", () => {
+function productRequests() {
+  return vi.mocked(fetch).mock.calls
+    .map(([input]) => new URL(String(input), "http://localhost"))
+    .filter((url) => url.pathname === "/api/inventario/productos")
+    .map((url) => url.searchParams)
+}
+
+describe("InventoryPage", () => {
   beforeEach(() => {
     window.localStorage.clear()
     mockProductsRequest()
@@ -116,6 +129,68 @@ describe("InventoryPage column visibility", () => {
         "text-gray-800",
       )
     }
+  })
+
+  it("searches when typing or deleting without needing a space and resets pagination", async () => {
+    const user = userEvent.setup()
+    mockProductsRequest(51)
+    await renderInventory()
+    await user.click(screen.getByRole("button", { name: "Siguiente" }))
+    await screen.findByText("Página 2 de 2")
+    vi.mocked(fetch).mockClear()
+
+    const searchInput = screen.getByPlaceholderText("Buscar por código o descripción...")
+    await user.type(searchInput, "tomate")
+
+    await waitFor(() => {
+      expect(productRequests().map((params) => [params.get("search"), params.get("page")]))
+        .toEqual([["tomate", "1"]])
+    })
+    expect(searchInput).toHaveFocus()
+
+    await user.keyboard("{Backspace}")
+    await waitFor(() => expect(productRequests().at(-1)?.get("search")).toBe("tomat"))
+  })
+
+  it("keeps the latest results when an older search responds later", async () => {
+    const user = userEvent.setup()
+    const olderResponse = Promise.withResolvers<Response>()
+    const fetchMock = vi.mocked(fetch)
+    const defaultFetch = fetchMock.getMockImplementation()!
+    fetchMock.mockImplementation(async (input, init) => {
+      const { searchParams } = new URL(String(input), "http://localhost")
+      if (searchParams.get("search") === "tom") return olderResponse.promise
+      if (searchParams.get("search") === "tomate") {
+        return Response.json({ products: [{ ...product, posDescription: "Tomate pera" }], total: 1 })
+      }
+      return defaultFetch(input, init)
+    })
+    await renderInventory()
+
+    const searchInput = screen.getByPlaceholderText("Buscar por código o descripción...")
+    await user.type(searchInput, "tom")
+    await waitFor(() => expect(productRequests().at(-1)?.get("search")).toBe("tom"))
+    await user.type(searchInput, "ate")
+    expect(await screen.findByText("Tomate pera")).toBeInTheDocument()
+
+    await act(async () => {
+      olderResponse.resolve(Response.json({ products: [{ ...product, posDescription: "Tomillo" }], total: 1 }))
+    })
+    expect(screen.getByText("Tomate pera")).toBeInTheDocument()
+    expect(screen.queryByText("Tomillo")).not.toBeInTheDocument()
+  })
+
+  it("trims surrounding spaces and removes the search filter when cleared", async () => {
+    const user = userEvent.setup()
+    await renderInventory()
+    const searchInput = screen.getByPlaceholderText("Buscar por código o descripción...")
+
+    await user.click(searchInput)
+    await user.paste("  tomate seco  ")
+    await waitFor(() => expect(productRequests().at(-1)?.get("search")).toBe("tomate seco"))
+
+    await user.clear(searchInput)
+    await waitFor(() => expect(productRequests().at(-1)?.has("search")).toBe(false))
   })
 
   it("shows every column option vertically and locks description", async () => {
