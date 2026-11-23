@@ -13,6 +13,7 @@ interface Product {
   purchaseUnit: string | null
   baseStockUnit: string
   purchaseToBaseFactor: number | null
+  supplierNames?: string[]
 }
 
 interface PhysicalInventory {
@@ -35,15 +36,7 @@ interface PhysicalInventoryDetail extends PhysicalInventory {
 }
 
 interface ComparisonLine {
-  product: {
-    id: string
-    code: string
-    posDescription: string
-    purchaseUnit: string | null
-    baseStockUnit: string
-    purchaseToBaseFactor: number | null
-    supplierNames?: string[]
-  }
+  product: Product
   quantityUnit1: number
   quantityUnit2: number
   previous: number
@@ -298,6 +291,7 @@ export default function PhysicalInventoryPanel() {
             <thead>
               <tr className="border-b bg-gray-50 text-xs font-medium text-gray-500">
                 <th className="px-3 py-2">Producto</th>
+                <th scope="col" className="px-3 py-2">Proveedor</th>
                 <th className="px-3 py-2 w-24">UoM Compra</th>
                 <th className="px-3 py-2 w-24">Cant. Um1</th>
                 <th className="px-3 py-2 w-24">UoM Base</th>
@@ -310,6 +304,9 @@ export default function PhysicalInventoryPanel() {
                   <td className="px-3 py-2">
                     <p className="font-mono text-xs text-gray-900">{p.code}</p>
                     <p className="text-xs text-gray-700">{p.posDescription}</p>
+                  </td>
+                  <td className="px-3 py-2 text-xs text-gray-600">
+                    <p className="max-w-48 wrap-break-word">{p.supplierNames?.join(", ") || "—"}</p>
                   </td>
                   <td className="px-3 py-2 text-xs text-gray-600">{p.purchaseUnit || "\u2014"}</td>
                   <td className="px-3 py-2">
