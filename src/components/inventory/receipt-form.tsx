@@ -6,6 +6,7 @@ import type { Resolver } from "react-hook-form"
 import { zodResolver } from "@hookform/resolvers/zod"
 import { z } from "zod"
 import { calculateVatInclusiveAmount } from "@/lib/product-pricing"
+import { GENERIC_RECEIPT_PRODUCT_LABEL, GENERIC_RECEIPT_UNIT, receptionLineSchema } from "@/lib/reception-input"
 import { extractDocument } from "@/lib/document-ocr"
 import {
   grossAmountToNet,
@@ -35,14 +36,7 @@ interface Product {
   vatPercentage: number | string | null
 }
 
-const lineSchema = z.object({
-  productId: z.string().min(1, "Selecciona un producto"),
-  receivedQuantity: z.coerce.number().positive("La cantidad debe ser mayor a 0"),
-  packageCount: z.coerce.number().int("La cantidad de elementos debe ser un número entero").positive("La cantidad de elementos debe ser mayor a 0"),
-  unitPrice: z.coerce.number().min(0, "El precio no puede ser negativo"),
-  batch: z.string().optional(),
-  dueDate: z.string().optional(),
-})
+const genericProductOption = { id: "__generic_receipt_product__", code: "", posDescription: GENERIC_RECEIPT_PRODUCT_LABEL }
 
 const receiptSchema = z.object({
   supplierId: z.string().min(1, "Selecciona un proveedor"),
@@ -51,11 +45,26 @@ const receiptSchema = z.object({
   notes: z.string().optional(),
   transportCost: z.coerce.number().finite().nonnegative("El transporte no puede ser negativo"),
   lines: z
-    .array(lineSchema)
-    .min(1, "Agrega al menos una línea de producto"),
+    .array(receptionLineSchema)
+    .min(1, "Agrega al menos una línea de producto")
+    .max(500),
 })
 
 export type ReceiptFormValues = z.infer<typeof receiptSchema>
+type ReceiptFormLine = ReceiptFormValues["lines"][number]
+
+function lineVatPercentage(line?: ReceiptFormLine, product?: Product) {
+  return line?.productId === null
+    ? line.genericVatPercentage
+    : product?.purchaseVatPercentage ?? product?.vatPercentage
+}
+
+function unitPriceIncludingVat(line?: ReceiptFormLine, product?: Product) {
+  return calculateVatInclusiveAmount({
+    amount: line?.unitPrice,
+    vatPercentage: lineVatPercentage(line, product),
+  }) ?? 0
+}
 
 function todayString() {
   return new Date().toISOString().split("T")[0]
@@ -94,7 +103,7 @@ export default function ReceiptForm({
   const [ocrReviewed, setOcrReviewed] = useState(false)
   const [pendingOcrLines, setPendingOcrLines] = useState<DeliveryNoteLineDraft[] | null>(null)
   const pendingOcrLinesRef = useRef<DeliveryNoteLineDraft[] | null>(null)
-  const [ocrGrossTotals, setOcrGrossTotals] = useState<Array<number | null>>([])
+  const [ocrLineDetails, setOcrLineDetails] = useState<Array<{ description: string; grossTotal: number } | null>>([])
   const [ocrTaxes, setOcrTaxes] = useState<DeliveryNoteTaxDraft[]>([])
   const [ocrPreparationGross, setOcrPreparationGross] = useState<number | null>(null)
   const [ocrTotalGross, setOcrTotalGross] = useState<number | null>(null)
@@ -107,6 +116,7 @@ export default function ReceiptForm({
     getValues,
     watch,
     setValue,
+    clearErrors,
     reset,
     formState: { errors },
   } = useForm<ReceiptFormValues>({
@@ -123,6 +133,7 @@ export default function ReceiptForm({
   const lines = watch("lines")
   const [productsLoading, setProductsLoading] = useState(false)
   const previousSupplierId = useRef("")
+  const productOptions = useMemo(() => [genericProductOption, ...products], [products])
 
   useEffect(() => {
     if (initialValues) reset(initialValues)
@@ -130,7 +141,7 @@ export default function ReceiptForm({
     setPendingOcrLines(null)
     setOcrWarnings([])
     setOcrUnmatched(null)
-    setOcrGrossTotals([])
+    setOcrLineDetails([])
     setOcrTaxes([])
     setOcrPreparationGross(null)
     setOcrTotalGross(null)
@@ -152,7 +163,8 @@ export default function ReceiptForm({
     previousSupplierId.current = supplierId
 
     if (previousId && previousId !== supplierId && !pendingOcrLinesRef.current) {
-      getValues("lines").forEach((_, index) => {
+      getValues("lines").forEach((line, index) => {
+        if (line.productId === null) return
         setValue(`lines.${index}.productId`, "")
         setValue(`lines.${index}.unitPrice`, 0)
         setValue(`lines.${index}.packageCount`, 1)
@@ -187,7 +199,7 @@ export default function ReceiptForm({
       })
       .catch((error) => {
         if (error instanceof Error && error.name === "AbortError") return
-        if (!controller.signal.aborted) setProducts([])
+        if (!controller.signal.aborted) setProductsSupplierId(supplierId)
       })
       .finally(() => {
         if (!controller.signal.aborted) setProductsLoading(false)
@@ -197,7 +209,7 @@ export default function ReceiptForm({
   }, [getValues, supplierId, setValue])
 
   useEffect(() => {
-    if (!pendingOcrLines || !products.length || productsSupplierId !== supplierId) return
+    if (!pendingOcrLines || !supplierId || productsSupplierId !== supplierId) return
     const mappedLines = pendingOcrLines.map((line) => {
       const product = matchDeliveryProduct(line.description, products)
       const quantity = Number(line.quantity)
@@ -216,27 +228,42 @@ export default function ReceiptForm({
     const unmatched = mappedLines.filter((line) => !line.productId).length
     replace(mappedLines)
     setOcrUnmatched(unmatched)
-    if (unmatched > 0) setOcrWarnings((current) => current.some((warning) => warning.startsWith("Hay líneas sin asociar")) ? current : [...current, `Hay líneas sin asociar a productos del catálogo: ${unmatched}`])
     pendingOcrLinesRef.current = null
     setPendingOcrLines(null)
   }, [pendingOcrLines, products, productsSupplierId, replace, supplierId])
 
   const handleAddLine = () => {
     append({ productId: "", receivedQuantity: 1, packageCount: 1, unitPrice: 0, batch: "", dueDate: "" })
-    setOcrGrossTotals((current) => [...current, null])
+    setOcrLineDetails((current) => [...current, null])
   }
 
-  const handleProductChange = (index: number, productId: string) => {
+  const handleProductChange = (index: number, optionId: string) => {
+    const productId = optionId === genericProductOption.id ? null : optionId
+    const previousProductId = getValues(`lines.${index}.productId`)
+    if (previousProductId === productId) return
+    const imported = ocrLineDetails[index]
+    const product = products.find((candidate) => candidate.id === productId)
+    clearErrors(`lines.${index}`)
     setValue(`lines.${index}.productId`, productId)
+    setValue(`lines.${index}.genericDescription`, productId === null ? imported?.description.slice(0, 500) || "" : null)
+    setValue(`lines.${index}.genericVatPercentage`, null)
     setValue(`lines.${index}.packageCount`, 1)
-    const prod = products.find((p) => p.id === productId)
-    const extractedTotal = ocrGrossTotals[index]
-    const quantity = Number(getValues(`lines.${index}.receivedQuantity`))
-    if (extractedTotal != null && prod) {
-      setValue(`lines.${index}.unitPrice`, grossLineTotalToNetUnitPrice(extractedTotal, quantity, prod.purchaseVatPercentage ?? prod.vatPercentage))
-    } else if (prod?.baseUnitCost != null) {
-      setValue(`lines.${index}.unitPrice`, Number(prod.baseUnitCost))
+    if (imported) {
+      const quantity = Number(getValues(`lines.${index}.receivedQuantity`))
+      setValue(`lines.${index}.unitPrice`, grossLineTotalToNetUnitPrice(imported.grossTotal, quantity, product?.purchaseVatPercentage ?? product?.vatPercentage))
+    } else if (product?.baseUnitCost != null) {
+      setValue(`lines.${index}.unitPrice`, Number(product.baseUnitCost))
+    } else if (previousProductId === null || (previousProductId && productId === null)) {
+      setValue(`lines.${index}.unitPrice`, 0)
     }
+  }
+
+  function updateGenericOcrPrice(index: number, value: string) {
+    const imported = ocrLineDetails[index]
+    const vat = Number(value)
+    if (!imported || value === "" || !Number.isFinite(vat) || vat < 0 || vat > 100) return
+    const quantity = Number(getValues(`lines.${index}.receivedQuantity`))
+    setValue(`lines.${index}.unitPrice`, grossLineTotalToNetUnitPrice(imported.grossTotal, quantity, vat))
   }
 
   async function handleFile(file: File) {
@@ -247,7 +274,7 @@ export default function ReceiptForm({
     setDocumentRead(false)
     pendingOcrLinesRef.current = null
     setPendingOcrLines(null)
-    setOcrGrossTotals([])
+    setOcrLineDetails([])
     setOcrTaxes([])
     setOcrPreparationGross(null)
     setOcrTotalGross(null)
@@ -307,7 +334,7 @@ export default function ReceiptForm({
           batch: "",
           dueDate: "",
         })))
-        setOcrGrossTotals(draft.lines.map((line) => Number(line.lineTotal)))
+        setOcrLineDetails(draft.lines.map((line) => ({ description: line.description, grossTotal: Number(line.lineTotal) })))
         pendingOcrLinesRef.current = draft.lines
         setPendingOcrLines(draft.lines)
       } else {
@@ -343,49 +370,42 @@ export default function ReceiptForm({
     await onSubmit(data)
   }
 
-  const getProductInfo = (productId: string) => {
+  const getProductInfo = (productId: string | null) => {
     return products.find((p) => p.id === productId)
   }
 
-  const getUnitPriceIncludingVat = (unitPrice: unknown, product?: Product) => {
-    return calculateVatInclusiveAmount({
-      amount: unitPrice,
-      vatPercentage: product?.purchaseVatPercentage ?? product?.vatPercentage,
-    }) ?? 0
-  }
-
   const productsTotal = (lines || []).reduce((sum, l) => {
-    const product = getProductInfo(l.productId || "")
-    return sum + Number(l.receivedQuantity || 0) * getUnitPriceIncludingVat(l.unitPrice, product)
+    const product = getProductInfo(l.productId)
+    return sum + Number(l.receivedQuantity || 0) * unitPriceIncludingVat(l, product)
   }, 0)
   const weightedPackageCount = (lines || []).reduce((sum, line) => {
-    const product = getProductInfo(line.productId || "")
+    const product = getProductInfo(line.productId)
     return sum + (product?.isWeightBased ? Number(line.packageCount || 0) : 0)
   }, 0)
   const transportCost = Number(watch("transportCost") || 0)
-  const ocrFiscalValidation = useMemo(() => {
-    if (!documentRead) return null
-    return validateDeliveryNoteFiscalBreakdown({
-      lines: (lines || []).map((line, index) => {
-        const product = products.find((candidate) => candidate.id === line.productId)
-        return {
+  const ocrFiscalValidation = documentRead
+    ? validateDeliveryNoteFiscalBreakdown({
+        lines: (lines || []).map((line, index) => ({
           quantity: line.receivedQuantity,
           netUnitPrice: line.unitPrice,
-          vatPercentage: product?.purchaseVatPercentage ?? product?.vatPercentage,
-          grossLineTotal: ocrGrossTotals[index],
-        }
-      }),
-      taxes: ocrTaxes,
-      preparationGross: ocrPreparationGross,
-      preparationNet: transportCost,
-      totalGross: ocrTotalGross,
-    })
-  }, [documentRead, lines, ocrGrossTotals, ocrPreparationGross, ocrTaxes, ocrTotalGross, products, transportCost])
+          vatPercentage: lineVatPercentage(line, getProductInfo(line.productId)),
+          grossLineTotal: ocrLineDetails[index]?.grossTotal,
+        })),
+        taxes: ocrTaxes,
+        preparationGross: ocrPreparationGross,
+        preparationNet: transportCost,
+        totalGross: ocrTotalGross,
+      })
+    : null
   const transportGross = ocrPreparationGross ?? transportCost
   const totalReceipt = productsTotal + transportGross
+  const unassignedOcrLines = pendingOcrLines
+    ? 0
+    : (lines || []).filter((line, index) => ocrLineDetails[index] && line.productId === "").length
+  const productOptionsLoading = productsLoading || productsSupplierId !== supplierId || pendingOcrLines !== null
   const productPlaceholder = !supplierId
     ? "Selecciona primero un proveedor..."
-    : productsLoading
+    : productOptionsLoading
       ? "Cargando productos..."
       : "Buscar producto..."
 
@@ -417,6 +437,7 @@ export default function ReceiptForm({
           <p className="mt-2 text-xs text-green-800">El desglose de IVA coincide con las bases y cuotas del albarán.</p>
         )}
         {ocrUnmatched !== null && ocrUnmatched === 0 && <p className="mt-2 text-xs text-green-800">Todas las líneas se asociaron automáticamente al catálogo del proveedor.</p>}
+        {unassignedOcrLines > 0 && <p className="mt-2 text-xs text-amber-800">Líneas pendientes de asignar: {unassignedOcrLines}. Selecciona un producto del catálogo o {GENERIC_RECEIPT_PRODUCT_LABEL}.</p>}
         {documentRead && (
           <label className="mt-3 flex items-start gap-2 text-xs text-blue-900">
             <input type="checkbox" checked={ocrReviewed} onChange={(event) => setOcrReviewed(event.currentTarget.checked)} className="mt-0.5" />
@@ -509,7 +530,7 @@ export default function ReceiptForm({
 
       <div>
         <h3 className="mb-1 text-sm font-semibold text-gray-900">Líneas de Producto *</h3>
-        <p className="mb-3 text-xs text-gray-500">Añade una tarjeta por cada producto que figure en el albarán.</p>
+        <p className="mb-3 text-xs text-gray-500">Añade una tarjeta por cada producto del albarán. Para compras puntuales fuera del catálogo, selecciona {GENERIC_RECEIPT_PRODUCT_LABEL}.</p>
 
         {errors.lines && (
           <p className="mb-2 text-xs text-red-600">{errors.lines.message || errors.lines.root?.message}</p>
@@ -517,20 +538,24 @@ export default function ReceiptForm({
 
         <div className="space-y-3">
           {fields.map((field, index) => {
-            const prod = getProductInfo(lines?.[index]?.productId || "")
             const line = lines?.[index]
+            const isGeneric = line?.productId === null
+            const prod = getProductInfo(line?.productId ?? null)
+            const lineErrors = errors.lines?.[index]
             const unitPriceWithoutVat = Number(line?.unitPrice || 0)
-            const unitPriceIncludingVat = getUnitPriceIncludingVat(line?.unitPrice, prod)
+            const unitPriceWithVat = unitPriceIncludingVat(line, prod)
             const quantity = Number(line?.receivedQuantity || 0)
             const subtotalWithoutVat = quantity * unitPriceWithoutVat
-            const subtotal = quantity * unitPriceIncludingVat
-            const vatPercentage = prod?.purchaseVatPercentage ?? prod?.vatPercentage
+            const subtotal = quantity * unitPriceWithVat
+            const vatPercentage = lineVatPercentage(line, prod)
             const isWeightBased = Boolean(prod?.isWeightBased)
-            const grossLineTotal = ocrGrossTotals[index]
+            const grossLineTotal = ocrLineDetails[index]?.grossTotal
             const grossUnitPrice = grossLineTotal !== null && grossLineTotal !== undefined && quantity > 0
               ? grossLineTotal / quantity
-              : unitPriceIncludingVat
+              : unitPriceWithVat
             const productId = `recepcion-producto-${field.id}`
+            const descriptionId = `recepcion-descripcion-${field.id}`
+            const vatId = `recepcion-iva-${field.id}`
             const quantityId = `recepcion-cantidad-${field.id}`
             const priceId = `recepcion-precio-${field.id}`
             const batchId = `recepcion-lote-${field.id}`
@@ -543,7 +568,7 @@ export default function ReceiptForm({
                   {fields.length > 1 && (
                     <button
                       type="button"
-                      onClick={() => { remove(index); setOcrGrossTotals((current) => current.filter((_, lineIndex) => lineIndex !== index)) }}
+                      onClick={() => { remove(index); setOcrLineDetails((current) => current.filter((_, lineIndex) => lineIndex !== index)) }}
                       aria-label={`Eliminar producto ${index + 1}`}
                       className="min-h-11 shrink-0 rounded-md px-3 text-xs font-medium text-red-600 hover:bg-red-50 hover:text-red-800 sm:min-h-0"
                     >
@@ -559,19 +584,40 @@ export default function ReceiptForm({
                     </label>
                     <ProductCombobox
                       id={productId}
-                      products={products}
-                      value={lines?.[index]?.productId || ""}
+                      products={productOptions}
+                      value={isGeneric ? genericProductOption.id : line?.productId || ""}
                       onSelect={(id) => handleProductChange(index, id)}
-                      disabled={!supplierId || productsLoading}
+                      error={Boolean(lineErrors?.productId)}
+                      disabled={!supplierId || productOptionsLoading}
                       placeholder={productPlaceholder}
                     />
+                    {lineErrors?.productId && <p className="mt-1 text-xs text-red-600">{lineErrors.productId.message}</p>}
                   </div>
+
+                  {isGeneric && (
+                    <div>
+                      <label htmlFor={descriptionId} className="mb-1 block text-xs font-medium text-gray-600">
+                        Descripción del producto genérico *
+                      </label>
+                      <input
+                        id={descriptionId}
+                        type="text"
+                        maxLength={500}
+                        placeholder="Ej. Decoración de Halloween"
+                        aria-invalid={Boolean(lineErrors?.genericDescription)}
+                        {...register(`lines.${index}.genericDescription`)}
+                        className="min-h-11 w-full rounded-md border border-gray-300 px-3 py-2 text-sm text-gray-900 focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
+                      />
+                      <p className="mt-1 text-xs text-gray-500">Se guarda solo en el albarán, sin añadirlo al catálogo ni al stock.</p>
+                      {lineErrors?.genericDescription && <p className="mt-1 text-xs text-red-600">{lineErrors.genericDescription.message}</p>}
+                    </div>
+                  )}
 
                   <div className={`grid gap-3 ${isWeightBased ? "grid-cols-1 min-[420px]:grid-cols-3" : "grid-cols-2"}`}>
                     <div>
                       <span className="mb-1 block text-xs font-medium text-gray-600">UoM</span>
                       <div className="flex min-h-11 items-center rounded-md border border-gray-200 bg-white px-3 py-2 text-sm text-gray-700">
-                        {prod?.purchaseUnit || "\u2014"}
+                        {isGeneric ? GENERIC_RECEIPT_UNIT : prod?.purchaseUnit || "\u2014"}
                       </div>
                     </div>
                     <div>
@@ -585,6 +631,7 @@ export default function ReceiptForm({
                         {...register(`lines.${index}.receivedQuantity`)}
                         className="min-h-11 w-full rounded-md border border-gray-300 px-3 py-2 text-sm text-gray-900 focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
                       />
+                      {lineErrors?.receivedQuantity && <p className="mt-1 text-xs text-red-600">{lineErrors.receivedQuantity.message}</p>}
                     </div>
                     {isWeightBased && (
                       <div>
@@ -599,7 +646,7 @@ export default function ReceiptForm({
                           {...register(`lines.${index}.packageCount`)}
                           className="min-h-11 w-full rounded-md border border-gray-300 px-3 py-2 text-sm text-gray-900 focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
                         />
-                        {errors.lines?.[index]?.packageCount && <p className="mt-1 text-xs text-red-600">{errors.lines[index]?.packageCount?.message}</p>}
+                        {lineErrors?.packageCount && <p className="mt-1 text-xs text-red-600">{lineErrors.packageCount.message}</p>}
                       </div>
                     )}
                   </div>
@@ -616,6 +663,7 @@ export default function ReceiptForm({
                         {...register(`lines.${index}.unitPrice`)}
                         className="min-h-11 w-full rounded-md border border-gray-300 px-3 py-2 text-sm text-gray-900 focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
                       />
+                      {lineErrors?.unitPrice && <p className="mt-1 text-xs text-red-600">{lineErrors.unitPrice.message}</p>}
                     </div>
                     <div>
                       <span className="mb-1 block text-xs font-medium text-gray-600">Coste unitario con IVA</span>
@@ -632,12 +680,32 @@ export default function ReceiptForm({
                         {grossLineTotal === null || grossLineTotal === undefined ? "—" : `${grossLineTotal.toFixed(2)} EUR`}
                       </div>
                     </div>
-                    <div>
+                    {isGeneric ? (
+                      <div>
+                        <label htmlFor={vatId} className="mb-1 block text-xs font-medium text-gray-600">
+                          IVA del producto genérico (%) *
+                        </label>
+                        <input
+                          id={vatId}
+                          type="number"
+                          min="0"
+                          max="100"
+                          step="0.0001"
+                          aria-invalid={Boolean(lineErrors?.genericVatPercentage)}
+                          {...register(`lines.${index}.genericVatPercentage`, {
+                            setValueAs: (value) => value == null || value === "" ? null : Number(value),
+                            onChange: (event) => updateGenericOcrPrice(index, event.target.value),
+                          })}
+                          className="min-h-11 w-full rounded-md border border-gray-300 px-3 py-2 text-sm text-gray-900 focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
+                        />
+                        {lineErrors?.genericVatPercentage && <p className="mt-1 text-xs text-red-600">{lineErrors.genericVatPercentage.message}</p>}
+                      </div>
+                    ) : <div>
                       <span className="mb-1 block text-xs font-medium text-gray-600">IVA aplicado</span>
                       <div className={`flex min-h-11 items-center rounded-md border px-3 py-2 text-sm font-medium ${vatPercentage === null || vatPercentage === undefined ? "border-amber-300 bg-amber-50 text-amber-800" : "border-gray-200 bg-white text-gray-900"}`}>
                         {vatPercentage === null || vatPercentage === undefined ? "Desconocido — revisar" : `${Number(vatPercentage).toFixed(2)}%`}
                       </div>
-                    </div>
+                    </div>}
                   </div>
 
                   <div className="grid grid-cols-1 gap-3 min-[420px]:grid-cols-2">
@@ -686,9 +754,9 @@ export default function ReceiptForm({
           })}
         </div>
 
-        {supplierId && !productsLoading && products.length === 0 && (
+        {supplierId && !productOptionsLoading && products.length === 0 && (
           <p className="mt-2 text-xs text-amber-700">
-            Este proveedor no tiene productos comprables activos asociados.
+            Este proveedor no tiene productos del catálogo asociados. Puedes usar {GENERIC_RECEIPT_PRODUCT_LABEL}.
           </p>
         )}
 

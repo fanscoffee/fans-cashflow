@@ -3,6 +3,7 @@ import { Prisma } from "@/generated/prisma/client"
 import { buildInvoiceAlerts, invoiceSchema, normalizeTaxId, type InvoiceInput } from "@/lib/invoices"
 import { toN } from "@/lib/money"
 import { InvoiceWorkflowStatus, PaymentDocumentType, paymentEntitySchema, type DatabasePaymentEntity } from "@/lib/database-enums"
+import { GENERIC_RECEIPT_UNIT } from "@/lib/reception-input"
 
 export const reconciliationLinkSchema = z.object({
   receiptIds: z.array(z.string().trim().min(1)).min(1, "Selecciona al menos un albarán").max(500),
@@ -64,7 +65,9 @@ export type ReconciliationSupplier = {
 }
 
 export type ReconciliationReceiptLine = {
-  productId: string
+  productId: string | null
+  genericDescription?: string | null
+  genericVatPercentage?: unknown
   receivedQuantity: unknown
   packageCount?: unknown
   unitPrice: unknown
@@ -76,7 +79,7 @@ export type ReconciliationReceiptLine = {
     purchaseUnit: string | null
     isWeightBased?: boolean
     purchaseVatPercentage?: unknown
-  }
+  } | null
 }
 
 export type ReconciliationReceipt = {
@@ -229,7 +232,7 @@ function singleVatRate(capture: AccountingCaptureForReconciliation) {
 
 export type OperationalInvoiceLineData = {
   productId: string | null
-  lineType: string
+  lineType: InvoiceInput["lines"][number]["lineType"]
   supplierReference: string | null
   itemCode: string | null
   description: string
@@ -255,9 +258,9 @@ export function buildOperationalInvoiceLines(
   includeTransport = true,
 ) {
   type ProductAccumulator = {
-    productId: string
+    productId: string | null
     description: string
-    code: string
+    code: string | null
     unitOfMeasure: string | null
     quantity: number
     taxableBase: number
@@ -266,44 +269,51 @@ export function buildOperationalInvoiceLines(
     purchaseVatPercentage: number | null
   }
 
-  const products = new Map<string, ProductAccumulator>()
+  const products: ProductAccumulator[] = []
+  const catalogProducts = new Map<string, ProductAccumulator>()
   for (const receipt of receipts) {
     for (const line of receipt.lines) {
       const quantity = toN(line.receivedQuantity)
       const base = quantity * toN(line.unitPrice)
-      const current = products.get(line.productId) || {
-        productId: line.productId,
-        description: line.product.posDescription || line.product.code,
-        code: line.product.code,
-        unitOfMeasure: line.product.purchaseUnit,
-        quantity: 0,
-        taxableBase: 0,
-        batches: new Set<string>(),
-        dueDates: new Set<number>(),
-        purchaseVatPercentage: line.product.purchaseVatPercentage == null
-          ? null
-          : Number.isFinite(toN(line.product.purchaseVatPercentage))
-            ? toN(line.product.purchaseVatPercentage)
-            : null,
+      const { productId, product } = line
+      let current = productId ? catalogProducts.get(productId) : undefined
+      if (!current) {
+        const description = product ? product.posDescription || product.code : line.genericDescription
+        if (!description) continue
+        const rawVat = product ? product.purchaseVatPercentage : line.genericVatPercentage
+        const rate = rawVat == null ? null : toN(rawVat)
+        current = {
+          productId,
+          description,
+          code: product?.code ?? null,
+          unitOfMeasure: product ? product.purchaseUnit : GENERIC_RECEIPT_UNIT,
+          quantity: 0,
+          taxableBase: 0,
+          batches: new Set<string>(),
+          dueDates: new Set<number>(),
+          purchaseVatPercentage: Number.isFinite(rate) ? rate : null,
+        }
+        products.push(current)
+        if (productId) catalogProducts.set(productId, current)
       }
       current.quantity += quantity
       current.taxableBase += base
       if (line.batch) current.batches.add(line.batch)
       if (line.dueDate) current.dueDates.add(line.dueDate.getTime())
-      products.set(line.productId, current)
     }
   }
 
   const fallbackVatRate = singleVatRate(capture)
-  const lines: OperationalInvoiceLineData[] = Array.from(products.values()).map((product) => {
+  const lines: OperationalInvoiceLineData[] = products.map((product) => {
     const taxableBase = round(product.taxableBase)
     const quantity = round(product.quantity, 4)
-    const unitPrice = quantity > 0 ? round(taxableBase / quantity, 4) : 0
+    const priceBase = product.productId ? taxableBase : product.taxableBase
+    const unitPrice = quantity > 0 ? round(priceBase / quantity, 4) : 0
     const vatRate = product.purchaseVatPercentage ?? fallbackVatRate
     const vatAmount = vatRate == null ? 0 : round(taxableBase * vatRate / 100)
     return {
       productId: product.productId,
-      lineType: "PRODUCTO",
+      lineType: product.productId ? "PRODUCTO" : "PRODUCTO_GENERICO",
       supplierReference: null,
       itemCode: product.code,
       description: product.description,
@@ -355,15 +365,6 @@ export function buildOperationalInvoiceLines(
   return lines
 }
 
-function receivedLinesForValidation(receipts: ReconciliationReceipt[]) {
-  return receipts.flatMap((receipt) => receipt.lines.map((line) => ({
-    productId: line.productId,
-    receivedQuantity: line.receivedQuantity,
-    unitPrice: line.unitPrice,
-    product: { code: line.product.code, posDescription: line.product.posDescription },
-  })))
-}
-
 export type OperationalInvoiceDraft = {
   series: string
   number: string
@@ -402,7 +403,7 @@ export function buildOperationalInvoiceDraft(input: {
   if (!number) throw new ReconciliationError("La captura no tiene número de factura", 400, "MISSING_INVOICE_NUMBER")
 
   const lines = buildOperationalInvoiceLines(input.receipts, input.capture, input.includeTransport)
-  if (!lines.some((line) => line.lineType === "PRODUCTO")) {
+  if (!lines.some((line) => line.lineType !== "CARGO")) {
     throw new ReconciliationError("Los albaranes seleccionados no tienen líneas de producto", 409, "EMPTY_RECEIPTS")
   }
 
@@ -443,7 +444,7 @@ export function buildOperationalInvoiceDraft(input: {
     taxes: buildInvoiceTaxes(input.capture),
   })
 
-  const validation = buildInvoiceAlerts(validationInput, receivedLinesForValidation(input.receipts))
+  const validation = buildInvoiceAlerts(validationInput, input.receipts.flatMap((receipt) => receipt.lines))
   const alerts = [...captureAlerts(input.capture.alerts), ...validation.alerts]
   if (!input.supplier.billingAddress?.trim()) alerts.push("El proveedor no tiene domicilio de facturación; completa el dato antes de conformar")
   if (input.providerExceptionReason) alerts.push(`Excepción de proveedor confirmada: ${input.providerExceptionReason}`)
@@ -490,7 +491,7 @@ export function summarizeReceipt(receipt: ReconciliationReceipt) {
     deliveryNoteCode: receipt.deliveryNoteCode,
     receivedAt: receipt.receivedAt.toISOString(),
     lineCount: receipt.lines.length,
-    productIds: Array.from(new Set(receipt.lines.map((line) => line.productId))),
+    productIds: Array.from(new Set(receipt.lines.flatMap((line) => line.productId ? [line.productId] : []))),
     baseTotal,
     transportCost,
     totalWithTransport: round(baseTotal + transportCost),

@@ -83,7 +83,7 @@ export const PATCH = withAuth(async (req, session, context) => {
     const deliveryNotes = receiptIds.length
       ? await prisma.receipt.findMany({
           where: { id: { in: receiptIds }, supplierId: data.supplierId, OR: [{ invoiceId: null }, { invoiceId: id }] },
-          include: { lines: { include: { product: { select: { code: true, posDescription: true } } } } },
+          include: { lines: { select: { productId: true, genericDescription: true, receivedQuantity: true, unitPrice: true } } },
         })
       : []
     if (deliveryNotes.length !== receiptIds.length) return NextResponse.json({ error: "Uno o más albaranes no están disponibles para esta factura" }, { status: 409 })

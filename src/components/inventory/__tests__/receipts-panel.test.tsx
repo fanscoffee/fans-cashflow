@@ -1,4 +1,4 @@
-import { render, screen } from "@testing-library/react"
+import { render, screen, waitFor, within } from "@testing-library/react"
 import userEvent from "@testing-library/user-event"
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest"
 import ReceiptsPanel from "../receipts-panel"
@@ -84,6 +84,64 @@ describe("ReceiptsPanel", () => {
     expect(await screen.findByRole("heading", { name: "Modificar recepción" })).toBeInTheDocument()
     expect(screen.getByDisplayValue("ALB-001")).toBeInTheDocument()
     expect(screen.getByDisplayValue("Recepción inicial")).toBeInTheDocument()
+  })
+
+  it("shows a generic item in the saved receipt and keeps its fields when editing", async () => {
+    const user = userEvent.setup()
+    const receipt = {
+      id: "receipt-1",
+      deliveryNoteCode: "ALB-HALLOWEEN",
+      receivedAt: "2026-10-01T00:00:00.000Z",
+      transportCost: 0,
+      notes: null,
+      supplier: { id: "supplier-1", legalName: "Proveedor prueba" },
+      receivedBy: { name: "Socio" },
+      _count: { lines: 1 },
+      lines: [{
+        id: "line-1",
+        productId: null,
+        product: null,
+        genericDescription: "Decoración de Halloween",
+        genericVatPercentage: "21",
+        receivedQuantity: "2",
+        packageCount: 1,
+        unitPrice: "5",
+      }],
+    }
+    const fetchMock = vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
+      const url = String(input)
+      if (init?.method === "PATCH") return Response.json({ id: receipt.id })
+      if (url.includes("/proveedores")) return Response.json({ suppliers: [receipt.supplier] })
+      if (url.includes("/recepciones/productos")) return Response.json({ products: [] })
+      if (url.endsWith(`/recepciones/${receipt.id}`)) return Response.json(receipt)
+      return Response.json({ receipts: [receipt], total: 1 })
+    })
+    vi.stubGlobal("fetch", fetchMock)
+
+    render(<ReceiptsPanel canEdit />)
+    await user.click(await screen.findByRole("button", { name: "Ver" }))
+    const row = await screen.findByRole("row", { name: /Decoración de Halloween/ })
+    expect(within(row).getByRole("cell", { name: "PRODUCTO GENÉRICO" })).toBeInTheDocument()
+    expect(within(row).getByRole("cell", { name: "IVA 21%" })).toBeInTheDocument()
+    expect(within(row).getByRole("cell", { name: "12.10 €" })).toBeInTheDocument()
+
+    await user.click(screen.getByRole("button", { name: "Modificar" }))
+    expect(screen.getByDisplayValue("PRODUCTO GENÉRICO")).toBeInTheDocument()
+    expect(screen.getByLabelText("IVA del producto genérico (%) *")).toHaveValue(21)
+    const description = screen.getByLabelText("Descripción del producto genérico *")
+    expect(description).toHaveValue("Decoración de Halloween")
+    await user.clear(description)
+    await user.type(description, "Guirnaldas")
+    await user.click(screen.getByRole("button", { name: "Guardar cambios" }))
+
+    await waitFor(() => expect(fetchMock).toHaveBeenCalledWith(
+      "/api/inventario/recepciones/receipt-1",
+      expect.objectContaining({ method: "PATCH" }),
+    ))
+    const patch = fetchMock.mock.calls.find(([, init]) => init?.method === "PATCH")?.[1]
+    expect(JSON.parse(String(patch?.body))).toMatchObject({
+      lines: [{ productId: null, genericDescription: "Guirnaldas", genericVatPercentage: 21, receivedQuantity: 2, unitPrice: 5 }],
+    })
   })
 })
 

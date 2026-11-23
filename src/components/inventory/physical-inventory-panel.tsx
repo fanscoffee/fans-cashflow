@@ -42,6 +42,7 @@ interface ComparisonLine {
     purchaseUnit: string | null
     baseStockUnit: string
     purchaseToBaseFactor: number | null
+    supplierNames?: string[]
   }
   quantityUnit1: number
   quantityUnit2: number
@@ -425,6 +426,7 @@ export default function PhysicalInventoryPanel() {
                 <tr className="border-b bg-gray-50 text-xs font-medium text-gray-500">
                   <th className="px-3 py-2">C&oacute;digo</th>
                   <th className="px-3 py-2">Producto</th>
+                  <th className="px-3 py-2">Proveedor</th>
                   {previousInventory && (
                     <>
                       <th className="px-3 py-2 text-right">Anterior</th>
@@ -440,6 +442,7 @@ export default function PhysicalInventoryPanel() {
                   <tr key={c.product.id} className="hover:bg-gray-50">
                     <td className="px-3 py-2 font-mono text-xs text-gray-900">{c.product.code}</td>
                     <td className="px-3 py-2 text-gray-900">{c.product.posDescription}</td>
+                    <td className="px-3 py-2 text-gray-600">{c.product.supplierNames?.join(", ") || "—"}</td>
                     {previousInventory && (
                       <>
                         <td className="px-3 py-2 text-right text-gray-600">

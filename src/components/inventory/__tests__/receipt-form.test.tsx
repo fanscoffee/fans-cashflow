@@ -144,4 +144,84 @@ describe("ReceiptForm provider products", () => {
       lines: [expect.objectContaining({ receivedQuantity: 3.5, packageCount: 6 })],
     })))
   })
+
+  it("registers a described generic product with its own VAT even when a supplier has no products", async () => {
+    const user = userEvent.setup()
+    const onSubmit = vi.fn().mockResolvedValue(undefined)
+    vi.stubGlobal("fetch", vi.fn(async (url: string) => url.includes("/proveedores")
+      ? Response.json({ suppliers: [{ id: "provider-1", legalName: "Proveedor 1" }, { id: "provider-2", legalName: "Proveedor 2" }] })
+      : Response.json({ products: [] })))
+
+    render(<ReceiptForm onSubmit={onSubmit} onCancel={vi.fn()} saving={false} />)
+    await screen.findByRole("option", { name: "Proveedor 1" })
+    const supplier = screen.getByLabelText("Proveedor *")
+    await user.selectOptions(supplier, "provider-1")
+    await user.click(await screen.findByPlaceholderText("Buscar producto..."))
+    await user.type(screen.getByPlaceholderText("Escribir para filtrar..."), "generico")
+    await user.click(screen.getByRole("option", { name: "PRODUCTO GENÉRICO" }))
+
+    await user.type(screen.getByPlaceholderText("Ej: ALB-2026-00123"), "ALB-HALLOWEEN")
+    const submit = screen.getByRole("button", { name: "Registrar recepcion" })
+    await user.click(submit)
+    expect(await screen.findByText("Describe el producto genérico")).toBeInTheDocument()
+    expect(screen.getByText("Indica el IVA del producto genérico")).toBeInTheDocument()
+    expect(onSubmit).not.toHaveBeenCalled()
+
+    await user.type(screen.getByLabelText("Descripción del producto genérico *"), "Decoración de Halloween")
+    const quantity = screen.getByLabelText("Cantidad recibida *")
+    await user.clear(quantity)
+    await user.type(quantity, "2")
+    const price = screen.getByLabelText("Coste unitario sin IVA")
+    await user.clear(price)
+    await user.type(price, "5")
+    await user.type(screen.getByLabelText("IVA del producto genérico (%) *"), "21")
+    await user.selectOptions(supplier, "provider-2")
+
+    expect(screen.getByText("Total albarán: 12.10 EUR")).toBeInTheDocument()
+    await user.click(submit)
+    await waitFor(() => expect(onSubmit).toHaveBeenCalledWith(expect.objectContaining({
+      supplierId: "provider-2",
+      lines: [expect.objectContaining({
+        productId: null, genericDescription: "Decoración de Halloween", genericVatPercentage: 21,
+        receivedQuantity: 2, packageCount: 1, unitPrice: 5,
+      })],
+    })))
+  })
+
+  it("uses the OCR description and lets the user set VAT for an unmatched generic item", async () => {
+    const user = userEvent.setup()
+    const onSubmit = vi.fn().mockResolvedValue(undefined)
+    vi.mocked(extractDocument).mockResolvedValue(`
+      Pedido Nº 33532404
+      Cobrado el 05/10/26 a las 07:22
+      Nombre Producto Cantidad entregada PVP
+      Decoración Halloween 2 12,10 €
+      Productos 12,10 €
+      TOTAL 12,10 €
+      Desglose de impuestos
+      IVA Base Cuota
+      21% 10,00 € 2,10 €
+      Total 10,00 € 2,10 €
+      MERCADONA.S.A | A-46103834
+    `)
+    vi.stubGlobal("fetch", vi.fn(async (url: string) => url.includes("/proveedores")
+      ? Response.json({ suppliers: [{ id: "mercadona", legalName: "MERCADONA S.A.", taxId: "A46103834" }] })
+      : Response.json({ products: [] })))
+
+    const { container } = render(<ReceiptForm onSubmit={onSubmit} onCancel={vi.fn()} saving={false} />)
+    await user.upload(container.querySelector('input[type="file"]') as HTMLInputElement, new File(["albarán"], "albaran.jpg", { type: "image/jpeg" }))
+    expect(await screen.findByText(/Líneas pendientes de asignar: 1/)).toBeInTheDocument()
+
+    await user.click(await screen.findByPlaceholderText("Buscar producto..."))
+    await user.click(screen.getByRole("option", { name: "PRODUCTO GENÉRICO" }))
+    expect(screen.getByLabelText("Descripción del producto genérico *")).toHaveValue("Decoración Halloween")
+    await user.type(screen.getByLabelText("IVA del producto genérico (%) *"), "21")
+    expect(screen.getByLabelText("Coste unitario sin IVA")).toHaveValue(5)
+    expect(screen.getByText("El desglose de IVA coincide con las bases y cuotas del albarán.")).toBeInTheDocument()
+    await user.click(screen.getByRole("checkbox", { name: /He revisado/ }))
+    await user.click(screen.getByRole("button", { name: "Registrar recepcion" }))
+    await waitFor(() => expect(onSubmit).toHaveBeenCalledWith(expect.objectContaining({
+      lines: [expect.objectContaining({ productId: null, genericDescription: "Decoración Halloween", genericVatPercentage: 21, receivedQuantity: 2, unitPrice: 5 })],
+    })))
+  })
 })

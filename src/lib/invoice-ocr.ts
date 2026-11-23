@@ -1,6 +1,8 @@
+import type { InvoiceInput } from "@/lib/invoices"
+
 export interface InvoiceLineDraft {
   productId: string
-  lineType: "PRODUCTO" | "CARGO"
+  lineType: InvoiceInput["lines"][number]["lineType"]
   supplierReference: string
   itemCode: string
   description: string

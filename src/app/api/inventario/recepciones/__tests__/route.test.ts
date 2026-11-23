@@ -11,6 +11,7 @@ vi.mock("@/lib/prisma", () => ({
     product: {
       findMany: vi.fn(),
     },
+    supplier: { findUnique: vi.fn() },
     $transaction: vi.fn(),
   },
 }))
@@ -47,6 +48,7 @@ describe("POST /api/inventario/recepciones", () => {
     vi.clearAllMocks()
     vi.mocked(prisma.receipt.findUnique).mockResolvedValue(null)
     vi.mocked(prisma.product.findMany).mockResolvedValue([{ id: "product-1" }] as any)
+    vi.mocked(prisma.supplier.findUnique).mockResolvedValue({ id: "provider-1" } as any)
     vi.mocked(prisma.$transaction).mockImplementation(async (callback: any) => callback({ receipt: transactionReceipt }))
     transactionReceipt.create.mockResolvedValue({ id: "reception-1" })
   })
@@ -94,6 +96,60 @@ describe("POST /api/inventario/recepciones", () => {
 
     expect(response.status).toBe(400)
     await expect(response.json()).resolves.toMatchObject({ error: expect.stringContaining("no asociados al proveedor") })
+    expect(transactionReceipt.create).not.toHaveBeenCalled()
+  })
+
+  it("stores generic lines alongside catalog products without assigning them to the catalog", async () => {
+    vi.mocked(auth).mockResolvedValue({ user: { id: "employee-1", role: "EMPLEADO" } } as any)
+    const response = await POST(postRequest({
+      ...requestBody,
+      lines: [...requestBody.lines, {
+        productId: null, genericDescription: "  Decoración de Halloween  ", genericVatPercentage: 21,
+        receivedQuantity: 2, unitPrice: 5,
+      }],
+    }))
+
+    expect(response.status).toBe(201)
+    expect(prisma.product.findMany).toHaveBeenCalledWith(expect.objectContaining({
+      where: expect.objectContaining({ id: { in: ["product-1"] }, suppliers: { some: { supplierId: "provider-1" } } }),
+    }))
+    expect(transactionReceipt.create).toHaveBeenCalledWith(expect.objectContaining({
+      data: expect.objectContaining({
+        lines: { create: [
+          expect.objectContaining({ productId: "product-1" }),
+          { productId: null, genericDescription: "Decoración de Halloween", genericVatPercentage: 21, receivedQuantity: 2, unitPrice: 5, packageCount: 1, batch: null, dueDate: null },
+        ] },
+      }),
+    }))
+  })
+
+  it("allows a generic-only receipt for an existing supplier without catalog products", async () => {
+    vi.mocked(auth).mockResolvedValue({ user: { id: "employee-1", role: "EMPLEADO" } } as any)
+    const request = () => postRequest({
+      ...requestBody,
+      lines: [{ productId: null, genericDescription: "Decoración", genericVatPercentage: 0, receivedQuantity: 1, unitPrice: 5 }],
+    })
+
+    expect((await POST(request())).status).toBe(201)
+    expect(prisma.product.findMany).not.toHaveBeenCalled()
+    vi.mocked(prisma.supplier.findUnique).mockResolvedValue(null)
+    await expect((await POST(request())).json()).resolves.toEqual({ error: "Proveedor no encontrado" })
+    expect(transactionReceipt.create).toHaveBeenCalledTimes(1)
+  })
+
+  it.each([
+    { genericDescription: " ", genericVatPercentage: 21 },
+    { genericDescription: "Decoración", genericVatPercentage: null },
+    { genericDescription: "Decoración", genericVatPercentage: 101 },
+    { productId: "product-1", genericDescription: "Decoración", genericVatPercentage: 21 },
+  ])("rejects incomplete or inconsistent generic line data (%j)", async (line) => {
+    vi.mocked(auth).mockResolvedValue({ user: { id: "employee-1", role: "EMPLEADO" } } as any)
+    const response = await POST(postRequest({
+      ...requestBody,
+      lines: [{ productId: null, receivedQuantity: 1, unitPrice: 5, ...line }],
+    }))
+
+    expect(response.status).toBe(400)
     expect(transactionReceipt.create).not.toHaveBeenCalled()
   })
 

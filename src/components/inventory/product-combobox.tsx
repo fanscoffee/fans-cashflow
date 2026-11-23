@@ -8,6 +8,10 @@ export type ProductComboboxOption = {
   posDescription: string
 }
 
+function normalizeSearch(value: string) {
+  return value.toLocaleLowerCase("es-ES").normalize("NFD").replace(/[\u0300-\u036f]/g, "").trim()
+}
+
 export default function ProductCombobox({
   id,
   ariaLabel,
@@ -33,11 +37,12 @@ export default function ProductCombobox({
   const [search, setSearch] = useState("")
   const containerRef = useRef<HTMLDivElement>(null)
   const selected = products.find((product) => product.id === value) || selectedProduct
+  const selectedLabel = selected && [selected.code, selected.posDescription].filter(Boolean).join(" - ")
   const options = selected && !products.some((product) => product.id === selected.id) ? [selected, ...products] : products
-  const filtered = options.filter((product) => {
-    const query = search.toLowerCase().trim()
-    return !query || product.code.toLowerCase().includes(query) || product.posDescription.toLowerCase().includes(query)
-  })
+  const query = normalizeSearch(search)
+  const filtered = options.filter((product) => (
+    !query || normalizeSearch(product.code).includes(query) || normalizeSearch(product.posDescription).includes(query)
+  ))
 
   useEffect(() => {
     function handleClickOutside(event: MouseEvent) {
@@ -71,8 +76,8 @@ export default function ProductCombobox({
         role="combobox"
         aria-label={ariaLabel}
         readOnly
-        value={selected ? `${selected.code} - ${selected.posDescription}` : ""}
-        title={selected ? `${selected.code} - ${selected.posDescription}` : undefined}
+        value={selectedLabel || ""}
+        title={selectedLabel}
         placeholder={placeholder}
         onFocus={() => { if (!disabled) setOpen(true) }}
         onClick={() => { if (!disabled) setOpen(true) }}
@@ -106,7 +111,8 @@ export default function ProductCombobox({
               onClick={() => handleSelect(product.id)}
               className={`block w-full px-2 py-1 text-left text-xs hover:bg-blue-50 ${product.id === value ? "bg-blue-100 font-medium" : ""}`}
             >
-              <span className="font-mono">{product.code}</span>{" "}<span className="text-gray-600">{product.posDescription}</span>
+              {product.code && <><span className="font-mono">{product.code}</span>{" "}</>}
+              <span className="text-gray-600">{product.posDescription}</span>
             </button>
           ))}
         </div>

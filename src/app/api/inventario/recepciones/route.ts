@@ -6,6 +6,7 @@ import { UserRole } from "@/lib/database-enums"
 import { canRegisterInventoryReception } from "@/lib/inventory-permissions"
 import { getFirstSearchParam } from "@/lib/request-params"
 import { receptionSchema } from "@/lib/reception-input"
+import { receptionLineData, validateReceptionProducts } from "@/lib/receptions"
 import { hasAnyRole } from "@/lib/roles"
 
 export const GET = withAuth(async (req, session) => {
@@ -82,23 +83,8 @@ export const POST = withAuth(async (req, session) => {
       )
     }
 
-    const productIds = lines.map((l) => l.productId)
-    const products = await prisma.product.findMany({
-      where: {
-        id: { in: productIds },
-        isPurchasable: true,
-        suppliers: { some: { supplierId } },
-      },
-      select: { id: true },
-    })
-    const validIds = new Set(products.map((p) => p.id))
-    const invalidIds = productIds.filter((id: string) => !validIds.has(id))
-    if (invalidIds.length > 0) {
-      return NextResponse.json(
-        { error: `Productos no válidos, no comprables o no asociados al proveedor: ${invalidIds.join(", ")}` },
-        { status: 400 }
-      )
-    }
+    const productError = await validateReceptionProducts(supplierId, lines)
+    if (productError) return NextResponse.json({ error: productError }, { status: 400 })
 
     const receipt = await prisma.$transaction(async (tx) => {
       const rec = await tx.receipt.create({
@@ -110,18 +96,7 @@ export const POST = withAuth(async (req, session) => {
           notes: notes || null,
           transportCost,
           lines: {
-            create: lines.map(
-              (l) => ({
-                productId: l.productId,
-                receivedQuantity: l.receivedQuantity,
-                packageCount: l.packageCount,
-                unitPrice: l.unitPrice,
-                batch: l.batch || null,
-                dueDate: l.dueDate
-                  ? new Date(l.dueDate)
-                  : null,
-              })
-            ),
+            create: lines.map(receptionLineData),
           },
         },
         include: {

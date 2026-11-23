@@ -5,6 +5,7 @@ import {
   rankSupplierCandidates,
   resolveSupplierForLink,
   splitAccountingInvoiceNumber,
+  summarizeReceipt,
   type AccountingCaptureForReconciliation,
   type ReconciliationReceipt,
   type ReconciliationSupplier,
@@ -97,6 +98,30 @@ describe("accounting reconciliation", () => {
     })
     expect(draft.workflowStatus).toBe("ISSUE")
     expect(draft.alerts.some((alert) => alert.includes("Diferencia de base"))).toBe(true)
+  })
+
+  it("reconciles receipts containing only generic items without combining different items", () => {
+    const genericReceipt: ReconciliationReceipt = {
+      ...receipt,
+      lines: [
+        { productId: null, product: null, genericDescription: "Decoración", genericVatPercentage: 21, receivedQuantity: 2, unitPrice: 5, batch: null, dueDate: null },
+        { productId: null, product: null, genericDescription: "Guirnaldas", genericVatPercentage: 0, receivedQuantity: 3, unitPrice: 1.3333, batch: null, dueDate: null },
+      ],
+    }
+    const draft = buildOperationalInvoiceDraft({
+      capture: { ...capture, exemptBase: 4, totalBase: 14, invoiceTotal: 16.1 },
+      supplier,
+      receipts: [genericReceipt],
+      entity: "BAKERY",
+      includeTransport: true,
+    })
+
+    expect(summarizeReceipt(genericReceipt)).toMatchObject({ lineCount: 2, baseTotal: 14, productIds: [] })
+    expect(draft.alerts).toEqual([])
+    expect(draft.lines).toMatchObject([
+      { productId: null, lineType: "PRODUCTO_GENERICO", description: "Decoración", quantity: 2, taxableBase: 10, vatRate: 21, lineTotal: 12.1 },
+      { productId: null, lineType: "PRODUCTO_GENERICO", description: "Guirnaldas", quantity: 3, unitPrice: 1.3333, taxableBase: 4, vatRate: 0, lineTotal: 4 },
+    ])
   })
 
   it("creates an IRPF tax row when the capture includes withholding", () => {
