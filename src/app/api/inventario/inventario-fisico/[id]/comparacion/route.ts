@@ -3,6 +3,7 @@ import { prisma } from "@/lib/prisma"
 import { withAuth } from "@/lib/with-auth"
 import { UserRole } from "@/lib/database-enums"
 import { hasAnyRole } from "@/lib/roles"
+import { physicalInventorySuppliers, withSupplierNames } from "@/lib/physical-inventory-products"
 
 export const GET = withAuth(async (req, session, context) => {
   if (!hasAnyRole(session.user.role, [UserRole.ADMIN, UserRole.PARTNER])) {
@@ -23,14 +24,7 @@ export const GET = withAuth(async (req, session, context) => {
               purchaseUnit: true,
               baseStockUnit: true,
               purchaseToBaseFactor: true,
-              suppliers: {
-                where: { active: true },
-                orderBy: { supplier: { legalName: "asc" } },
-                select: {
-                  isPrimary: true,
-                  supplier: { select: { legalName: true } },
-                },
-              },
+              suppliers: physicalInventorySuppliers,
             },
           },
         },
@@ -98,18 +92,14 @@ export const GET = withAuth(async (req, session, context) => {
   }
 
   const comparison = inventoryActual.lines.map((line) => {
-    const { suppliers, ...product } = line.product
-    const primarySupplier = suppliers.find(({ isPrimary }) => isPrimary)
-    const supplierNames = primarySupplier
-      ? [primarySupplier.supplier.legalName]
-      : suppliers.map(({ supplier }) => supplier.legalName)
+    const product = withSupplierNames(line.product)
     const previous = previousByProduct[product.id] || 0
     const received = receivedMap[product.id] || 0
     const actual = Number(line.quantityUnit2)
     const variance = previous + received - actual
 
     return {
-      product: { ...product, supplierNames },
+      product,
       quantityUnit1: Number(line.quantityUnit1),
       quantityUnit2: Number(line.quantityUnit2),
       baseUnit: product.baseStockUnit,

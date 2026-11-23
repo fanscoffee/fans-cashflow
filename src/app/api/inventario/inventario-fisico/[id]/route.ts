@@ -5,6 +5,7 @@ import { withAuth } from "@/lib/with-auth"
 import { UserRole } from "@/lib/database-enums"
 import { hasAnyRole, isRole } from "@/lib/roles"
 import { physicalInventorySchema } from "@/lib/physical-inventory-input"
+import { physicalInventoryProductSelect, withSupplierNames } from "@/lib/physical-inventory-products"
 
 export const GET = withAuth(async (req, session, context) => {
   if (!hasAnyRole(session.user.role, [UserRole.ADMIN, UserRole.PARTNER])) {
@@ -19,15 +20,7 @@ export const GET = withAuth(async (req, session, context) => {
       lines: {
         include: {
           product: {
-            select: {
-              id: true,
-              code: true,
-              posDescription: true,
-              fullDescription: true,
-              purchaseUnit: true,
-              baseStockUnit: true,
-              purchaseToBaseFactor: true,
-            },
+            select: physicalInventoryProductSelect,
           },
         },
         orderBy: { createdAt: "asc" },
@@ -42,7 +35,10 @@ export const GET = withAuth(async (req, session, context) => {
     )
   }
 
-  return NextResponse.json(inventory)
+  return NextResponse.json({
+    ...inventory,
+    lines: inventory.lines.map((line) => ({ ...line, product: withSupplierNames(line.product) })),
+  })
 })
 
 export const PATCH = withAuth(async (req, session, context) => {

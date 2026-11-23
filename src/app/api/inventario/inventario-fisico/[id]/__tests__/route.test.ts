@@ -17,7 +17,7 @@ vi.mock("@/lib/auth", () => ({
   auth: vi.fn(),
 }))
 
-import { PATCH } from "../route"
+import { GET, PATCH } from "../route"
 import { prisma } from "@/lib/prisma"
 import { auth } from "@/lib/auth"
 
@@ -30,6 +30,37 @@ function patchRequest(body: Record<string, unknown>) {
     body: JSON.stringify(body),
   }) as unknown as NextRequest
 }
+
+describe("GET /api/inventario/inventario-fisico/[id]", () => {
+  it("returns supplier names for saved lines even if the product is now inactive", async () => {
+    vi.mocked(auth).mockResolvedValue({ user: { id: "partner-1", role: "PARTNER" } } as any)
+    vi.mocked(prisma.physicalInventory.findUnique).mockResolvedValue({
+      id: "inventory-1",
+      lines: [{
+        productId: "old-product",
+        quantityUnit2: 5,
+        product: {
+          id: "old-product",
+          posDescription: "Producto anterior",
+          suppliers: [{ isPrimary: true, supplier: { legalName: "Proveedor anterior" } }],
+        },
+      }],
+    } as any)
+
+    const response = await GET(new Request("http://localhost/api/inventario/inventario-fisico/inventory-1") as NextRequest, context)
+
+    expect(response.status).toBe(200)
+    expect(await response.json()).toEqual({
+      id: "inventory-1",
+      lines: [{
+        productId: "old-product",
+        quantityUnit2: 5,
+        product: { id: "old-product", posDescription: "Producto anterior", supplierNames: ["Proveedor anterior"] },
+      }],
+    })
+    expect(prisma.product.findMany).not.toHaveBeenCalled()
+  })
+})
 
 describe("PATCH /api/inventario/inventario-fisico/[id]", () => {
   beforeEach(() => {
